@@ -25,29 +25,30 @@ Latitude vs Longitude Contour Plots
 
 This function generates a contour plot of a variable against latitude and longitude.
 
-.. function:: plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = None, contour_value = None, cmap_color = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, localtime_minimum = None, localtime_maximum = None )
+.. function:: plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = 20, contour_value = None, symmetric_interval= False, cmap_color = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, localtime_minimum = None, localtime_maximum = None)
 
 
 Parameters:
     - datasets (xarray): The loaded dataset/s using xarray.
-    - variable_name (str): The name of the variable with latitude, longitude, ilev dimensions.
+    - variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
     - time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
     - mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
     - level (float, optional): The selected lev/ilev value.
     - variable_unit (str, optional): The desired unit of the variable.
     - contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
     - contour_value (int, optional): The value between each contour interval.
-    - cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-    - line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
+    - symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+    - cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+    - line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
     - coastlines (bool, optional): Shows coastlines on the plot. Defaults to False.
-    - nightshade (bool, optional): Shows nighshade on the plot. Defaults to False.
-    - gm_equator (bool, optional): Shows geomagmetic equator on the plot. Defaults to False.
+    - nightshade (bool, optional): Shows nightshade on the plot. Defaults to False.
+    - gm_equator (bool, optional): Shows geomagnetic equator on the plot. Defaults to False.
     - latitude_minimum (float, optional): Minimum latitude to slice plots. Defaults to -87.5.
     - latitude_maximum (float, optional): Maximum latitude to slice plots. Defaults to 87.5.
     - longitude_minimum (float, optional): Minimum longitude to slice plots. Defaults to -180.
     - longitude_maximum (float, optional): Maximum longitude to slice plots. Defaults to 175.
-    - localtime_minimum (float, optional): Minimum localtime to slice plots.
-    - localtime_maximum (float, optional): Maximum localtime to slice plots.
+    - localtime_minimum (float, optional): Minimum local time to slice plots. Defaults to None.
+    - localtime_maximum (float, optional): Maximum local time to slice plots. Defaults to None.
 
 Example:
     Load datasets and generate a Latitude vs Longitude contour plot.
@@ -71,15 +72,15 @@ This function generates a line plot of a variable at a specific latitude and opt
 
 Parameters:
     - datasets (xarray): The loaded dataset/s using xarray.
-    - variable_name (str): The name of the variable with latitude, longitude, ilev dimensions.
+    - variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
     - latitude (float): The specific latitude value for the plot.
     - time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
     - mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for the 1st day, 12 hours, 0 mins.
     - longitude (float, optional): The specific longitude value for the plot.
     - localtime (float, optional): The specific local time value for the plot.
     - variable_unit (str, optional): The desired unit of the variable.
-    - level_minimum (float, optional): Minimum level value for the plot. Defaults to -8.
-    - level_maximum (float, optional): Maximum level value for the plot. Defaults to 8.
+    - level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+    - level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
 
 Example:
     Load datasets and generate a Pressure Level vs Variable Line plot.
@@ -102,25 +103,26 @@ Pressure level vs Longitude Contour Plot
 
 This function generates a contour plot of a variable at a specific latitude against longitude, with optional time and local time.
 
-.. function:: plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, variable_unit = None, contour_intervals = 20, contour_value = None, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, localtime_minimum = None, localtime_maximum = None)
+.. function:: plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, variable_unit = None, contour_intervals = 20, contour_value = None, symmetric_interval= False, cmap_color = None, line_color = 'white', level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, localtime_minimum = None, localtime_maximum = None)
     
 Parameters:
     - datasets (xarray): The loaded dataset(s) using xarray.
-    - variable_name (str): The name of the variable with latitude, longitude, and ilev dimensions.
+    - variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
     - latitude (float): The specific latitude value for the plot.
     - time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
     - mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for the 1st day, 12 hours, 0 minutes.
     - variable_unit (str, optional): The desired unit of the variable.
     - contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
     - contour_value (int, optional): The value between each contour interval.
-    - cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-    - line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
-    - level_minimum (float, optional): Minimum level value for the plot. Defaults to -6.75.
-    - level_maximum (float, optional): Maximum level value for the plot. Defaults to 6.75.
+    - symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+    - cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+    - line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
+    - level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+    - level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
     - longitude_minimum (float, optional): Minimum longitude value for the plot. Defaults to -180.
     - longitude_maximum (float, optional): Maximum longitude value for the plot. Defaults to 175.
-    - localtime_minimum (float, optional): Minimum localtime value for the plot.
-    - localtime_maximum (float, optional): Maximum localtime value for the plot.
+    - localtime_minimum (float, optional): Minimum local time value for the plot. Defaults to None.
+    - localtime_maximum (float, optional): Maximum local time value for the plot. Defaults to None.
 
 Example:
     .. code-block:: python
@@ -138,25 +140,26 @@ Pressure Level vs Latitude Contour Plot
 
 This function generates a contour plot of a variable against pressure level and latitude.
 
-.. function:: plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, localtime = None, variable_unit = None, contour_intervals = 20, contour_value = None, cmap_color = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None)
+.. function:: plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, localtime = None, variable_unit = None, contour_intervals = 20, contour_value = None, symmetric_interval= False, cmap_color = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None, latitude_maximum = None)
 
 Parameters:
     - datasets (xarray): The loaded dataset/s using xarray.
-    - variable_name (str): The name of the variable with lev/ilev, lat dimensions.
-    - longitude (float): The specific longitude value for the plot.
+    - variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
+    - longitude (float, optional): The specific longitude value for the plot.
     - time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
     - mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for the 1st day, 12 hours, 0 mins.
     - localtime (float, optional): The specific local time value for the plot.
     - variable_unit (str, optional): The desired unit of the variable.
     - contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
     - contour_value (int, optional): The value between each contour interval.
-    - cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-    - line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
+    - symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+    - cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+    - line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
     - coastlines (bool, optional): Shows coastlines on the plot. Defaults to False.
-    - level_minimum (float, optional): Minimum level value for the plot.
-    - level_maximum (float, optional): Maximum level value for the plot.
-    - latitude_minimum (float, optional): Minimum latitude to slice plots.
-    - latitude_maximum (float, optional): Maximum latitude to slice plots.
+    - level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+    - level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
+    - latitude_minimum (float, optional): Minimum latitude to slice plots. Defaults to None.
+    - latitude_maximum (float, optional): Maximum latitude to slice plots. Defaults to None.
 
 Example:
     Load datasets and generate a Pressure Level vs Latitude contour plot.
@@ -175,24 +178,25 @@ Pressure Level vs Time Contour Plot
 
 This function creates a contour plot of a variable against pressure level and time.
 
-.. function:: plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime = None, variable_unit = None, contour_intervals = 20, contour_value = None, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None)
+.. function:: plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime = None, variable_unit = None, contour_intervals = 20, contour_value = None, symmetric_interval= False, cmap_color = None, line_color = 'white', level_minimum = None, level_maximum = None, time_minimum = None, time_maximum = None)
 
 Parameters:
     - datasets (xarray): The loaded dataset/s using xarray.
-    - variable_name (str): The name of the variable with lev/ilev, time dimensions.
+    - variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
     - latitude (float): The specific latitude value for the plot.
     - longitude (float, optional): The specific longitude value for the plot.
     - localtime (float, optional): The specific local time value for the plot.
     - variable_unit (str, optional): The desired unit of the variable.
     - contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
     - contour_value (int, optional): The value between each contour interval.
-    - cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-    - line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
+    - symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+    - cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+    - line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
     - coastlines (bool, optional): Shows coastlines on the plot. Defaults to False.
-    - level_minimum (float, optional): Minimum level value for the plot.
-    - level_maximum (float, optional): Maximum level value for the plot.
-    - time_minimum (np.datetime64, optional): Minimum time for the plot.
-    - time_maximum (np.datetime64, optional): Maximum time for the plot.
+    - level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+    - level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
+    - time_minimum (np.datetime64, optional): Minimum time for the plot. Defaults to None.
+    - time_maximum (np.datetime64, optional): Maximum time for the plot. Defaults to None.
 
 Example:
     Load datasets and generate a Pressure Level vs Time contour plot.
@@ -212,24 +216,25 @@ Latitude vs Time Contour Plot
 
 This function creates a contour plot of a variable against latitude and time.
 
-.. function:: plt_lat_time(datasets, variable_name, level = None, longitude = None, localtime = None,  variable_unit = None, contour_intervals = 10, contour_value = None, cmap_color = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None)
+.. function:: plt_lat_time(datasets, variable_name, level = None, longitude = None, localtime = None, variable_unit = None, contour_intervals = 20, contour_value = None, symmetric_interval= False, cmap_color = None, line_color = 'white', latitude_minimum = None, latitude_maximum = None, time_minimum = None, time_maximum = None)
 
 Parameters:
     - datasets (xarray): The loaded dataset/s using xarray.
-    - variable_name (str): The name of the variable with lat, time dimensions.
-    - level (float): The specific pressure level for the plot.
+    - variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
+    - level (float, optional): The specific pressure level for the plot.
     - longitude (float, optional): The specific longitude value for the plot.
     - localtime (float, optional): The specific local time value for the plot.
     - variable_unit (str, optional): The desired unit of the variable.
     - contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
     - contour_value (int, optional): The value between each contour interval.
-    - cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-    - line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
+    - symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+    - cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+    - line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
     - coastlines (bool, optional): Shows coastlines on the plot. Defaults to False.
-    - latitude_minimum (float, optional): Minimum latitude to slice plots.
-    - latitude_maximum (float, optional): Maximum latitude to slice plots.
-    - time_minimum (np.datetime64, optional): Minimum time for the plot.
-    - time_maximum (np.datetime64, optional): Maximum time for the plot.
+    - latitude_minimum (float, optional): Minimum latitude to slice plots. Defaults to None.
+    - latitude_maximum (float, optional): Maximum latitude to slice plots. Defaults to None.
+    - time_minimum (np.datetime64, optional): Minimum time for the plot. Defaults to None.
+    - time_maximum (np.datetime64, optional): Maximum time for the plot. Defaults to None.
 
 Example:
     Load datasets and generate a Latitude vs Time contour plot.

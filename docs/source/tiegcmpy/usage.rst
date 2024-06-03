@@ -42,7 +42,7 @@ The following plots can be made with tiegcmpy:
 
 Examples and detailed usage can be found in the Functionality section.
 
-Mode: CLI (Command Line Interface)
+Mode: CLI
 ----------------------------------
 
 tiegcmpy can also be used directly from the command line.

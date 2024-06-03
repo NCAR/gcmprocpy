@@ -31,7 +31,70 @@ Parameters:
 Returns:
     - variables (array): An array of variable entries in the datasets.
 
+Listing Levels
+~~~~~~~~~~~~~~
+This function reads all the datasets and returns the unique lev and ilev entries in sorted order.
 
+.. function:: level_list(datasets)
+       
+    Parameters:
+        - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+
+    Returns:
+        - lev_ilevs (list): A sorted list of unique lev and ilev entries from the datasets.
+
+Example:
+    Load datasets and list unique lev and ilev entries.
+
+    .. code-block:: python
+
+        datasets = ty.load_datasets(directory, dataset_filter)
+        lev_ilevs = ty.level_list(datasets)
+        print(lev_ilevs)
+
+
+Listing Longitudes
+~~~~~~~~~~~~~~~~~~
+This function reads all the datasets and returns the unique longitude (lon) entries in sorted order.
+
+.. function:: lon_list(datasets)
+       
+    Parameters:
+        - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+
+    Returns:
+        - lons (list): A sorted list of unique longitude entries from the datasets.
+
+Example:
+    Load datasets and list unique longitude entries.
+
+    .. code-block:: python
+
+        datasets = ty.load_datasets(directory, dataset_filter)
+        lons = ty.lon_list(datasets)
+        print(lons)
+
+
+Listing Latitudes
+~~~~~~~~~~~~~~~~~
+This function reads all the datasets and returns the unique latitude (lat) entries in sorted order.
+
+.. function:: lat_list(datasets)
+       
+    Parameters:
+        - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+
+    Returns:
+        - lats (list): A sorted list of unique latitude entries from the datasets.
+
+Example:
+    Load datasets and list unique latitude entries.
+
+    .. code-block:: python
+
+        datasets = ty.load_datasets(directory, dataset_filter)
+        lats = ty.lat_list(datasets)
+        print(lats)
 
 Data Xarrays
 -----------------------------------
