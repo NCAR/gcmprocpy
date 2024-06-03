@@ -91,37 +91,6 @@ def color_scheme(variable_name):
     return cmap_color, line_color
 
 
-def test(datasets, variable_name, time, level=None, selected_unit=None):
-
-    variable_values, level, lats, unique_lons, variable_unit, variable_long_name, selected_ut, selected_mtime, filename = arr_lat_lon(
-        datasets,
-        variable_name,
-        time,
-        level,
-        selected_unit,
-        plot_mode=True
-    )
-
-    fig = plt.figure(figsize=(20, 12))
-    ax = plt.axes(projection=ccrs.PlateCarree())
-    ax.add_feature(cfeature.COASTLINE, edgecolor='white', linewidth=3)
-
-    # Contour plot
-    contour = ax.contourf(unique_lons, lats, variable_values, transform=ccrs.PlateCarree())
-    contour_lines = ax.contour(unique_lons, lats, variable_values, colors='white', transform=ccrs.PlateCarree())
-    cbar = plt.colorbar(contour, ax=ax, orientation='vertical')
-    cbar.set_label(variable_unit)  # Label for the colorbar
-    plt.title(f'{variable_long_name} ({variable_unit})\nTime: {time}, Level: {level}')
-
-    # Setting labels and ticks
-    ax.set_xlabel('Longitude')
-    ax.set_ylabel('Latitude')
-    ax.set_xticks([value for value in unique_lons if value % 30 == 0], crs=ccrs.PlateCarree())  # Adjust the range and step as per your data
-    ax.set_yticks(range(-90, 91, 30), crs=ccrs.PlateCarree())   # Adjust the range and step as per your data
-
-    plt.show()
-
-    return fig
 
 def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, localtime_minimum = None, localtime_maximum = None ):
 
@@ -130,24 +99,25 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     
     Parameters:
         datasets (xarray): The loaded dataset/s using xarray.
-        variable_name (str): The name of the variable with latitude, longitude, ilev dimensions.
-        time (np.datetime64, optional): The selected time e.g., '2022-01-01T12:00:00'.
-        mtime (array, optional): The selected time as a list e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
+        variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
+        time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
+        mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         level (float, optional): The selected lev/ilev value.
         variable_unit (str, optional): The desired unit of the variable.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
         contour_value (int, optional): The value between each contour interval.
-        cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-        line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
+        symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+        cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
         coastlines (bool, optional): Shows coastlines on the plot. Defaults to False.
-        nightshade (bool, optional): Shows nighshade on the plot. Defaults to False.
-        gm_equator (bool, optional): Shows geomagmetic equator on the plot. Defaults to False.
+        nightshade (bool, optional): Shows nightshade on the plot. Defaults to False.
+        gm_equator (bool, optional): Shows geomagnetic equator on the plot. Defaults to False.
         latitude_minimum (float, optional): Minimum latitude to slice plots. Defaults to -87.5.
         latitude_maximum (float, optional): Maximum latitude to slice plots. Defaults to 87.5.
         longitude_minimum (float, optional): Minimum longitude to slice plots. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude to slice plots. Defaults to 175.
-        localtime_minimum (float, optional): Minimum localtime to slice plots.
-        localtime_maximum (float, optional): Maximum localtime to slice plots.
+        localtime_minimum (float, optional): Minimum local time to slice plots. Defaults to None.
+        localtime_maximum (float, optional): Maximum local time to slice plots. Defaults to None.
     
     Returns:
         Contour plot.
@@ -290,15 +260,15 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     
     Parameters:
         datasets (xarray): The loaded dataset/s using xarray.
-        variable_name (str): The name of the variable with latitude, longitude, and ilev dimensions.
+        variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
         latitude (float): The specific latitude value for the plot.
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
         localtime (float, optional): The specific local time value for the plot.
         variable_unit (str, optional): The desired unit of the variable.
-        level_minimum (float, optional): Minimum level value for the plot. Defaults to -8.
-        level_maximum (float, optional): Maximum level value for the plot. Defaults to 8.
+        level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+        level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
     
     Returns:
         Line plot.
@@ -309,7 +279,8 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     if longitude == None:
         longitude = local_time_to_longitude(localtime)
     print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
-
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
 
     variable_values , levs_ilevs, variable_unit, variable_long_name, selected_ut, selected_mtime, filename = arr_lev_var(datasets, variable_name, time, latitude, longitude,  variable_unit, plot_mode = True)
 
@@ -363,21 +334,22 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     
     Parameters:
         datasets (xarray): The loaded dataset/s using xarray.
-        variable_name (str): The name of the variable with latitude, longitude, and ilev dimensions.
+        variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
         latitude (float): The specific latitude value for the plot.
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         variable_unit (str, optional): The desired unit of the variable.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
         contour_value (int, optional): The value between each contour interval.
-        cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-        line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
-        level_minimum (float, optional): Minimum level value for the plot. Defaults to -6.75.
-        level_maximum (float, optional): Maximum level value for the plot. Defaults to 6.75.
+        symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+        cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
+        level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+        level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         longitude_minimum (float, optional): Minimum longitude value for the plot. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude value for the plot. Defaults to 175.
-        localtime_minimum (float, optional): Minimum localtime value for the plot.
-        localtime_maximum (float, optional): Maximum localtime value for the plot.
+        localtime_minimum (float, optional): Minimum local time value for the plot. Defaults to None.
+        localtime_maximum (float, optional): Maximum local time value for the plot. Defaults to None.
     
     Returns:
         Contour plot.
@@ -478,7 +450,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     
     Parameters:
         datasets (xarray): The loaded dataset/s using xarray.
-        variable_name (str): The name of the variable with latitude, longitude, and ilev dimensions.
+        variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (array, optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
@@ -486,10 +458,11 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         variable_unit (str, optional): The desired unit of the variable.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
         contour_value (int, optional): The value between each contour interval.
-        cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-        line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
-        level_minimum (float, optional): Minimum level value for the plot. Defaults to -6.75.
-        level_maximum (float, optional): Maximum level value for the plot. Defaults to 6.75.
+        symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+        cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
+        level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+        level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         latitude_minimum (float, optional): Minimum latitude value for the plot. Defaults to -87.5.
         latitude_maximum (float, optional): Maximum latitude value for the plot. Defaults to 87.5.
     
@@ -505,6 +478,8 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         contour_intervals = 20
     print("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
     # Generate 2D arrays, extract variable_unit
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
     variable_values, unique_lats, unique_levs,longitude, variable_unit, variable_long_name, selected_ut, selected_mtime, filename = arr_lev_lat(datasets, variable_name, time, longitude,  variable_unit, plot_mode = True)
 
     if level_minimum == None:
@@ -588,12 +563,15 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime 
         longitude (float, optional): The specific longitude value for the plot.
         localtime (float, optional): The specific local time value for the plot.
         variable_unit (str, optional): The desired unit of the variable.
-        contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
+        contour_intervals (int, optional): The number of contour intervals. Defaults to 10.
         contour_value (int, optional): The value between each contour interval.
-        cmap_color (str, optional): The color map of the conutour. Defaults to 'viridis' for Density,'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
-        line_color (str, optional): The color for all lines in the on the plot. Defaults to 'white'.
-        level_minimum (float, optional): Minimum level value for the plot. Defaults to -6.75.
-        level_maximum (float, optional): Maximum level value for the plot. Defaults to 6.75.
+        symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+        cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
+        level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
+        level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
+        mtime_minimum (float, optional): Minimum time value for the plot. Defaults to None.
+        mtime_maximum (float, optional): Maximum time value for the plot. Defaults to None.
     
     Returns:
         Contour plot.
@@ -659,7 +637,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime 
     try:    # Modify this part to show both day and hour
         unique_times = sorted(list(set([(day, hour) for day, hour, _, _ in mtime_values])))
         time_indices = [i for i, (day, hour, _, _) in enumerate(mtime_tuples) if i == 0 or mtime_tuples[i-1][:2] != (day, hour)]
-        if len(time_indices) >=10:
+        if len(time_indices) >24:
             unique_times = sorted(list(set([day for day, _, _, _ in mtime_values])))
             time_indices = [i for i, (day, _, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
     except:
@@ -701,7 +679,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime 
         plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
     plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
     plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-
+    plt.close(plot)
     return(plot)
 
 
@@ -789,7 +767,7 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None, localt
     try:    # Modify this part to show both day and hour
         unique_times = sorted(list(set([(day, hour) for day, hour, _, _ in mtime_values])))
         time_indices = [i for i, (day, hour, _, _) in enumerate(mtime_tuples) if i == 0 or mtime_tuples[i-1][:2] != (day, hour)]
-        if len(time_indices) >=10:
+        if len(time_indices) >24:
             unique_times = sorted(list(set([day for day, _, _, _ in mtime_values])))
             time_indices = [i for i, (day, _, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
     except:

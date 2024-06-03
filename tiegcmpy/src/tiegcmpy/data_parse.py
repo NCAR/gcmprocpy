@@ -25,8 +25,6 @@ def time_list(datasets):
     for ds, filename in datasets:
         file = str(filename)
         for timestamp in ds['time'].values:
-            #mtime=str(get_mtime(ds,timestamp))
-            #timestamps.append((str(timestamp),mtime,file))
             timestamps.append(timestamp)
     return timestamps
 
@@ -50,6 +48,74 @@ def var_list(datasets):
         unique_variables = unique_variables.union(current_variables)
     variables = sorted(unique_variables)
     return variables    
+
+def level_list(datasets):
+    """
+    Reads all the datasets and returns the unique lev and ilev entries in sorted order.
+    
+    Parameters:
+    - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+
+    Returns:
+    - lev_ilevs (list): A sorted list of unique lev and ilev entries from the datasets.
+    """
+    
+    unique_levels = set()
+
+    for ds, filename in datasets:
+        # Get lev and ilev values and add them to the set
+        levs = ds.lev.values
+        ilevs = ds.ilev.values
+        unique_levels.update(levs)
+        unique_levels.update(ilevs)
+
+    # Convert the set to a sorted list
+    lev_ilevs = sorted(unique_levels)
+    return lev_ilevs
+
+def lon_list(datasets):
+    """
+    Reads all the datasets and returns the unique longitude (lon) entries in sorted order.
+    
+    Parameters:
+    - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+
+    Returns:
+    - lons (list): A sorted list of unique longitude entries from the datasets.
+    """
+    
+    unique_lons = set()
+
+    for ds, filename in datasets:
+        # Get longitude values and add them to the set
+        lons = ds.lon.values
+        unique_lons.update(lons)
+
+    # Convert the set to a sorted list
+    lons = sorted(unique_lons)
+    return lons
+
+def lat_list(datasets):
+    """
+    Reads all the datasets and returns the unique latitude (lat) entries in sorted order.
+    
+    Parameters:
+    - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+
+    Returns:
+    - lats (list): A sorted list of unique latitude entries from the datasets.
+    """
+    
+    unique_lats = set()
+
+    for ds, filename in datasets:
+        # Get latitude values and add them to the set
+        lats = ds.lat.values
+        unique_lats.update(lats)
+
+    # Convert the set to a sorted list
+    lats = sorted(unique_lats)
+    return lats
 
 def arr_var (datasets, variable_name, time, selected_unit=None, plot_mode = False):
     """
@@ -318,7 +384,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             # Return the averaged data
                             variable_values = (variable_values_1 + variable_values_2) / 2
                             if selected_unit != None:
-                                variable_values , selected_unit  = convert_units (variable_values, variable_unit, selected_unit)
+                                variable_values , variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
                 if plot_mode == True:    
                     return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_ut, selected_mtime, filename
                 else:
@@ -924,8 +990,7 @@ def calc_avg_ht(datasets, time, selected_lev_ilev):
                 heights = (data1 + data2) / 2
             avg_ht= round(heights.mean()/ 100000, 2)
             return avg_ht
-        else:
-            return 0
+    return 0
 
 def min_max(variable_values):
     """
