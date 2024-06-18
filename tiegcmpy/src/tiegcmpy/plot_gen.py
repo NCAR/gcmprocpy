@@ -249,7 +249,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     plt.text(90, -115, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28)
     plt.text(0, -125, "Day, Hour, Min = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min), ha='center', va='center',fontsize=28)
     plt.text(0, -135, str(filename), ha='center', va='center',fontsize=28)
-    
+    plt.close(plot)
     return(plot)
 
 
@@ -324,7 +324,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
     plt.text(0.5, -0.25, "Day, Hour, Min = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
     plt.text(0.5, -0.3, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-
+    plt.close(plot)
     return(plot)
 
 
@@ -440,7 +440,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     #plot, ax = plt.subplots()
 
     
-    
+    plt.close(plot)
     return(plot)
 
 
@@ -546,7 +546,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     #plot, ax = plt.subplots()
 
     
-    
+    plt.close(plot)
     return(plot)
 
 
