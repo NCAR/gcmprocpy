@@ -2,3 +2,5 @@ cartopy
 numpy 
 matplotlib 
 xarray
+opencv-python
+ipython
