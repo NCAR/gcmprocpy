@@ -8,6 +8,7 @@ from cartopy.feature.nightshade import Nightshade
 from datetime import datetime, timezone
 import matplotlib.ticker as mticker
 import math
+import geomag
 
 def longitude_to_local_time(longitude):
     """
@@ -203,8 +204,13 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     if nightshade:
         ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O')/1e9, tz=timezone.utc), alpha=0.4))
     if gm_equator:
-        ax.plot(unique_lons, [0]*len(unique_lons), color=line_color, linestyle='--', transform=ccrs.Geodetic())
-    
+        gm = geomag.geomag.GeoMag()
+        geomagnetic_lats = []
+        for lon in unique_lons:
+            geo_coord = gm.GeoMag(0, lon)
+            geomagnetic_lats.append(geo_coord.dec)
+
+        ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--', transform=ccrs.Geodetic(), label='Geomagnetic Equator')    
     
     contour_filled = plt.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color, levels=contour_levels)
     contour_lines = plt.contour(unique_lons, unique_lats, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
