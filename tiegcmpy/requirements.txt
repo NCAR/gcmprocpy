@@ -4,3 +4,4 @@ matplotlib
 xarray
 opencv-python
 ipython
+geomag

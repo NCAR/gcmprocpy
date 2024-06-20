@@ -16,6 +16,7 @@ Contents
    tiegcmpy/requirements
    tiegcmpy/usage
    tiegcmpy/plot_functions
+   tiegcmpy/movie_functions
    tiegcmpy/data_functions
    tiegcmpy/file_structure
 
