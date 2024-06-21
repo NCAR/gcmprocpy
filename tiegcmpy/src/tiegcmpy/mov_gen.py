@@ -2,11 +2,10 @@ from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev
 from .plot_gen import plt_lat_lon, plt_lev_var, plt_lev_lon, plt_lev_lat, plt_lev_time, plt_lat_time
 import matplotlib.pyplot as plt
 import os
-import cv2
 from IPython.display import Video
 import numpy as np
 import shutil
-
+from matplotlib.animation import FuncAnimation
 
 def extract_number(filename):
         return int(filename.split('_')[-1].split('.')[0])
@@ -75,23 +74,22 @@ def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, co
     images = [img for img in os.listdir(output_dir) if img.endswith(".png")]
     images.sort(key=extract_number) 
     
-    # Read the first image to get the frame size
-    frame = cv2.imread(os.path.join(output_dir, images[0]))
-    height, width, layers = frame.shape
-
     output_file = f'mov_lat_lon_{variable_name}_{level}.mp4'  # Update as needed
+    
+    fig, ax = plt.subplots(figsize=(6, 4.5), dpi=150)
+    ax.set_axis_off()
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
 
-    # Define the codec and create VideoWriter object
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # Codec for mp4
-    if fps == None:
+    def update(frame):
+        img = plt.imread(frame)
+        ax.clear()
+        ax.imshow(img)
+        ax.set_axis_off() 
+    if fps is None:
         fps = 5
-    video = cv2.VideoWriter(output_file, fourcc, fps, (width, height))  
+    filepaths = [os.path.join(output_dir, img) for img in images]    
+    ani = FuncAnimation(fig, update, frames=filepaths, repeat_delay=1000, interval=1000/fps)
 
-    for image in images:
-        video.write(cv2.imread(os.path.join(output_dir, image)))
-
-    cv2.destroyAllWindows()
-    video.release()
-
-    # Step 3: Display the Video in Jupyter Notebook
-    Video(output_file, embed=True)
+    ani.save(output_file)
+    plt.close(fig)
+    return (Video(output_file, embed=True))
