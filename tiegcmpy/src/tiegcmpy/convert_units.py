@@ -24,14 +24,14 @@ conversion_units = {
 def convert_units(data, from_unit, to_unit):
     """
     Convert data from one unit to another based on predefined conversion factors.
-    
-    Parameters:
-    - data: Numeric data to be converted
-    - from_unit: The current unit of the data
-    - to_unit: The desired unit to convert to
-    
+
+    Args:
+        data (float): Numeric data to be converted.
+        from_unit (str): The current unit of the data.
+        to_unit (str): The desired unit to convert to.
+
     Returns:
-    - Converted data
+        float: Converted data.
     """
     
     if from_unit == to_unit:
