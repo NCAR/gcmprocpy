@@ -12,12 +12,12 @@ def time_list(datasets):
     Compiles and returns a list of all timestamps present in the provided datasets. 
     This function is particularly useful for aggregating time data from multiple sources.
 
-    Parameters:
-    - datasets (list of tuples): Each tuple in the list contains an xarray dataset and its corresponding filename. 
-      The function will iterate through each dataset to gather timestamps.
+    Args:
+        datasets (list of tuples): Each tuple in the list contains an xarray dataset and its corresponding filename. 
+            The function will iterate through each dataset to gather timestamps.
 
     Returns:
-    - timestamps (list of np.datetime64): A list containing all the datetime64 timestamps found in the datasets.
+        list of np.datetime64: A list containing all the datetime64 timestamps found in the datasets.
     """
     
     # Extract timestamps from each file
@@ -30,13 +30,13 @@ def time_list(datasets):
 
 def var_list(datasets):
     """
-    Reads all the datasets and reutrns the variables listed in there.
+    Reads all the datasets and returns the variables listed in them.
     
-    Parameters:
-    - datasets (xarray): The loaded dataset opened using xarray.
-
+    Args:
+        datasets (xarray.Dataset): The loaded dataset opened using xarray.
+    
     Returns:
-    - variables (array): An array of variable entries in the datasets.
+        list: A sorted list of variable entries in the datasets.
     """
     
     unique_variables = set()
@@ -47,17 +47,17 @@ def var_list(datasets):
         # Union the current variables with the existing unique variables
         unique_variables = unique_variables.union(current_variables)
     variables = sorted(unique_variables)
-    return variables    
+    return variables
 
 def level_list(datasets):
     """
     Reads all the datasets and returns the unique lev and ilev entries in sorted order.
     
-    Parameters:
-    - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+    Args:
+        datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
 
     Returns:
-    - lev_ilevs (list): A sorted list of unique lev and ilev entries from the datasets.
+        lev_ilevs (list): A sorted list of unique lev and ilev entries from the datasets.
     """
     
     unique_levels = set()
@@ -77,11 +77,11 @@ def lon_list(datasets):
     """
     Reads all the datasets and returns the unique longitude (lon) entries in sorted order.
     
-    Parameters:
-    - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+    Args:
+        datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
 
     Returns:
-    - lons (list): A sorted list of unique longitude entries from the datasets.
+        list: A sorted list of unique longitude entries from the datasets.
     """
     
     unique_lons = set()
@@ -99,11 +99,11 @@ def lat_list(datasets):
     """
     Reads all the datasets and returns the unique latitude (lat) entries in sorted order.
     
-    Parameters:
-    - datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+    Args:
+        datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
 
     Returns:
-    - lats (list): A sorted list of unique latitude entries from the datasets.
+        list: A sorted list of unique latitude entries from the datasets.
     """
     
     unique_lats = set()
@@ -117,55 +117,55 @@ def lat_list(datasets):
     lats = sorted(unique_lats)
     return lats
 
-def arr_var (datasets, variable_name, time, selected_unit=None, plot_mode = False):
+def arr_var(datasets, variable_name, time, selected_unit=None, plot_mode=False):
     """
     Extracts and processes data for a given variable at a specific time from multiple datasets. 
     It also handles unit conversion and provides additional information if needed for plotting.
 
     Args:
-    - datasets (list of tuples): Each tuple contains an xarray dataset and its filename. The function will search each dataset for the specified time and variable.
-    - variable_name (str): The name of the variable to be extracted.
-    - time (np.datetime64/str): The specific time for which data is to be extracted.
-    - selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
-    - plot_mode (bool, optional): If True, the function returns additional data useful for plotting.
+        datasets (list[tuple]): Each tuple contains an xarray dataset and its filename. 
+            The function will search each dataset for the specified time and variable.
+        variable_name (str): The name of the variable to be extracted.
+        time (Union[np.datetime64, str]): The specific time for which data is to be extracted.
+        selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        plot_mode (bool, optional): If True, the function returns additional data useful for plotting.
 
     Returns:
-    - If plot_mode is False, returns only the variable values as a numpy array.
-    - If plot_mode is True, returns a tuple containing:
-        - variable_values (numpy array): The extracted variable values.
-        - levs_ilevs (numpy array): The corresponding level or ilevel values.
-        - variable_unit (str): The unit of the variable after conversion (if applicable).
-        - variable_long_name (str): The long descriptive name of the variable.
-        - selected_ut (float): Universal Time value in hours for the specified time.
-        - selected_mtime (array): Model time array corresponding to the specified time.
-        - filename (str): The name of the dataset file from which data is extracted.
+        Union[numpy.ndarray, tuple]: If plot_mode is False, returns only the variable values as a numpy array.
+        If plot_mode is True, returns a tuple containing:
+            numpy.ndarray: The extracted variable values.
+            numpy.ndarray: The corresponding level or ilevel values.
+            str: The unit of the variable after conversion (if applicable).
+            str: The long descriptive name of the variable.
+            float: Universal Time value in hours for the specified time.
+            numpy.ndarray: Model time array corresponding to the specified time.
+            str: The name of the dataset file from which data is extracted.
     """
     for ds, filenames in datasets:
         if time in ds['time'].values:
             # Extract variable attributes
             variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit == None:
+            if variable_unit == 'cm/s' and selected_unit is None:
                 selected_unit = 'm/s'
             variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
             selected_ut = ds['ut'].sel(time=time).values.item() / (1e9 * 3600)
-            selected_mtime = get_mtime(ds,time)
+            selected_mtime = get_mtime(ds, time)
             filename = filenames
             data = ds[variable_name].sel(time=time)
 
             not_all_nan_indices = ~np.isnan(data.values).all(axis=1)
             variable_values = data.values[not_all_nan_indices, :]
 
-            if selected_unit != None:
-                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                
+            if selected_unit is not None:
+                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
             try:
                 levs_ilevs = data.lev.values[not_all_nan_indices]
             except:
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
 
-            if plot_mode == True:
-                return(variable_values, levs_ilevs, variable_unit, variable_long_name, selected_ut, selected_mtime, filename)
+            if plot_mode:
+                return (variable_values, levs_ilevs, variable_unit, variable_long_name, selected_ut, selected_mtime, filename)
             else:
                 return variable_values
     print(f"{time} not found.")
@@ -176,12 +176,12 @@ def check_var_dims(ds, variable_name):
     Checks the dimensions of a given variable in a dataset to determine if it includes specific dimensions ('lev' or 'ilev').
 
     Args:
-    - ds (xarray): The dataset in which the variable's dimensions are to be checked.
-    - variable_name (str): The name of the variable for which dimensions are being checked.
+        ds (xarray.Dataset): The dataset in which the variable's dimensions are to be checked.
+        variable_name (str): The name of the variable for which dimensions are being checked.
 
     Returns:
-    - str: Returns 'lev' if the variable includes the 'lev' dimension, 'ilev' if it includes the 'ilev' dimension, 
-           'Variable not found in dataset' if the variable does not exist in the dataset, and None if neither 'lev' nor 'ilev' are dimensions of the variable.
+        str: Returns 'lev' if the variable includes the 'lev' dimension, 'ilev' if it includes the 'ilev' dimension, 
+             'Variable not found in dataset' if the variable does not exist in the dataset, and None if neither 'lev' nor 'ilev' are dimensions of the variable.
     """
 
     # Check if the variable exists in the dataset
@@ -202,31 +202,29 @@ def check_var_dims(ds, variable_name):
 def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= None, plot_mode = False):
     """
     Extracts and processes data from the dataset based on a specific variable, time, and latitude.
-    
-    Parameters:
-    - datasets (xarray): The loaded dataset opened using xarray.
-    - variable_name (str): Name of the variable to extract.
-    - time (str/numpy.datetime64): Timestamp to filter the data.
-    - selected_lat (float): Latitude value to filter the data.
-    - selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
-    - plot_mode (bool, optional): If True, returns additional information for plotting.
-    
-    Returns:
-    - If plot_mode is False: An xarray object containing the variable values for the specified time and latitude.
-    - If plot_mode is True: A tuple containing:
-        - variable_values (xarray): Array of variable values for the specified time and latitude.
-        - lons (xarray): Array of longitude values corresponding to the variable values.
-        - levs_ilevs (xarray): Array of level or ilevel values where data is not NaN.
-        - selected_lat (float): The latitude value used for data selection.
-        - variable_unit (str): Unit of the variable after conversion (if applicable).
-        - variable_long_name (str): Long descriptive name of the variable.
-        - selected_ut (float): Universal Time value in hours for the specified time.
-        - selected_mtime (array): Array containing Day, Hour, Min of the model run.
-        - filename (str): Name of the dataset file from which data is extracted.
-    """
-    
-    
 
+    Args:
+        datasets (xarray.Dataset): The loaded dataset opened using xarray.
+        variable_name (str): Name of the variable to extract.
+        time (Union[str, numpy.datetime64]): Timestamp to filter the data.
+        selected_lat (float): Latitude value to filter the data.
+        selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
+        plot_mode (bool, optional): If True, returns additional information for plotting.
+
+    Returns:
+        Union[xarray.DataArray, tuple]: 
+            If plot_mode is False, returns an xarray object containing the variable values for the specified time and latitude.
+            If plot_mode is True, returns a tuple containing:
+                xarray.DataArray: Array of variable values for the specified time and latitude.
+                xarray.DataArray: Array of longitude values corresponding to the variable values.
+                xarray.DataArray: Array of level or ilevel values where data is not NaN.
+                float: The latitude value used for data selection.
+                str: Unit of the variable after conversion (if applicable).
+                str: Long descriptive name of the variable.
+                float: Universal Time value in hours for the specified time.
+                numpy.ndarray: Array containing Day, Hour, Min of the model run.
+                str: Name of the dataset file from which data is extracted.
+    """
     # Convert time from string to numpy datetime64 format
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
@@ -281,27 +279,29 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
     """
     Extracts data from the dataset based on the specified variable, time, and level (lev/ilev).
 
-    Parameters:
-    - datasets (xarray): The loaded dataset/s using xarray.
-    - variable_name (str): Name of the variable to extract.
-    - time (str/numpy.datetime64): Timestamp to filter the data.
-    - selected_lev_ilev (float/str, optional): Level value to filter the data. If 'mean', calculates the mean over all levels.
-    - selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
-    - plot_mode (bool, optional): If True, returns additional information for plotting.
+    Args:
+        datasets (xarray.Dataset): The loaded dataset/s using xarray.
+        variable_name (str): Name of the variable to extract.
+        time (Union[str, numpy.datetime64]): Timestamp to filter the data.
+        selected_lev_ilev (Union[float, str], optional): Level value to filter the data. If 'mean', calculates the mean over all levels.
+        selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
+        plot_mode (bool, optional): If True, returns additional information for plotting.
 
     Returns:
-    - If plot_mode is False: An xarray object containing the variable values for the specified time and level.
-    - If plot_mode is True: A tuple containing:
-        - variable_values (xarray): Array of variable values for the specified time and level.
-        - selected_lev_ilev (float/str): The level value used for data selection.
-        - lats (xarray): Array of latitude values corresponding to the variable values.
-        - lons (xarray): Array of longitude values corresponding to the variable values.
-        - variable_unit (str): Unit of the variable after conversion (if applicable).
-        - variable_long_name (str): Long descriptive name of the variable.
-        - selected_ut (float): Universal Time value in hours for the specified time.
-        - selected_mtime (array): Array containing Day, Hour, Min of the model run.
-        - filename (str): Name of the dataset file from which data is extracted.
+        Union[xarray.DataArray, tuple]:
+            If plot_mode is False, returns an xarray object containing the variable values for the specified time and level.
+            If plot_mode is True, returns a tuple containing:
+                xarray.DataArray: Array of variable values for the specified time and level.
+                Union[float, str]: The level value used for data selection.
+                xarray.DataArray: Array of latitude values corresponding to the variable values.
+                xarray.DataArray: Array of longitude values corresponding to the variable values.
+                str: Unit of the variable after conversion (if applicable).
+                str: Long descriptive name of the variable.
+                float: Universal Time value in hours for the specified time.
+                numpy.ndarray: Array containing Day, Hour, Min of the model run.
+                str: Name of the dataset file from which data is extracted.
     """
+
     if selected_lev_ilev != None:
         selected_lev_ilev = float(selected_lev_ilev)
     if isinstance(time, str):
@@ -506,26 +506,28 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
     """
     Extracts data from the dataset for a given variable name, latitude, longitude, and time.
 
-    Parameters:
-    - datasets (xarray): The loaded dataset opened using xarray.
-    - variable_name (str): Name of the variable to retrieve.
-    - time (str): Timestamp to filter the data.
-    - selected_lat (float): Latitude value.
-    - selected_lon (float): Longitude value.
-    - selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
-    - plot_mode (bool, optional): If True, returns additional information for plotting.
-    
+    Args:
+        datasets (xarray.Dataset): The loaded dataset opened using xarray.
+        variable_name (str): Name of the variable to retrieve.
+        time (str): Timestamp to filter the data.
+        selected_lat (float): Latitude value.
+        selected_lon (float): Longitude value.
+        selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
+        plot_mode (bool, optional): If True, returns additional information for plotting.
+
     Returns:
-    - If plot_mode is True: A tuple containing:
-        - variable_values (xarray): Array of variable values for the specified time and latitude/longitude.
-        - levs_ilevs (xarray): Array of level or ilevel values where data is not NaN.
-        - variable_unit (str): Unit of the variable after conversion (if applicable).
-        - variable_long_name (str): Long descriptive name of the variable.
-        - selected_ut (float): Universal Time value in hours for the specified time.
-        - selected_mtime (array): Array containing Day, Hour, Min of the model run.
-        - filename (str): Name of the dataset file from which data is extracted.
-    - If plot_mode is False: An xarray object containing the variable values.
+        Union[xarray.DataArray, tuple]:
+            If plot_mode is False, returns an xarray object containing the variable values.
+            If plot_mode is True, returns a tuple containing:
+                xarray.DataArray: Array of variable values for the specified time and latitude/longitude.
+                xarray.DataArray: Array of level or ilevel values where data is not NaN.
+                str: Unit of the variable after conversion (if applicable).
+                str: Long descriptive name of the variable.
+                float: Universal Time value in hours for the specified time.
+                numpy.ndarray: Array containing Day, Hour, Min of the model run.
+                str: Name of the dataset file from which data is extracted.
     """
+
     
     
     for ds, filenames in datasets:
@@ -572,26 +574,28 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
     """
     Extracts data from a dataset based on the specified variable name, timestamp, and longitude.
 
-    Parameters:
-    - datasets (xarray): The loaded dataset opened using xarray.
-    - variable_name (str): Name of the variable to extract.
-    - time (str/numpy.datetime64): Timestamp to filter the data.
-    - selected_lon (float/str): Longitude to filter the data, or 'mean' for averaging over all longitudes.
-    - selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
-    - plot_mode (bool, optional): If True, returns additional information for plotting.
+    Args:
+        datasets (xarray.Dataset): The loaded dataset opened using xarray.
+        variable_name (str): Name of the variable to extract.
+        time (Union[str, numpy.datetime64]): Timestamp to filter the data.
+        selected_lon (Union[float, str]): Longitude to filter the data, or 'mean' for averaging over all longitudes.
+        selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
+        plot_mode (bool, optional): If True, returns additional information for plotting.
 
     Returns:
-    - If plot_mode is False: An xarray object containing the variable values for the specified time and longitude.
-    - If plot_mode is True: A tuple containing:
-        - variable_values (xarray): Array of variable values for the specified time and longitude.
-        - lats (xarray): Array of latitude values corresponding to the variable values.
-        - levs_ilevs (xarray): Array of level or ilevel values where data is not NaN.
-        - variable_unit (str): Unit of the variable after conversion (if applicable).
-        - variable_long_name (str): Long descriptive name of the variable.
-        - selected_ut (float): Universal Time value in hours for the specified time.
-        - selected_mtime (array): Array containing Day, Hour, Min of the model run.
-        - filename (str): Name of the dataset file from which data is extracted.
+        Union[xarray.DataArray, tuple]:
+            If plot_mode is False, returns an xarray object containing the variable values for the specified time and longitude.
+            If plot_mode is True, returns a tuple containing:
+                xarray.DataArray: Array of variable values for the specified time and longitude.
+                xarray.DataArray: Array of latitude values corresponding to the variable values.
+                xarray.DataArray: Array of level or ilevel values where data is not NaN.
+                str: Unit of the variable after conversion (if applicable).
+                str: Long descriptive name of the variable.
+                float: Universal Time value in hours for the specified time.
+                numpy.ndarray: Array containing Day, Hour, Min of the model run.
+                str: Name of the dataset file from which data is extracted.
     """
+
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     for ds, filenames in datasets:
@@ -635,23 +639,24 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
     This function extracts and processes data from multiple datasets based on specified parameters. It focuses on extracting 
     data across different levels and times for a given latitude and longitude.
 
-    Parameters:
-    - datasets (list of tuples): A list of tuples where each tuple contains an xarray dataset and its filename.
-    - variable_name (str): The name of the variable to be extracted from the dataset.
-    - selected_lat (float/str): The latitude value or 'mean' to average over all latitudes.
-    - selected_lon (float/str): The longitude value or 'mean' to average over all longitudes.
-    - selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
-    - plot_mode (bool, optional): If True, the function returns additional data useful for plotting.
-    
+    Args:
+        datasets (list[tuple]): A list of tuples where each tuple contains an xarray dataset and its filename.
+        variable_name (str): The name of the variable to be extracted from the dataset.
+        selected_lat (Union[float, str]): The latitude value or 'mean' to average over all latitudes.
+        selected_lon (Union[float, str]): The longitude value or 'mean' to average over all longitudes.
+        selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        plot_mode (bool, optional): If True, the function returns additional data useful for plotting.
+
     Returns:
-    - If plot_mode is False, returns a numpy array of variable values concatenated across datasets.
-    - If plot_mode is True, returns a tuple containing:
-        - variable_values_all (numpy array): Concatenated variable values.
-        - levs_ilevs (numpy array): Corresponding level or ilevel values.
-        - mtime_values (list): List of model times.
-        - selected_lon (float/str): The longitude used for data selection.
-        - variable_unit (str): The unit of the variable after conversion (if applicable).
-        - variable_long_name (str): The long descriptive name of the variable.
+        Union[numpy.ndarray, tuple]:
+            If plot_mode is False, returns a numpy array of variable values concatenated across datasets.
+            If plot_mode is True, returns a tuple containing:
+                numpy.ndarray: Concatenated variable values.
+                numpy.ndarray: Corresponding level or ilevel values.
+                list: List of model times.
+                Union[float, str]: The longitude used for data selection.
+                str: The unit of the variable after conversion (if applicable).
+                str: The long descriptive name of the variable.
     """
 
     try:
@@ -746,26 +751,28 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
 def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts and processes data from the dataset based on the specified variable name, longitude, and level/ilev.
-    
-    Parameters:
-    - datasets (list of tuples): Each tuple contains an xarray dataset and its filename.
-    - variable_name (str): The name of the variable to extract.
-    - selected_lon (float/str): Longitude value or 'mean' to average over all longitudes.
-    - selected_lev_ilev (float/str/None): Level or intermediate level value or 'mean' for averaging, or None if not applicable.
-    - selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
-    - plot_mode (bool, optional): If True, returns additional data useful for plotting.
-    
+
+    Args:
+        datasets (list[tuple]): Each tuple contains an xarray dataset and its filename.
+        variable_name (str): The name of the variable to extract.
+        selected_lon (Union[float, str]): Longitude value or 'mean' to average over all longitudes.
+        selected_lev_ilev (Union[float, str, None]): Level or intermediate level value, 'mean' for averaging, or None if not applicable.
+        selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        plot_mode (bool, optional): If True, returns additional data useful for plotting.
+
     Returns:
-    - If plot_mode is False, returns a numpy array of variable values concatenated across datasets.
-    - If plot_mode is True, returns a tuple containing:
-        - variable_values_all (numpy array): Concatenated variable values.
-        - lats (numpy array): Latitude values corresponding to the variable values.
-        - mtime_values (list): List of model times.
-        - selected_lon (float/str): The longitude used for data selection.
-        - variable_unit (str): The unit of the variable after conversion (if applicable).
-        - variable_long_name (str): The long descriptive name of the variable.
-        - filename (str): Name of the dataset file from which data is extracted.
+        Union[numpy.ndarray, tuple]:
+            If plot_mode is False, returns a numpy array of variable values concatenated across datasets.
+            If plot_mode is True, returns a tuple containing:
+                numpy.ndarray: Concatenated variable values.
+                numpy.ndarray: Latitude values corresponding to the variable values.
+                list: List of model times.
+                Union[float, str]: The longitude used for data selection.
+                str: The unit of the variable after conversion (if applicable).
+                str: The long descriptive name of the variable.
+                str: Name of the dataset file from which data is extracted.
     """
+
     if selected_lev_ilev != 'mean' and selected_lev_ilev != None:
         selected_lev_ilev = float(selected_lev_ilev)
     if selected_lon !='mean':
@@ -960,16 +967,17 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
 
 def calc_avg_ht(datasets, time, selected_lev_ilev):
     """
-    Compute the average Z value for a given set of lat, lon, and lev from a dataset.
-    
-    Parameters:
-    - ds (xarray): The loaded dataset opened using xarray.
-    - time (str): Timestamp to filter the data.
-    - selected_lev_ilev (float): The level for which to retrieve data.
-    
+    Compute the average Z value for a given set of latitude, longitude, and level from a dataset.
+
+    Args:
+        ds (xarray.Dataset): The loaded dataset opened using xarray.
+        time (str): Timestamp to filter the data.
+        selected_lev_ilev (float): The level for which to retrieve data.
+
     Returns:
-    - float: The average ZG value for the given conditions.
+        float: The average ZG value for the given conditions.
     """
+
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     
@@ -994,16 +1002,17 @@ def calc_avg_ht(datasets, time, selected_lev_ilev):
 
 def min_max(variable_values):
     """
-    Find the minimum and maximum values of varval from the 2D array
-    
-    Parameters:
-    - variable_values (xarray): A list of variable values.
-    
+    Find the minimum and maximum values of varval from the 2D array.
+
+    Args:
+        variable_values (xarray.DataArray): A 2D array of variable values.
+
     Returns:
-    - min_val (float): Minimum value of the variable in the array.
-    - max_val (float): Maximum value of the variable in the array.
+        tuple:
+            float: Minimum value of the variable in the array.
+            float: Maximum value of the variable in the array.
     """
-    
+
     return np.nanmin(variable_values), np.nanmax(variable_values)
 
 def get_time(datasets, mtime):
@@ -1012,12 +1021,13 @@ def get_time(datasets, mtime):
     np.datetime64 time value. It iterates through multiple datasets to find a match.
 
     Args:
-    - datasets (list of tuples): Each tuple contains an xarray dataset and its filename. The function will search each dataset for the time value.
-    - mtime (list of int): Model time represented as a list of integers in the format [day, hour, minute].
+        datasets (list[tuple]): Each tuple contains an xarray dataset and its filename. The function will search each dataset for the time value.
+        mtime (list[int]): Model time represented as a list of integers in the format [day, hour, minute].
 
     Returns:
-    - np.datetime64: The corresponding datetime value in the dataset for the given mtime. Returns None if no match is found.
+        np.datetime64: The corresponding datetime value in the dataset for the given mtime. Returns None if no match is found.
     """
+
     for ds, filenames in datasets:
         # Convert mtime to numpy array for comparison
         mtime_array = np.array(mtime)
@@ -1038,14 +1048,15 @@ def get_mtime(ds, time):
     Finds and returns the model time (mtime) array that corresponds to a specific time in a dataset. 
     The mtime is an array representing [Day, Hour, Min].
 
-    Parameters:
-    - ds (xarray): The dataset opened using xarray, containing time and mtime data.
-    - time (str/numpy.datetime64): The timestamp for which the corresponding mtime is to be found.
+    Args:
+        ds (xarray.Dataset): The dataset opened using xarray, containing time and mtime data.
+        time (Union[str, numpy.datetime64]): The timestamp for which the corresponding mtime is to be found.
 
     Returns:
-    - array: The mtime array containing [Day, Hour, Min] for the given timestamp. 
-             Returns None if no corresponding mtime is found.
+        numpy.ndarray: The mtime array containing [Day, Hour, Min] for the given timestamp. 
+                       Returns None if no corresponding mtime is found.
     """
+
     # Convert input string to numpy datetime64 format
     
 

@@ -15,7 +15,7 @@ def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, co
     """
     Generates a Latitude vs Longitude contour plot for a variable and creates a video of the plot over time.
 
-    Parameters:
+    Args:
         datasets (xarray.Dataset): The loaded dataset/s using xarray.
         variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
         level (float, optional): The selected lev/ilev value. Defaults to None.
@@ -34,13 +34,14 @@ def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, co
         longitude_maximum (float, optional): Maximum longitude to slice plots. Defaults to None.
         localtime_minimum (float, optional): Minimum local time to slice plots. Defaults to None.
         localtime_maximum (float, optional): Maximum local time to slice plots. Defaults to None.
-        time_minimum (np.datetime64 or str, optional): Minimum time for the plot. Defaults to None.
-        time_maximum (np.datetime64 or str, optional): Maximum time for the plot. Defaults to None.
+        time_minimum (Union[np.datetime64, str], optional): Minimum time for the plot. Defaults to None.
+        time_maximum (Union[np.datetime64, str], optional): Maximum time for the plot. Defaults to None.
         fps (int, optional): Frames per second for the video. Defaults to None.
 
     Returns:
-        Video file of the contour plot over the specified time range.
+        Video file: A video file of the contour plot over the specified time range.
     """
+
     if isinstance(time_minimum, str):
         time_minimum = np.datetime64(time_minimum, 'ns')
     if isinstance(time_maximum, str):

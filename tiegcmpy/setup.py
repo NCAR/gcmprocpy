@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='tiegcmpy',
-    version='1.5.6',
+    version='2.0.0',
     author = "Nikhil Rao",
     author_email = "nikhilr@ucar.edu",
     description='A Python3 post processing tool for TIE-GCM',
@@ -25,8 +25,13 @@ setup(
     packages=find_packages(where='src'), 
     entry_points={
         'console_scripts': [
-            'tiegcmpy= tiegcmpy.main:main',
-            'getoptions= tiegcmpy.getoptions:main'
+            'lat_lon= tiegcmpy.cmd.cmd_lat_lon:cmd_plt_lat_lon',
+            'lev_var= tiegcmpy.cmd.cmd_lev_var:cmd_plt_lev_var',
+            'lev_lat= tiegcmpy.cmd.cmd_lev_lat:cmd_plt_lev_lat',
+            'lev_lon= tiegcmpy.cmd.cmd_lev_lon:cmd_plt_lev_lon',
+            'lev_time= tiegcmpy.cmd.cmd_lev_time:cmd_plt_lev_time',
+            'lat_time= tiegcmpy.cmd.cmd_lat_time:cmd_plt_lat_time',
+            
         ]
     }
 )

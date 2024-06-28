@@ -1,1 +1,8 @@
 sphinx_rtd_theme
+sphinxcontrib-autoprogram
+cartopy 
+numpy 
+matplotlib 
+xarray
+ipython
+geomag
