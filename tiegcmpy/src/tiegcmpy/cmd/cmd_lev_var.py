@@ -2,19 +2,19 @@
 from ..plot_gen import plt_lev_var
 from ..io import load_datasets, save_output
 import argparse
+import os
 
 def cmd_parser():
-    parser = argparse.ArgumentParser(description="Main parser")
-    subparsers = parser.add_subparsers()
+    parser = argparse.ArgumentParser(description="Parser for loading, plotting, and saving")
 
     # Loading datasets
     parser.add_argument('-dir','--directory', type=str, help='Path to the directory containing the datasets')
     parser.add_argument('-dsf','--dataset_filter', type=str, help='Filter for the dataset file names', default=None)
     
     # Saving output
-    parser.add_argument('-o_dir','--output_directory', type=str, required=True, help='Directory where the plot will be saved.')
+    parser.add_argument('-o_dir','--output_directory', type=str, help='Directory where the plot will be saved.', default=os.getcwd())
     parser.add_argument('-o_file','--filename', type=str, required=True, help='Filename for the saved plot.')
-    parser.add_argument('-o_format','--output_format', type=str, required=True, help='Format of the output plot, e.g., "png", "pdf".')
+    parser.add_argument('-o_format','--output_format', type=str, required=True, help='Format of the output plot, e.g., "png", "pdf".', default='jpg')
 
     # Plotting parameters
     parser.add_argument('-var','--variable_name', type=str, help='The name of the variable with latitude, longitude, and lev/ilev dimensions')

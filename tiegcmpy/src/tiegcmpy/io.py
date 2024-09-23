@@ -36,6 +36,6 @@ def load_datasets(directory,dataset_filter = None):
 def save_output(output_directory,filename,output_format,plot_object):
     output_directory = os.path.join(output_directory, 'proc')
     os.makedirs(output_directory, exist_ok=True)
-    output = os.path.join(output_directory, filename)
+    output = os.path.join(output_directory, f'{filename}.{output_format}')
     plot_object.savefig(output, format=output_format, bbox_inches='tight', pad_inches=0.5)
     print(f"Plot saved as {filename}")
