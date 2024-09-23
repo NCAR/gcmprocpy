@@ -20,7 +20,6 @@ def cmd_parser():
     args_plot.add_argument('-var','--variable_name', type=str, help="The name of the variable with latitude, longitude, time, and ilev dimensions.")
     args_plot.add_argument('-lat','--latitude', type=float, help="The specific latitude value for the plot.")
     args_plot.add_argument('-lon','--longitude', type=float, help="The specific longitude value for the plot.", default=None)
-    args_plot.add_argument('--localtime', type=float, help="The specific local time value for the plot.", default=None)
     args_plot.add_argument('-unit','--variable_unit', type=str, help="The desired unit of the variable.", default=None)
     args_plot.add_argument('-ci','--contour_intervals', type=int, help="The number of contour intervals. Defaults to 10.", default=10)
     args_plot.add_argument('-cv','--contour_value', type=int, help="The value between each contour interval.", default=None)
@@ -40,7 +39,7 @@ def cmd_plt_lev_time():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot = plt_lev_time(datasets, variable_name=args.variable_name, latitude=args.latitude, longitude=args.longitude, localtime=args.localtime, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, mtime_minimum=args.mtime_minimum, mtime_maximum=args.mtime_maximum)
+    plot = plt_lev_time(datasets, variable_name=args.variable_name, latitude=args.latitude, longitude=args.longitude, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, mtime_minimum=args.mtime_minimum, mtime_maximum=args.mtime_maximum)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 
 

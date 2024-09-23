@@ -96,7 +96,7 @@ def color_scheme(variable_name):
 
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, localtime_minimum = None, localtime_maximum = None ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -120,8 +120,6 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         latitude_maximum (float, optional): Maximum latitude to slice plots. Defaults to 87.5.
         longitude_minimum (float, optional): Minimum longitude to slice plots. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude to slice plots. Defaults to 175.
-        localtime_minimum (float, optional): Minimum local time to slice plots. Defaults to None.
-        localtime_maximum (float, optional): Maximum local time to slice plots. Defaults to None.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -130,10 +128,6 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     # Printing Execution data
     if time == None:
         time = get_time(datasets, mtime)
-    if localtime_minimum != None:
-        longitude_minimum = local_time_to_longitude(localtime_minimum)
-    if localtime_maximum != None:
-        longitude_maximum = local_time_to_longitude(localtime_maximum)
     if contour_intervals == None:
         contour_intervals = 20
     print("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---------------")
@@ -264,7 +258,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
 
 
 
-def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, localtime = None, variable_unit = None, level_minimum = None, level_maximum = None):
+def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, variable_unit = None, level_minimum = None, level_maximum = None):
     """
     Generates a Level vs Variable line plot for a given latitude.
 
@@ -275,7 +269,6 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
-        localtime (float, optional): The specific local time value for the plot.
         variable_unit (str, optional): The desired unit of the variable.
         level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
@@ -287,8 +280,6 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     # Printing Execution data
     if time == None:
         time = get_time(datasets, mtime)
-    if longitude == None:
-        longitude = local_time_to_longitude(localtime)
     print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
@@ -339,7 +330,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     return(plot)
 
 
-def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, localtime_minimum = None, localtime_maximum = None):
+def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None):
     """
     Generates a Level vs Longitude contour plot for a given latitude.
 
@@ -359,8 +350,6 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         longitude_minimum (float, optional): Minimum longitude value for the plot. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude value for the plot. Defaults to 175.
-        localtime_minimum (float, optional): Minimum local time value for the plot. Defaults to None.
-        localtime_maximum (float, optional): Maximum local time value for the plot. Defaults to None.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -369,10 +358,6 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     # Printing Execution data
     if time == None:
         time = get_time(datasets, mtime)
-    if localtime_minimum != None:
-        longitude_minimum = local_time_to_longitude(localtime_minimum)
-    if localtime_maximum != None:
-        longitude_maximum = local_time_to_longitude(localtime_maximum)
     if contour_intervals == None:
         contour_intervals = 20    
     print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---------------")
@@ -456,7 +441,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     return(plot)
 
 
-def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, localtime = None, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None):
+def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None):
     """
     Generates a Level vs Latitude contour plot for a specified time and/or longitude.
 
@@ -466,7 +451,6 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
-        localtime (float, optional): The specific local time value for the plot.
         variable_unit (str, optional): The desired unit of the variable.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
         contour_value (int, optional): The value between each contour interval.
@@ -485,8 +469,6 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     # Printing Execution data
     if time == None:
         time = get_time(datasets, mtime)
-    if longitude == None:
-        longitude = local_time_to_longitude(localtime)
     if contour_intervals == None:
         contour_intervals = 20
     print("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
@@ -565,7 +547,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
 
 
 
-def plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime = None, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None):
+def plt_lev_time(datasets, variable_name, latitude, longitude = None, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None):
     """
     Generates a Level vs Time contour plot for a specified latitude and/or longitude.
 
@@ -574,7 +556,6 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime 
         variable_name (str): The name of the variable with latitude, longitude, time, and ilev dimensions.
         latitude (float): The specific latitude value for the plot.
         longitude (float, optional): The specific longitude value for the plot.
-        localtime (float, optional): The specific local time value for the plot.
         variable_unit (str, optional): The desired unit of the variable.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 10.
         contour_value (int, optional): The value between each contour interval.
@@ -590,8 +571,6 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime 
         matplotlib.figure.Figure: Contour plot.
     """
 
-    if longitude is None:
-        longitude = local_time_to_longitude(localtime)
     if contour_intervals == None:
         contour_intervals = 20
     #print(datasets)
@@ -698,7 +677,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, localtime 
 
 
 
-def plt_lat_time(datasets, variable_name, level = None, longitude = None, localtime = None,  variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None):
+def plt_lat_time(datasets, variable_name, level = None, longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None):
     """
     Generates a Latitude vs Time contour plot for a specified level and/or longitude.
 
@@ -707,7 +686,6 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None, localt
         variable_name (str): The name of the variable with latitude, longitude, time, and ilev dimensions.
         level (float): The specific level value for the plot.
         longitude (float, optional): The specific longitude value for the plot.
-        localtime (float, optional): The specific local time value for the plot.
         variable_unit (str, optional): The desired unit of the variable.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 10.
         contour_value (int, optional): The value between each contour interval.
@@ -723,8 +701,6 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None, localt
         matplotlib.figure.Figure: Contour plot.
     """
 
-    if longitude is None:
-        longitude = local_time_to_longitude(localtime)
     if contour_intervals == None:
         contour_intervals = 20
     print("---------------["+variable_name+"]---["+str(level)+"]---["+str(longitude)+"]---------------")

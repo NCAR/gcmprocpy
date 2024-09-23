@@ -22,7 +22,6 @@ def cmd_parser():
     args_plot.add_argument('-t','--time', type=str, help='The selected time, e.g., "2022-01-01T12:00:00"', default=None)
     args_plot.add_argument('-mt','--mtime', nargs=3, type=int, help='The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins', default=None)
     args_plot.add_argument('-lon','--longitude', type=float, help='The specific longitude value for the plot', default=None)
-    args_plot.add_argument('--localtime', type=float, help='The specific local time value for the plot', default=None)
     args_plot.add_argument('-unit','--variable_unit', type=str, help='The desired unit of the variable', default=None)
     args_plot.add_argument('-lvl_min','--level_minimum', type=float, help='Minimum level value for the plot', default=None)
     args_plot.add_argument('-lvl_max','--level_maximum', type=float, help='Maximum level value for the plot', default=None)
@@ -35,6 +34,6 @@ def cmd_plt_lev_var():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot = plt_lev_var(datasets,args.variable_name,args.latitude,args.time,args.mtime,args.longitude,args.localtime,args.variable_unit,args.level_minimum,args.level_maximum)
+    plot = plt_lev_var(datasets,args.variable_name,args.latitude,args.time,args.mtime,args.longitude,args.variable_unit,args.level_minimum,args.level_maximum)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 

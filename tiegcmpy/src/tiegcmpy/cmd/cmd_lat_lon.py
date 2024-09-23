@@ -34,8 +34,6 @@ def cmd_parser():
     args_plot.add_argument('-lat_max','--latitude_maximum', type=float, help='Maximum latitude to slice plots. Defaults to 87.5.')
     args_plot.add_argument('-lon_min','--longitude_minimum', type=float, help='Minimum longitude to slice plots. Defaults to -180.')
     args_plot.add_argument('-lon_max','--longitude_maximum', type=float, help='Maximum longitude to slice plots. Defaults to 175.')
-    args_plot.add_argument('--localtime_minimum', type=float, help='Minimum local time to slice plots. Defaults to None.')
-    args_plot.add_argument('--localtime_maximum', type=float, help='Maximum local time to slice plots. Defaults to None.')
     return (parser)
 
 
@@ -45,7 +43,7 @@ def cmd_plt_lat_lon():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot =  plt_lat_lon(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, level=args.level, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, coastlines=args.coastlines, nightshade=args.nightshade, gm_equator=args.gm_equator, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum, longitude_minimum=args.longitude_minimum, longitude_maximum=args.longitude_maximum, localtime_minimum=args.localtime_minimum, localtime_maximum=args.localtime_maximum)
+    plot =  plt_lat_lon(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, level=args.level, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, coastlines=args.coastlines, nightshade=args.nightshade, gm_equator=args.gm_equator, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum, longitude_minimum=args.longitude_minimum, longitude_maximum=args.longitude_maximum)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 
 

@@ -29,7 +29,6 @@ def get_options():
     parser.add_argument('-zp','--level', type=str, help='Selected lev/ilev for the plot.')
     parser.add_argument('-lat', '--latitude', type=str, help='Selected latitude for the plot.')
     parser.add_argument('-lon','--longitude', type=str, help='Selected longitude for the plot.')
-    parser.add_argument('-ut','--localtime', type=str, help='Selected localtime / longitude for the plot.')
     #
     # Plot generation secondary arguments
     #
@@ -51,30 +50,28 @@ def get_options():
     parser.add_argument('-latmax','--latitude_maximum', type=float, help='Maximum latitude to slice plots [lat_lon, lev_lat, lat_time]')
     parser.add_argument('-lonmin','--longitude_minimum', type=float, help='Minimum longitude to slice plots [lat_lon, lev_lon]')
     parser.add_argument('-lonmax','--longitude_maximum', type=float, help='Maximum longitude to slice plots [lat_lon, lev_lon]')
-    parser.add_argument('-utmin','--localtime_minimum', type=float, help='Minimum localtime to slice plots [lat_lon, lev_lon]')
-    parser.add_argument('-utmax','--localtime_maximum', type=float, help='Maximum localtime to slice plots [lat_lon, lev_lon]')
 
     
     args = parser.parse_args()
     
     plot_requirements = {
         'lat_lon': {'required': ['variable_name', 'time', 'mtime'],
-                    'optional': ['level','variable_unit','coastlines','nightshade','gm_equator','contour_intervals','contour_value','cmap_color','line_color','latitude_minimum','latitude_maximum','longitude_minimum','longitude_maximum','localtime_minimum','localtime_maximum'],
+                    'optional': ['level','variable_unit','coastlines','nightshade','gm_equator','contour_intervals','contour_value','cmap_color','line_color','latitude_minimum','latitude_maximum','longitude_minimum','longitude_maximum'],
                     },
         
-        'lev_var': {'required': ['variable_name', 'time', 'mtime', 'latitude', 'longitude', 'localtime'],
+        'lev_var': {'required': ['variable_name', 'time', 'mtime', 'latitude', 'longitude'],
                     'optional': ['cmap_color','line_color','variable_unit','level_minimum','level_maximum']
                     },
         'lev_lon': {'required': ['variable_name', 'time', 'mtime', 'latitude'],
-                    'optional': ['cmap_color','line_color','variable_unit','contour_intervals','contour_value','level_minimum','level_maximum','longitude_minimum','longitude_maximum','localtime_minimum','localtime_maximum']
+                    'optional': ['cmap_color','line_color','variable_unit','contour_intervals','contour_value','level_minimum','level_maximum','longitude_minimum','longitude_maximum']
                     },
-        'lev_lat': {'required': ['variable_name', 'time', 'mtime', 'longitude', 'localtime'],
+        'lev_lat': {'required': ['variable_name', 'time', 'mtime', 'longitude'],
                     'optional': ['cmap_color','line_color','variable_unit','contour_intervals','contour_value','level_minimum','level_maximum','latitude_minimum','latitude_maximum']
                     },
-        'lev_time': {'required': ['variable_name', 'latitude', 'longitude', 'localtime'],
+        'lev_time': {'required': ['variable_name', 'latitude', 'longitude'],
                     'optional': ['cmap_color','line_color','variable_unit','contour_intervals','contour_value','level_minimum','level_maximum'] 
                     },
-        'lat_time': {'required': ['variable_name', 'longitude', 'localtime'],
+        'lat_time': {'required': ['variable_name', 'longitude'],
                     'optional': ['cmap_color','line_color','level','variable_unit','contour_intervals','contour_value','latitude_minimum','latitude_maximum']
                     },
     }
@@ -84,7 +81,6 @@ def get_options():
         'valid_longitudes': [-180., -175., -170., -165., -160., -155., -150., -145., -140., -135., -130., -125., -120., -115., -110., -105., -100.,  -95., -90.,  -85.,  -80.,  -75.,  -70.,  -65.,  -60.,  -55.,  -50., -45.,  -40.,  -35.,  -30.,  -25.,  -20.,  -15.,  -10.,   -5.,  0.,    5.,   10.,   15.,   20.,   25.,   30.,   35.,   40., 45.,   50.,   55.,   60.,   65.,   70.,   75.,   80.,   85., 90.,   95.,  100.,  105.,  110.,  115.,  120.,  125.,  130., 135.,  140.,  145.,  150.,  155.,  160.,  165.,  170.,  175.],
         'valid_latitudes': [-87.5, -82.5, -77.5, -72.5, -67.5, -62.5, -57.5, -52.5, -47.5, -42.5, -37.5, -32.5, -27.5, -22.5, -17.5, -12.5,  -7.5,  -2.5, 2.5, 7.5,  12.5,  17.5,  22.5,  27.5,  32.5,  37.5,  42.5, 47.5,  52.5,  57.5,  62.5,  67.5,  72.5,  77.5,  82.5,  87.5],
         'valid_levels': [-7.  , -6.75, -6.5 , -6.25, -6.  , -5.75, -5.5 , -5.25, -5.  , -4.75, -4.5 , -4.25, -4.  , -3.75, -3.5 , -3.25, -3.  , -2.75, -2.5 , -2.25, -2.  , -1.75, -1.5 , -1.25, -1.  , -0.75, -0.5 , -0.25,  0.  ,  0.25,  0.5 ,  0.75,  1.  ,  1.25,  1.5 ,  1.75, 2.  ,  2.25,  2.5 ,  2.75,  3.  ,  3.25,  3.5 ,  3.75,  4.  , 4.25,  4.5 ,  4.75,  5.  ,  5.25,  5.5 ,  5.75,  6.  ,  6.25, 6.5 ,  6.75,  7.  ,  7.25],
-        'valid_localtimes': [12.0, 12.33, 12.67, 13.0, 13.33, 13.67, 14.0, 14.33, 14.67, 15.0, 15.33, 15.67, 16.0, 16.33, 16.67, 17.0, 17.33, 17.67, 18.0, 18.33, 18.67, 19.0, 19.33, 19.67, 20.0, 20.33, 20.67, 21.0, 21.33, 21.67, 22.0, 22.33, 22.67, 23.0, 23.33, 23.67, 0.0, 0.33, 0.67, 1.0, 1.33, 1.67, 2.0, 2.33, 2.67, 3.0, 3.33, 3.67, 4.0, 4.33, 4.67, 5.0, 5.33, 5.67, 6.0, 6.33, 6.67, 7.0, 7.33, 7.67, 8.0, 8.33, 8.67, 9.0, 9.33, 9.67, 10.0, 10.33, 10.67, 11.0, 11.33, 11.67]
     }
     '''
     if args.recursive:
@@ -99,10 +95,10 @@ def get_options():
     if args.plot_type in plot_requirements:
         requirements = plot_requirements[args.plot_type]
         #
-        # Check for required arguments except time, mtime, longitude, localtime.
+        # Check for required arguments except time, mtime, longitude.
         #
         for arg in requirements['required']:
-            if arg in ['time', 'mtime', 'longitude', 'localtime']:
+            if arg in ['time', 'mtime', 'longitude']:
                 continue
             if getattr(args, arg) is None:
                 parser.error(f"{args.plot_type} requires the argument --{arg}")
@@ -113,20 +109,18 @@ def get_options():
             if getattr(args, 'time') is None and getattr(args, 'mtime') is None:
                 parser.error(f"{args.plot_type} requires either the argument --time or --mtime")
         #
-        # Check if 'longitude' or 'localtime' is in requirements and at least one of them is provided
+        # Check if 'longitude' is in requirements and at least one of them is provided
         #
-        if 'longitude' in requirements['required'] or 'localtime' in requirements['required']:
-            if getattr(args, 'longitude') is None and getattr(args, 'localtime') is None:
+        if 'longitude' in requirements['required']:
+            if getattr(args, 'longitude') is None:
                 parser.error(f"{args.plot_type} requires either the argument --longitude or --localtime")
         '''
         #
-        # Check if valid values of 'longitude' or 'localtime' is provided.
+        # Check if valid values of 'longitude' is provided.
         #
-        if 'longitude' in requirements['required'] or 'localtime' in requirements['required']:
+        if 'longitude' in requirements['required']:
             if args.longitude is not None and args.longitude not in valid_values['valid_longitudes']:
                 parser.error(f"Invalid longitude for {args.plot_type}. \n              Valid longitudes are {str(valid_values['valid_longitudes'])}")
-            elif args.localtime is not None and args.localtime not in valid_values['valid_localtimes']:
-                parser.error(f"Invalid localtime for {args.plot_type}. \n              Valid localtimes are {str(valid_values['valid_localtimes'])}")
         #
         # Check if valid values of 'level' is provided.
         #
@@ -155,7 +149,7 @@ def get_options():
         #
         coastline_plot = True if 'coastlines' in requirements.get('optional', []) else False
         level_bound_plot = True if any(key in requirements.get('optional', []) for key in ['level_minimum', 'level_maximum']) else False
-        longitude_bound_plot = True if any(key in requirements.get('optional', []) for key in ['latitude_minimum', 'latitude_maximum', 'longitude_minimum', 'longitude_maximum', 'localtime_minimum', 'localtime_maximum']) else False
+        longitude_bound_plot = True if any(key in requirements.get('optional', []) for key in ['latitude_minimum', 'latitude_maximum', 'longitude_minimum', 'longitude_maximum']) else False
         latitude_bound_plot = True if any(key in requirements.get('optional', []) for key in ['latitude_minimum', 'latitude_maximum']) else False
         #
         # Check if coastlines is used and applies to the provided plot.
@@ -170,13 +164,11 @@ def get_options():
             if args.level_minimum is not None or args.level_maximum is not None:
                 parser.error(f"--level_minimum and --level_maximum are not valid for {args.plot_type} \n              Valid optoins for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ")     
         #
-        # Check if longitude_minimum/localtime_minimum and/or longitude_maximum/localtime_maximum is used and applies to the provided plot.
+        # Check if longitude_minimum and/or longitude_maximum is used and applies to the provided plot.
         #
         if longitude_bound_plot is not True:
             if args.longitude_minimum is not None or args.longitude_maximum is not None:
-                parser.error(f"--longitude_minimum and --longitude_maximum are not valid for {args.plot_type} \n              Valid optoins for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ") 
-            if args.localtime_minimum is not None or args.localtime_maximum is not None:
-                parser.error(f"--localtime_minimum and --localtime_maximum are not valid for {args.plot_type} \n              Valid optoins for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ") 
+                parser.error(f"--longitude_minimum and --longitude_maximum are not valid for {args.plot_type} \n              Valid optoins for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ")  
         #
         # Check if latitude_minimum and/or latitude_maximum is used and applies to the provided plot.
         #
@@ -212,13 +204,5 @@ def get_options():
             args.longitude = float(args.longitude)
         except:
             parser.error(f"{args.plot_type} expects --longitude values to be numerical float values or 'mean'")
-    #
-    # Setting variable type float if localtime value is numerical 
-    #
-    if args.localtime != 'mean'and args.localtime != None:
-        try:
-            args.localtime = float(args.localtime)
-        except:
-            parser.error(f"{args.plot_type} expects --localtime values to be numerical float values or 'mean'")
 
     return args

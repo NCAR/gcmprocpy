@@ -31,8 +31,6 @@ def cmd_parser():
     args_plot.add_argument('-lvl_max','--level_maximum', type=float, help="Maximum level value for the plot. Defaults to None.", default=None)
     args_plot.add_argument('-lon_min','--longitude_minimum', type=float, help="Minimum longitude value for the plot. Defaults to -180.", default=-180)
     args_plot.add_argument('-lon_max','--longitude_maximum', type=float, help="Maximum longitude value for the plot. Defaults to 175.", default=175)
-    args_plot.add_argument('--localtime_minimum', type=float, help="Minimum local time value for the plot. Defaults to None.", default=None)
-    args_plot.add_argument('--localtime_maximum', type=float, help="Maximum local time value for the plot. Defaults to None.", default=None)
     return (parser)
 
 
@@ -42,6 +40,6 @@ def cmd_plt_lev_lon():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot = plt_lev_lon(datasets, variable_name=args.variable_name, latitude=args.latitude, time=args.time, mtime=args.mtime, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, longitude_minimum=args.longitude_minimum, longitude_maximum=args.longitude_maximum, localtime_minimum=args.localtime_minimum, localtime_maximum=args.localtime_maximum)
+    plot = plt_lev_lon(datasets, variable_name=args.variable_name, latitude=args.latitude, time=args.time, mtime=args.mtime, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, longitude_minimum=args.longitude_minimum)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 
