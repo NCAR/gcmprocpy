@@ -18,6 +18,7 @@ Contents
    tiegcmpy/plot_functions
    tiegcmpy/movie_functions
    tiegcmpy/data_functions
+   tiegcmpy/postproc_functions
    tiegcmpy/file_structure
 
 
