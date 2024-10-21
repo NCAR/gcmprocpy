@@ -6,9 +6,21 @@ def mkeno53(arr_temp, arr_o, arr_no):
     """
     Calucates 5.3 micron NO emission (from John Wise).
     The formula used is:
-    N (5.3 mic) = (2.63E-22) exp[-2715/Tk] [O] [NO]
-                  ---------------------------------
-                    (4 Pi) (10.78 + 6.5E-11 [O])
+
+    N(5.3 mic) = (2.63E-22) * exp[-2715 / Tk] * [O] * [NO]
+                 -----------------------------------------
+                   (4 * Pi) * (10.78 + 6.5E-11 * [O])
+
+    Where:
+    - [O] is the oxygen concentration.
+    - [NO] is the nitric oxide concentration.
+    - Tk is the temperature in Kelvin.
+
+    .. math::
+
+        N(5.3 \, \mu m) = \frac{{2.63 \times 10^{-22} \exp\left(\frac{-2715}{Tk}\right) [O] [NO]}}{{4 \pi (10.78 + 6.5 \times 10^{-11} [O])}}
+
+
     Args:
         arr_temp (numpy.ndarray): Array of temperatures in Kelvin.
         arr_o (numpy.ndarray): Array of oxygen concentrations.
@@ -28,12 +40,23 @@ def mkeco215(arr_temp, arr_o, arr_co2):
     """
     Calucates 15 micron CO2 emission (from John Wise):
 
-    N (15 mic) =  (5.94E-26) Sqrt[Tk] exp[-960/Tk] [O] [CO2]
-                    -----------------------------------------
-                        (4 Pi) (1.28 + 3.5E-13 Sqrt[Tk] [O])
+    The formula used is:
 
-    The 15 micron term is only the O-CO2 collisional component
+    N(15 mic) = (5.94E-26) * sqrt(Tk) * exp[-960 / Tk] * [O] * [CO2]
+                 ---------------------------------------------------
+                     (4 * Pi) * (1.28 + 3.5E-13 * sqrt(Tk) * [O])
+
+    Where:
+    - [O] is the oxygen concentration.
+    - [CO2] is the carbon dioxide concentration.
+    - Tk is the temperature in Kelvin.
+
+    The 15 micron term is only the O-CO2 collisional component,
     but it accounts for at least 80% of the radiance above 110 km.
+
+    .. math::
+
+        N(15 \, \mu m) = \frac{{5.94 \times 10^{-26} \sqrt{Tk} \exp\left(\frac{-960}{Tk}\right) [O] [CO2]}}{{4 \pi \left(1.28 + 3.5 \times 10^{-13} \sqrt{Tk} [O]\right)}}
 
     Args:
         arr_temp (numpy.ndarray): Array of temperatures (Tk).
