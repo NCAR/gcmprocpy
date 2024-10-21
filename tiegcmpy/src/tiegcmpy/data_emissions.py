@@ -56,7 +56,7 @@ def mkeco215(arr_temp, arr_o, arr_co2):
 
     .. math::
 
-        N(15 \, \mu m) = \frac{{5.94 \times 10^{-26} \sqrt{Tk} \exp\left(\frac{-960}{Tk}\right) [O] [CO2]}}{{4 \pi \left(1.28 + 3.5 \times 10^{-13} \sqrt{Tk} [O]\right)}}
+        N(15 \, \mu m) = \frac{{5.94 \times 10^{-26} \sqrt{T_k} \exp\left(-\frac{960}{T_k}\right) [O] [CO_2]}}{{4 \pi \left(1.28 + 3.5 \times 10^{-13} \sqrt{T_k} [O]\right)}}
 
     Args:
         arr_temp (numpy.ndarray): Array of temperatures (Tk).
