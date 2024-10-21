@@ -5,7 +5,8 @@ tiegcmpy provides a range of functions for post processing the data. Below are t
 
 Emissions Plots 
 --------------------------------------------------------------------------------------------------------------------
-
+.. currentmodule:: tiegcmpy.data_emissions
+    
 tiegcmpy provides the ablity for plotting emissions data. Below are the variable names that can be used in the plot functions for emissions calculation.
 
 .. list-table::
@@ -29,6 +30,7 @@ tiegcmpy provides the ablity for plotting emissions data. Below are the variable
    Currently only Latitude vs Longitude contour plots are supported for emissions data.
 
 Example 1: Plotting 5.3 micron NO emission
+
 .. code-block:: python
 
     datasets = ty.load_datasets(directory, dataset_filter)
@@ -38,6 +40,7 @@ Example 1: Plotting 5.3 micron NO emission
     plot = ty.plt_lat_lon(datasets, variable_name, time=time, level=pressure_level)
 
 Example 2: Plotting 15 micron CO2 emission
+
 .. code-block:: python
 
     datasets = ty.load_datasets(directory, dataset_filter)
@@ -48,6 +51,7 @@ Example 2: Plotting 15 micron CO2 emission
 
 
 Example 3: Plotting OH emission for the v(8,3) band
+
 .. code-block:: python
 
     datasets = ty.load_datasets(directory, dataset_filter)
@@ -82,8 +86,6 @@ This function processes the given datasets to generate an array of OH emissions 
 
 Emissions Calculation
 --------------------------------------------------------------------------------------------------------------------
-
-.. currentmodule:: tiegcmpy.data_emissions
 
 5.3 micron NO emission
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
