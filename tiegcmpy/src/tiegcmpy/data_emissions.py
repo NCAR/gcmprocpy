@@ -8,17 +8,8 @@ def mkeno53(arr_temp, arr_o, arr_no):
     The formula used is:
 
     N(5.3 mic) = (2.63E-22) * exp[-2715 / Tk] * [O] * [NO]
-                 -----------------------------------------
+                 ~-----------------------------------------~
                    (4 * Pi) * (10.78 + 6.5E-11 * [O])
-
-    Where:
-    - [O] is the oxygen concentration.
-    - [NO] is the nitric oxide concentration.
-    - Tk is the temperature in Kelvin.
-
-    .. math::
-
-         N(15 \, \mu m) = \\frac{5.94 \\times 10^{-26} \\cdot \\sqrt{T_k} \\cdot \\exp\\left(-\\frac{960}{T_k}\\right) \\cdot [O] \\cdot [CO_2]}{4 \\pi \\cdot \\left(1.28 + 3.5 \\times 10^{-13} \\cdot \\sqrt{T_k} \\cdot [O]\\right)}
 
     Args:
         arr_temp (numpy.ndarray): Array of temperatures in Kelvin.
@@ -42,20 +33,11 @@ def mkeco215(arr_temp, arr_o, arr_co2):
     The formula used is:
 
     N(15 mic) = (5.94E-26) * sqrt(Tk) * exp[-960 / Tk] * [O] * [CO2]
-                 ---------------------------------------------------
-                     (4 * Pi) * (1.28 + 3.5E-13 * sqrt(Tk) * [O])
-
-    Where:
-    - [O] is the oxygen concentration.
-    - [CO2] is the carbon dioxide concentration.
-    - Tk is the temperature in Kelvin.
+                ~---------------------------------------------------~
+                    (4 * Pi) * (1.28 + 3.5E-13 * sqrt(Tk) * [O])
 
     The 15 micron term is only the O-CO2 collisional component,
     but it accounts for at least 80% of the radiance above 110 km.
-
-    .. math::
-
-        N(15 \, \mu m) = \frac{5.94 \times 10^{-26} \cdot \sqrt{T_k} \cdot \exp\left(-\frac{960}{T_k}\right) \cdot [O] \cdot [CO_2]}{4 \pi \cdot \left(1.28 + 3.5 \times 10^{-13} \cdot \sqrt{T_k} \cdot [O]\right)}
 
     Args:
         arr_temp (numpy.ndarray): Array of temperatures (Tk).
