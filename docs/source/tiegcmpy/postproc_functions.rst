@@ -6,7 +6,7 @@ tiegcmpy provides a range of functions for post processing the data. Below are t
 Emissions Plots 
 --------------------------------------------------------------------------------------------------------------------
 .. currentmodule:: tiegcmpy.data_emissions
-    
+
 tiegcmpy provides the ablity for plotting emissions data. Below are the variable names that can be used in the plot functions for emissions calculation.
 
 .. list-table::
@@ -74,14 +74,14 @@ This function processes the given datasets to generate an array of 5.3-micron NO
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function processes the given datasets to generate an array of 15-micron CO2 emissions based on temperature, O1, and CO2 data.
 
-.. autofunction:: arr_mkco215
+.. autofunction:: arr_mkeco215
    :noindex:
 
 OH emission for the v(8,3) band
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function processes the given datasets to generate an array of OH emissions for the v(8,3) band based on temperature, O1, and OH data.
 
-.. autofunction:: arr_mkoh83
+.. autofunction:: arr_mkeoh83
    :noindex:
 
 Emissions Calculation
@@ -98,14 +98,14 @@ This function calcuates 5.3 micron NO emission (from John Wise).
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function calcuates 15 micron CO2 emission (from John Wise).
 
-.. autofunction:: mkco215
+.. autofunction:: mkeco215
    :noindex:
 
 OH emission for the v(8,3) band
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function calcuates OH emission for the v(8,3) band.
 
-.. autofunction:: mkoh83
+.. autofunction:: mkeoh83
    :noindex:
 
 
