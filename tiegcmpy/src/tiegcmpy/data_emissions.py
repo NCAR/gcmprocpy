@@ -12,6 +12,7 @@ def mkeno53(arr_temp, arr_o, arr_no):
                    (4 * Pi) * (10.78 + 6.5E-11 * [O])
 
     Where:
+    
     - [O] is the oxygen concentration.
     - [NO] is the nitric oxide concentration.
     - Tk is the temperature in Kelvin.
@@ -46,6 +47,7 @@ def mkeco215(arr_temp, arr_o, arr_co2):
                      (4 * Pi) * (1.28 + 3.5E-13 * sqrt(Tk) * [O])
 
     Where:
+
     - [O] is the oxygen concentration.
     - [CO2] is the carbon dioxide concentration.
     - Tk is the temperature in Kelvin.
