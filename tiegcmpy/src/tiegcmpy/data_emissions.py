@@ -20,7 +20,6 @@ def mkeno53(arr_temp, arr_o, arr_no):
 
         N(5.3 \, \mu m) = \frac{{2.63 \times 10^{-22} \exp\left(\frac{-2715}{Tk}\right) [O] [NO]}}{{4 \pi (10.78 + 6.5 \times 10^{-11} [O])}}
 
-
     Args:
         arr_temp (numpy.ndarray): Array of temperatures in Kelvin.
         arr_o (numpy.ndarray): Array of oxygen concentrations.
@@ -38,7 +37,7 @@ def mkeno53(arr_temp, arr_o, arr_no):
 
 def mkeco215(arr_temp, arr_o, arr_co2):
     """
-    Calucates 15 micron CO2 emission (from John Wise):
+    Calucates 15 micron CO2 emission (from John Wise).
 
     The formula used is:
 
@@ -56,7 +55,7 @@ def mkeco215(arr_temp, arr_o, arr_co2):
 
     .. math::
 
-        N(15 \, \mu m) = \frac{{5.94 \times 10^{-26} \sqrt{T_k} \exp\left(-\frac{960}{T_k}\right) [O] [CO_2]}}{{4 \pi \left(1.28 + 3.5 \times 10^{-13} \sqrt{T_k} [O]\right)}}
+        N(15 \, \mu m) = \frac{5.94 \times 10^{-26} \cdot \sqrt{T_k} \cdot \exp\left(-\frac{960}{T_k}\right) \cdot [O] \cdot [CO_2]}{4 \pi \cdot \left(1.28 + 3.5 \times 10^{-13} \cdot \sqrt{T_k} \cdot [O]\right)}
 
     Args:
         arr_temp (numpy.ndarray): Array of temperatures (Tk).
