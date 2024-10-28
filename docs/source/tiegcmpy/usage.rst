@@ -1,18 +1,18 @@
 Usage
 =====================================================================================
 
-tiegcmpy can be run in two modes: API and Command Line Interface (CLI).
+gcmprocpy can be run in two modes: API and Command Line Interface (CLI).
 
 Mode: API
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-tiegcmpy can be used in custom Python scripts or Jupyter notebooks.
+gcmprocpy can be used in custom Python scripts or Jupyter notebooks.
 
-Importing tiegcmpy
+Importing gcmprocpy
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 .. code-block:: python
 
-    import tiegcmpy as ty
+    import gcmprocpy as gy
 
 Loading Datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -25,13 +25,13 @@ Loading a dataset/datasets:
 
   .. code-block:: python
 
-      ty.load_datasets(directory/file, dataset_filter)
+      gy.load_datasets(directory/file, dataset_filter)
 
 
 Plot Generation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following plots can be made with tiegcmpy:
+The following plots can be made with gcmprocpy:
 
 - Latitude vs Longitude plots
 - Pressure level vs Variable Value plots

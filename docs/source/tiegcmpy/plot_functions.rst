@@ -1,12 +1,12 @@
 Ploting Routines
 ====================================================
 
-tiegcmpy provides a range of functions for data visualization. Below are the key plotting routines along with their detailed parameters and usage examples.
+gcmprocpy provides a range of functions for data visualization. Below are the key plotting routines along with their detailed parameters and usage examples.
 
 API
 --------------------------------------------------------------------------------------------------------------------------------------------
 
-.. currentmodule:: tiegcmpy.io
+.. currentmodule:: gcmprocpy.io
 
 Loading Datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -16,7 +16,7 @@ This function loads the netCDF datasets for the plotting routines.
 .. autofunction:: load_datasets
    :noindex:
 
-.. currentmodule:: tiegcmpy.plot_gen
+.. currentmodule:: gcmprocpy.plot_gen
 
 Latitude vs Longitude Contour Plots
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -31,13 +31,13 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
+        datasets = gy.load_datasets(directory, dataset_filter)
         variable_name = 'TN'
         value_of_mtime = [360, 0, 0, 0]
         pressure_level = 4.0
         unit_of_variable = 'K'
         intervals = 20
-        plot = ty.plt_lat_lon(datasets, variable_name, mtime=value_of_mtime, level=pressure_level, variable_unit=unit_of_variable, contour_intervals=intervals)
+        plot = gy.plt_lat_lon(datasets, variable_name, mtime=value_of_mtime, level=pressure_level, variable_unit=unit_of_variable, contour_intervals=intervals)
 
 Pressure Level vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -52,13 +52,13 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
+        datasets = gy.load_datasets(directory, dataset_filter)
         variable_name = 'TN'
         latitude = 30.0
         time_value = '2022-01-01T12:00:00'
         longitude_value = 45.0
         unit_of_variable = 'K'
-        plot = ty.plt_lev_var(datasets, variable_name, latitude, time=time_value, longitude=longitude_value, variable_unit=unit_of_variable)
+        plot = gy.plt_lev_var(datasets, variable_name, latitude, time=time_value, longitude=longitude_value, variable_unit=unit_of_variable)
 
 # Extracting the details for "Pressure level vs Longitude Contour Plot" and "Pressure Level vs Latitude Contour Plot" 
 # from the README.md to create corresponding sections in functionality.rst
@@ -74,13 +74,13 @@ This function generates a contour plot of a variable at a specific latitude agai
 Example:
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
+        datasets = gy.load_datasets(directory, dataset_filter)
         variable_name = 'TN'
         latitude = 30.0
         time_value = '2022-01-01T12:00:00'
         unit_of_variable = 'K'
         contour_intervals = 20
-        plot = ty.plt_lev_lon(datasets, variable_name, latitude, time=time_value, variable_unit=unit_of_variable, contour_intervals=contour_intervals)
+        plot = gy.plt_lev_lon(datasets, variable_name, latitude, time=time_value, variable_unit=unit_of_variable, contour_intervals=contour_intervals)
 
 Pressure Level vs Latitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -95,12 +95,12 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
+        datasets = gy.load_datasets(directory, dataset_filter)
         variable_name = 'TN'
         longitude_value = 45.0
         time_value = '2022-01-01T12:00:00'
         unit_of_variable = 'K'
-        plot = ty.plt_lev_lat(datasets, variable_name, longitude=longitude_value, time=time_value, variable_unit=unit_of_variable)
+        plot = gy.plt_lev_lat(datasets, variable_name, longitude=longitude_value, time=time_value, variable_unit=unit_of_variable)
 
 Pressure Level vs Time Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -115,13 +115,13 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
+        datasets = gy.load_datasets(directory, dataset_filter)
         variable_name = 'TN'
         latitude_value = 30.0
         time_min = '2022-01-01T00:00:00'
         time_max = '2022-01-02T00:00:00'
         unit_of_variable = 'K'
-        plot = ty.plt_lev_time(datasets, variable_name, latitude=latitude_value, time_minimum=time_min, time_maximum=time_max, variable_unit=unit_of_variable)
+        plot = gy.plt_lev_time(datasets, variable_name, latitude=latitude_value, time_minimum=time_min, time_maximum=time_max, variable_unit=unit_of_variable)
 
 Latitude vs Time Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -136,13 +136,13 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
+        datasets = gy.load_datasets(directory, dataset_filter)
         variable_name = 'TN'
         pressure_level = 4.0
         time_min = '2022-01-01T00:00:00'
         time_max = '2022-01-02T00:00:00'
         unit_of_variable = 'K'
-        plot = ty.plt_lat_time(datasets, variable_name, level=pressure_level, time_minimum=time_min, time_maximum=time_max, variable_unit=unit_of_variable)
+        plot = gy.plt_lat_time(datasets, variable_name, level=pressure_level, time_minimum=time_min, time_maximum=time_max, variable_unit=unit_of_variable)
 
 
 
@@ -155,7 +155,7 @@ Latitude vs Longitude Contour Plots
 
 This command generates a contour plot of a variable against latitude and longitude.
 
-.. autoprogram:: tiegcmpy.cmd.cmd_lat_lon:cmd_parser()
+.. autoprogram:: gcmprocpy.cmd.cmd_lat_lon:cmd_parser()
    :prog: lat_lon
 
 Pressure Level vs Variable Line Plot
@@ -163,7 +163,7 @@ Pressure Level vs Variable Line Plot
 
 This command generates a line plot of a variable at a specific latitude and optional longitude, time, and local time.
 
-.. autoprogram:: tiegcmpy.cmd.cmd_lev_var:cmd_parser()
+.. autoprogram:: gcmprocpy.cmd.cmd_lev_var:cmd_parser()
    :prog: lev_var
 
 Pressure level vs Longitude Contour Plot
@@ -171,7 +171,7 @@ Pressure level vs Longitude Contour Plot
 
 This command generates a contour plot of a variable at a specific latitude against longitude, with optional time and local time.
 
-.. autoprogram:: tiegcmpy.cmd.cmd_lev_lon:cmd_parser()
+.. autoprogram:: gcmprocpy.cmd.cmd_lev_lon:cmd_parser()
    :prog: lev_lon
 
 Pressure Level vs Latitude Contour Plot
@@ -179,7 +179,7 @@ Pressure Level vs Latitude Contour Plot
 
 This command generates a contour plot of a variable against pressure level and latitude.
 
-.. autoprogram:: tiegcmpy.cmd.cmd_lev_lat:cmd_parser()
+.. autoprogram:: gcmprocpy.cmd.cmd_lev_lat:cmd_parser()
    :prog: lev_lat
 
 Pressure Level vs Time Contour Plot
@@ -187,7 +187,7 @@ Pressure Level vs Time Contour Plot
 
 This command creates a contour plot of a variable against pressure level and time.
 
-.. autoprogram:: tiegcmpy.cmd.cmd_lev_time:cmd_parser()
+.. autoprogram:: gcmprocpy.cmd.cmd_lev_time:cmd_parser()
    :prog: lev_time
 
 Latitude vs Time Contour Plot
@@ -195,7 +195,7 @@ Latitude vs Time Contour Plot
 
 This command creates a contour plot of a variable against latitude and time.
 
-.. autoprogram:: tiegcmpy.cmd.cmd_lat_time:cmd_parser()
+.. autoprogram:: gcmprocpy.cmd.cmd_lat_time:cmd_parser()
    :prog: lat_time
 
 

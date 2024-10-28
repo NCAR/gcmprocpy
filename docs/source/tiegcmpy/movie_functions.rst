@@ -1,12 +1,12 @@
 Movie Routines
 ====================================================
 
-tiegcmpy provides a range of functions for data visualization. Below are the key plotting routines along with their detailed parameters and usage examples.
+gcmprocpy provides a range of functions for data visualization. Below are the key plotting routines along with their detailed parameters and usage examples.
 
 API
 --------------------------------------------------------------------------------------------------------------------------------------------
 
-.. currentmodule:: tiegcmpy.io
+.. currentmodule:: gcmprocpy.io
 
 Loading Datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -16,7 +16,7 @@ This function loads the netCDF datasets for the plotting routines.
 .. autofunction:: load_datasets
    :noindex:
 
-.. currentmodule:: tiegcmpy.mov_gen
+.. currentmodule:: gcmprocpy.mov_gen
 
 Latitude vs Longitude Contour Movie
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

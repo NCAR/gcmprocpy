@@ -8,11 +8,11 @@
 
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../../tiegcmpy/src'))
-sys.path.insert(1, os.path.abspath('../../tiegcmpy/src/tiegcmpy'))
-sys.path.insert(2, os.path.abspath('../../tiegcmpy/src/tiegcmpy/cmd'))
+sys.path.insert(0, os.path.abspath('../../gcmprocpy/src'))
+sys.path.insert(1, os.path.abspath('../../gcmprocpy/src/gcmprocpy'))
+sys.path.insert(2, os.path.abspath('../../gcmprocpy/src/gcmprocpy/cmd'))
 
-project = 'tiegcmpy-docs'
+project = 'gcmprocpy'
 copyright = '2024, Nikhil Rao'
 author = 'Nikhil Rao'
 release = '2.0.0'
