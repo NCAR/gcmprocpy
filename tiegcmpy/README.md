@@ -1,7 +1,7 @@
-# TIEGCMPY
+# GCMPROCPY
 
-tiegcmpy is a tool used for TIE-GCM post processing and plot generation.
+GCMprocpy is a tool used for TIE-GCM and WACCM-X post processing and plot generation.
 
 ## Documentation on readthedocs
-## https://tiegcmpy.readthedocs.io
+## https://gcmprocpy.readthedocs.io
 
