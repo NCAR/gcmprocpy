@@ -7,7 +7,7 @@ setup(
     name='gcmprocpy',
     version='1.0.0',
     author = "Nikhil Rao",
-    author_email = "nikhilr@ucacd r.edu",
+    author_email = "nikhilr@ucar.edu",
     description='A Python3 post processing tool for TIE-GCM and WACCM-X',
     long_description=long_description,
     long_description_content_type="text/markdown",
