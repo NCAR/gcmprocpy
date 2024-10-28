@@ -1,13 +1,13 @@
 Post Processing Functions
 =============================================================
 
-tiegcmpy provides a range of functions for post processing the data. Below are the key plotting routines along with their detailed parameters and usage examples.
+gcmprocpy provides a range of functions for post processing the data. Below are the key plotting routines along with their detailed parameters and usage examples.
 
 Emissions Plots 
 --------------------------------------------------------------------------------------------------------------------
-.. currentmodule:: tiegcmpy.data_emissions
+.. currentmodule:: gcmprocpy.data_emissions
 
-tiegcmpy provides the ablity for plotting emissions data. Below are the variable names that can be used in the plot functions for emissions calculation.
+gcmprocpy provides the ablity for plotting emissions data. Below are the variable names that can be used in the plot functions for emissions calculation.
 
 .. list-table::
    :header-rows: 1
@@ -33,32 +33,32 @@ Example 1: Plotting 5.3 micron NO emission
 
 .. code-block:: python
 
-    datasets = ty.load_datasets(directory, dataset_filter)
+    datasets = gy.load_datasets(directory, dataset_filter)
     variable_name = 'NO53'
     time = '2022-01-01T12:00:00'
     pressure_level = 4.0
-    plot = ty.plt_lat_lon(datasets, variable_name, time=time, level=pressure_level)
+    plot = gy.plt_lat_lon(datasets, variable_name, time=time, level=pressure_level)
 
 Example 2: Plotting 15 micron CO2 emission
 
 .. code-block:: python
 
-    datasets = ty.load_datasets(directory, dataset_filter)
+    datasets = gy.load_datasets(directory, dataset_filter)
     variable_name = 'CO215'
     time = '2022-01-01T12:00:00'
     pressure_level = 4.0
-    plot = ty.plt_lat_lon(datasets, variable_name, time=time, level=pressure_level)
+    plot = gy.plt_lat_lon(datasets, variable_name, time=time, level=pressure_level)
 
 
 Example 3: Plotting OH emission for the v(8,3) band
 
 .. code-block:: python
 
-    datasets = ty.load_datasets(directory, dataset_filter)
+    datasets = gy.load_datasets(directory, dataset_filter)
     variable_name = 'OH83'
     time = '2022-01-01T12:00:00'
     pressure_level = 4.0
-    plot = ty.plt_lat_lon(datasets, variable_name, time=time, level=pressure_level)
+    plot = gy.plt_lat_lon(datasets, variable_name, time=time, level=pressure_level)
 
 Emissions Xarrays
 --------------------------------------------------------------------------------------------------------------------
