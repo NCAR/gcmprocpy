@@ -1,9 +1,13 @@
 # TIEGCMPY
 
-tiegcmpy is a tool used for TIE-GCM post processing and plot generation.
+**Deprecated:** This tool is no longer maintained and may be removed in future versions.
 
-## Updated documentation on readthedocs
-## https://tiegcmpy.readthedocs.io
+~~tiegcmpy~~ is deprecated. Please consider using `gcmprocpy`.
+
+GCMprocpy now handles the fucntionality of tiegcmpy.
+
+## Updated tool and documentation on readthedocs
+## https://gcmprocpy.readthedocs.io
 
 
 ## Installation
