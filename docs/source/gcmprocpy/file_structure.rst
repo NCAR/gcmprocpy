@@ -1,12 +1,12 @@
 File Structure
 ==============
 
-The tiegcmpy package is structured as follows:
+The gcmprocpy package is structured as follows:
 
 .. code-block:: none
 
-    ├── src                             # Directory for all tiegcmpy source files
-    │   ├── tiegcmpy          
+    ├── src                             # Directory for all gcmprocpy source files
+    │   ├── gcmprocpy          
     │       ├── __init__.py             # Initialize functions for API
     │       ├── convert_units.py        # Contains unit conversion functions
     │       ├── data_parse.py           # Contains data extraction and parsing functions

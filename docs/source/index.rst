@@ -1,7 +1,7 @@
-TIEGCMpy
+GCMprocpy
 =============================
 
-tiegcmpy is a tool used for TIE-GCM post-processing and plot generation. It offers functionalities for data processing and visualization, particularly in scientific and geospatial domains.
+gcmprocpy is a tool used for TIE-GCM and WACCM-X post-processing and plot generation. It offers functionalities for data processing and visualization, particularly in scientific and geospatial domains.
 
 Contents
 --------
@@ -9,16 +9,16 @@ Contents
    
 .. toctree::
    :maxdepth: 2
-   :caption: TIEGCMPY
+   :caption: GCMprocpy
 
-   tiegcmpy/index
-   tiegcmpy/installation
-   tiegcmpy/requirements
-   tiegcmpy/usage
-   tiegcmpy/plot_functions
-   tiegcmpy/movie_functions
-   tiegcmpy/data_functions
-   tiegcmpy/postproc_functions
-   tiegcmpy/file_structure
+   gcmprocpy/index
+   gcmprocpy/installation
+   gcmprocpy/requirements
+   gcmprocpy/usage
+   gcmprocpy/plot_functions
+   gcmprocpy/movie_functions
+   gcmprocpy/data_functions
+   gcmprocpy/postproc_functions
+   gcmprocpy/file_structure
 
 

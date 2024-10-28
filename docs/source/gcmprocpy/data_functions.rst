@@ -1,12 +1,12 @@
 Data Parsing Functions
 =============================================================
 
-tiegcmpy provides a range of functions for data extraction and manipulation. Below are the key plotting routines along with their detailed parameters and usage examples.
+gcmprocpy provides a range of functions for data extraction and manipulation. Below are the key plotting routines along with their detailed parameters and usage examples.
 
 Data Exploration
 --------------------------------------------------------------------------------------------------------------------
 
-.. currentmodule:: tiegcmpy.data_parse
+.. currentmodule:: gcmprocpy.data_parse
 Listing Timestamps
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function compiles and returns a list of all timestamps present in the provided datasets. 
@@ -34,8 +34,8 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
-        lev_ilevs = ty.level_list(datasets)
+        datasets = gy.load_datasets(directory, dataset_filter)
+        lev_ilevs = gy.level_list(datasets)
         print(lev_ilevs)
 
 
@@ -51,8 +51,8 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
-        lons = ty.lon_list(datasets)
+        datasets = gy.load_datasets(directory, dataset_filter)
+        lons = gy.lon_list(datasets)
         print(lons)
 
 
@@ -68,8 +68,8 @@ Example:
 
     .. code-block:: python
 
-        datasets = ty.load_datasets(directory, dataset_filter)
-        lats = ty.lat_list(datasets)
+        datasets = gy.load_datasets(directory, dataset_filter)
+        lats = gy.lat_list(datasets)
         print(lats)
 
 Data Xarrays

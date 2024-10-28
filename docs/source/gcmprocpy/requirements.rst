@@ -1,7 +1,7 @@
 Requirements
 ============
 
-tiegcmpy requires:
+gcmprocpy requires:
 
 - Python >= 3.8.0
 - cartopy >= 0.21.1
