@@ -4,3 +4,4 @@ matplotlib
 xarray
 ipython
 geomag
+netcdf4
