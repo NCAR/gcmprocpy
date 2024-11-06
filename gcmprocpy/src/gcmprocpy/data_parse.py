@@ -116,6 +116,87 @@ def lat_list(datasets):
     lats = sorted(unique_lats)
     return lats
 
+def dim_list(datasets):
+    """
+    Retrieves a sorted list of unique dimension names across all datasets.
+
+    Args:
+        datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+
+    Returns:
+        list: A sorted list of unique dimension names across all datasets.
+    """
+    
+    unique_dims = set()
+
+    for ds, _ in datasets:
+        unique_dims.update(ds.dims)
+
+    # Convert the set to a sorted list
+    dims = sorted(unique_dims)
+    return dims
+
+def var_info(datasets, variable_name):
+    """
+    Retrieves the attributes and dimension information of a specified variable from all datasets.
+
+    Args:
+        datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+        variable_name (str): The name of the variable to retrieve attributes for.
+
+    Returns:
+        dict: A dictionary where keys are filenames and values are dictionaries of attributes for the specified variable.
+    """
+    
+    variable_details = {}
+
+    for ds, filename in datasets:
+        if variable_name in ds:
+            # Get attributes and dimension information
+            attrs = ds[variable_name].attrs
+            dims = ds[variable_name].dims
+            variable_details[filename] = {
+                "attributes": attrs,
+                "dimensions": dims
+            }
+        else:
+            variable_details[filename] = None  # If variable does not exist in dataset
+    
+    return variable_details
+
+def dim_info(datasets, dimension):
+    """
+    Retrieves information about a specified dimension's size across all datasets.
+
+    Args:
+        datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+        dimension (str): The name of the dimension to retrieve information for.
+
+    Returns:
+        dict: A dictionary where keys are filenames and values are the size of the specified dimension.
+              If the dimension does not exist in a dataset, the value is None.
+    """
+    
+    dimension_info = {}
+
+    for ds, filename in datasets:
+        if dimension in ds.dims:
+            # Gather dimension details
+            dim_details = {
+                "size": ds.dims[dimension]
+            }
+            
+            # Check if the dimension is a coordinate and add more details if it is
+            if dimension in ds.coords:
+                dim_details["values"] = ds.coords[dimension].data  # Coordinate values as array-like (avoiding .tolist())
+                dim_details["attributes"] = ds.coords[dimension].attrs  # Additional attributes
+            
+            dimension_info[filename] = dim_details
+        else:
+            dimension_info[filename] = None  # If dimension does not exist in the dataset
+    
+    return dimension_info
+
 def arr_var(datasets, variable_name, time, selected_unit=None, plot_mode=False):
     """
     Extracts and processes data for a given variable at a specific time from multiple datasets. 
