@@ -7,12 +7,21 @@ Data Exploration
 --------------------------------------------------------------------------------------------------------------------
 
 .. currentmodule:: gcmprocpy.data_parse
-Listing Timestamps
+Listing Dimensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-This function compiles and returns a list of all timestamps present in the provided datasets. 
+This function reads all the datasets and returns the unique dimensions present.
 
-.. autofunction:: time_list
+.. autofunction:: dim_list
    :noindex:
+
+Example:
+      Load datasets and list unique dimensions.
+
+      .. code-block:: python
+
+         datasets = gy.load_datasets(directory, dataset_filter)
+         dims = gy.dim_list(datasets)
+         print(dims)
 
 Listing Variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -21,6 +30,30 @@ This function reads all the datasets and reutrns the variables listed in there.
 .. autofunction:: var_list
    :noindex:
 
+Example:
+      Load datasets and list unique variables.
+
+      .. code-block:: python
+
+         datasets = gy.load_datasets(directory, dataset_filter)
+         vars = gy.var_list(datasets)
+         print(vars)
+
+Listing Timestamps
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function compiles and returns a list of all timestamps present in the provided datasets. 
+
+.. autofunction:: time_list
+   :noindex:
+
+Example:
+      Load datasets and list unique timestamps.
+
+      .. code-block:: python
+
+         datasets = gy.load_datasets(directory, dataset_filter)
+         times = gy.time_list(datasets)
+         print(times)
 
 Listing Levels
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -37,7 +70,6 @@ Example:
         datasets = gy.load_datasets(directory, dataset_filter)
         lev_ilevs = gy.level_list(datasets)
         print(lev_ilevs)
-
 
 Listing Longitudes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -71,6 +103,39 @@ Example:
         datasets = gy.load_datasets(directory, dataset_filter)
         lats = gy.lat_list(datasets)
         print(lats)
+
+Variable Information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function provides detailed information about a specific variable in the datasets.
+
+.. autofunction:: var_info
+   :noindex:
+
+Example:
+      Load datasets and get information about a specific variable.
+
+      .. code-block:: python
+
+         datasets = gy.load_datasets(directory, dataset_filter)
+         info = gy.var_info(datasets, 'variable_name')
+         print(info)
+
+
+Dimension Information
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function provides detailed information about a specific dimension in the datasets.
+
+.. autofunction:: dim_info
+   :noindex:
+
+Example:
+      Load datasets and get information about a specific dimension.
+
+      .. code-block:: python
+
+         datasets = gy.load_datasets(directory, dataset_filter)
+         info = gy.dim_info(datasets, 'dimension_name')
+         print(info)
 
 Data Xarrays
 --------------------------------------------------------------------------------------------------------------------

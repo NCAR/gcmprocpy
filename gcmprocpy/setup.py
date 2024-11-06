@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='gcmprocpy',
-    version='1.0.0',
+    version='1.0.2',
     author = "Nikhil Rao",
     author_email = "nikhilr@ucar.edu",
     description='A Python3 post processing tool for TIE-GCM and WACCM-X',
@@ -20,6 +20,7 @@ setup(
         'xarray',
         'ipython',
         'geomag',
+        'netcdf4',
     ],
     package_dir={'': 'src'},  
     packages=find_packages(where='src'), 
