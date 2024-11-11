@@ -16,7 +16,7 @@ def load_datasets(directory,dataset_filter = None):
         dataset_filter (str, optional): The string to filter the NetCDF files to select from (e.g., 'prim', 'sech'). Defaults to None.
 
     Returns:
-        list[tuple]: A list containing tuples, each with an xarray.Dataset object and the corresponding filename in string.
+        list[tuple]: A list containing tuples, each with an xarray.Dataset object and the corresponding filename and model in string.
     """
 
     datasets=[]
@@ -26,10 +26,21 @@ def load_datasets(directory,dataset_filter = None):
         for file in files:
             if file.endswith('.nc') and (dataset_filter is None or dataset_filter in file):
                 file_path = os.path.join(directory, file)
-                datasets.append([xr.open_dataset(file_path), file])
+                dataset = xr.open_dataset(file_path)
+                file_name = file
+                if dataset.lev.units == 'hPa':
+                    model = 'WACCM-X'
+                else:
+                    model = 'TIE-GCM'
+                datasets.append([dataset, file_name, model])
     else:
-        file = os.path.basename(directory)
-        datasets.append([xr.open_dataset(directory), file])
+        file_name = os.path.basename(directory)
+        dataset = xr.open_dataset(directory)
+        if dataset.lev.units == 'hPa':
+            model = 'WACCM-X'
+        else:
+            model = 'TIE-GCM'
+        datasets.append([dataset, file_name, model])
     return(datasets)
 
 

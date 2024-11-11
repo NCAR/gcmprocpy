@@ -97,7 +97,7 @@ def color_scheme(variable_name):
 
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -109,10 +109,12 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         level (float, optional): The selected lev/ilev value.
         variable_unit (str, optional): The desired unit of the variable.
-        contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
+        contour_intervals (int, optional): The number of contour intervals. Defaults to 20. Ignored if contour_value is provided.
         contour_value (int, optional): The value between each contour interval.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
         cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        cmap_lim_min (float, optional): Minimum limit for the color map. Defaults to the minimum value of the variable.
+        cmap_lim_max (float, optional): Maximum limit for the color map. Defaults to the maximum value of the variable.
         line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
         coastlines (bool, optional): Shows coastlines on the plot. Defaults to False.
         nightshade (bool, optional): Shows nightshade on the plot. Defaults to False.
@@ -121,6 +123,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         latitude_maximum (float, optional): Maximum latitude to slice plots. Defaults to 87.5.
         longitude_minimum (float, optional): Minimum longitude to slice plots. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude to slice plots. Defaults to 175.
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -148,13 +151,13 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         time = np.datetime64(time, 'ns')
 
     if variable_name == 'NO53':
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
     elif variable_name == 'CO215':
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
     elif variable_name == 'OH83':
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
     else:
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename =arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename =arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
     
     # WACCM-X uses 0 to 360 longitude range, convert to -180 to 180
     unique_lons = np.where(unique_lons > 180, unique_lons - 360, unique_lons)
@@ -179,6 +182,15 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     selected_min=selected_mtime[2]
     selected_sec=selected_mtime[3]
 
+    if cmap_lim_min == None:
+        cmap_lim_min = min_val
+    else:
+        min_val = cmap_lim_min
+    if cmap_lim_max == None:
+        cmap_lim_max = max_val
+    else:
+        max_val = cmap_lim_max
+        
     if cmap_color == None:
         cmap_color, line_color = color_scheme(variable_name)
     # Extract values, latitudes, and longitudes from the array
@@ -226,7 +238,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
 
         ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--', transform=ccrs.Geodetic(), label='Geomagnetic Equator')    
     
-    contour_filled = plt.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color, levels=contour_levels)
+    contour_filled = plt.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lons, unique_lats, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]",fraction=0.046, pad=0.04)
@@ -252,30 +264,30 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         ax2.set_xticklabels([str(int(longitude_to_local_time(longitude) % 24)) for longitude in ax2_xticks],fontsize=18)
         ax2.set_xlabel('Local Time (Hrs)', labelpad=15, fontsize=28)
 
+    if clean_plot == False:
+        # Add plot title
+        plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ') ' + '\n\n', fontsize=36)
+        # Add plot subtitle
+        if level == 'mean':
+            plt.text(0, subtitle_ht, 'ZP=' + str(level), ha='center', va='center', fontsize=28)
+        elif level != None:
+            plt.text(0, subtitle_ht, 'ZP=' + str(level)+' AVG HT=' + str(avg_ht) + 'KM', ha='center', va='center', fontsize=28)
+        else:
+            plt.text(0, subtitle_ht, '', ha='center', va='center', fontsize=28)
+        
 
-    # Add plot title
-    plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ') ' + '\n\n', fontsize=36)
-    # Add plot subtitle
-    if level == 'mean':
-        plt.text(0, subtitle_ht, 'ZP=' + str(level), ha='center', va='center', fontsize=28)
-    elif level != None:
-        plt.text(0, subtitle_ht, 'ZP=' + str(level)+' AVG HT=' + str(avg_ht) + 'KM', ha='center', va='center', fontsize=28)
-    else:
-        plt.text(0, subtitle_ht, '', ha='center', va='center', fontsize=28)
-    
-
-    # Add subtext to the plot
-    plt.text(-90, -115, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28)
-    plt.text(90, -115, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28)
-    plt.text(-90, -125, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28)
-    plt.text(90, -125, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28)
-    plt.text(0, -135, str(filename), ha='center', va='center',fontsize=28)
+        # Add subtext to the plot
+        plt.text(-90, -115, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28)
+        plt.text(90, -115, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28)
+        plt.text(-90, -125, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28)
+        plt.text(90, -125, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28)
+        plt.text(0, -135, str(filename), ha='center', va='center',fontsize=28)
     plt.close(plot)
     return(plot)
 
 
 
-def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, variable_unit = None, level_minimum = None, level_maximum = None):
+def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, log_level=True, variable_unit = None, level_minimum = None, level_maximum = None, clean_plot = False):
     """
     Generates a Level vs Variable line plot for a given latitude.
 
@@ -286,9 +298,11 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         variable_unit (str, optional): The desired unit of the variable.
         level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Line plot.
@@ -301,7 +315,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
 
-    variable_values , levs_ilevs, variable_unit, variable_long_name, selected_mtime, filename = arr_lev_var(datasets, variable_name, time, latitude, longitude,  variable_unit, plot_mode = True)
+    variable_values , levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lev_var(datasets, variable_name, time, latitude, longitude,  variable_unit, plot_mode = True)
 
     if level_minimum == None:
         level_minimum = np.nanmin(levs_ilevs)
@@ -321,28 +335,32 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     plt.ylabel('LN(P0/P) (INTERFACES)', fontsize=28)
     plt.xticks(fontsize=18)  
     plt.yticks(fontsize=18) 
-    plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
 
     plt.ylim(level_minimum, level_maximum)
 
-
-    if longitude == 'mean' and latitude == 'mean':
-        plt.text(0.5, 1.08,"LAT= Mean LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    elif longitude == 'mean':
-        plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    elif latitude == 'mean':
-        plt.text(0.5, 1.08,'LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    else:
-        plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    plt.text(0.5, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    plt.text(0.5, -0.3, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.5, -0.35, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+    if model == 'WACCM-X':
+        plt.gca().invert_yaxis()
+    
+    if clean_plot == False:
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        if longitude == 'mean' and latitude == 'mean':
+            plt.text(0.5, 1.08,"LAT= Mean LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        elif longitude == 'mean':
+            plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        elif latitude == 'mean':
+            plt.text(0.5, 1.08,'LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        else:
+            plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        plt.text(0.5, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        plt.text(0.5, -0.3, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.35, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
     plt.close(plot)
     return(plot)
 
 
-def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None):
+def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False):
     """
     Generates a Level vs Longitude contour plot for a given latitude.
 
@@ -352,16 +370,20 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
         latitude (float): The specific latitude value for the plot.
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         variable_unit (str, optional): The desired unit of the variable.
-        contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
+        contour_intervals (int, optional): The number of contour intervals. Defaults to 20. Ignored if contour_value is provided.
         contour_value (int, optional): The value between each contour interval.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
         cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        cmap_lim_min (float, optional): Minimum limit for the color map. Defaults to the minimum value of the variable.
+        cmap_lim_max (float, optional): Maximum limit for the color map. Defaults to the maximum value of the variable.
         line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
         level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         longitude_minimum (float, optional): Minimum longitude value for the plot. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude value for the plot. Defaults to 175.
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -376,7 +398,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     # Generate 2D arrays, extract variable_unit
-    variable_values, unique_lons, unique_levs,latitude, variable_unit, variable_long_name, selected_mtime, filename = arr_lev_lon(datasets, variable_name, time, latitude, variable_unit, plot_mode = True)
+    variable_values, unique_lons, unique_levs,latitude, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lev_lon(datasets, variable_name, time, latitude, variable_unit, log_level, plot_mode = True)
 
     if level_minimum == None:
         level_minimum = np.nanmin(unique_levs)
@@ -392,6 +414,15 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     selected_hour=selected_mtime[1]
     selected_min=selected_mtime[2]
     selected_sec=selected_mtime[3]
+
+    if cmap_lim_min == None:
+        cmap_lim_min = min_val
+    else:
+        min_val = cmap_lim_min
+    if cmap_lim_max == None:
+        cmap_lim_max = max_val
+    else:
+        max_val = cmap_lim_max
 
     if cmap_color == None:
         cmap_color, line_color = color_scheme(variable_name)
@@ -415,23 +446,31 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
 
     # Generate contour plot   
     plot=plt.figure(figsize=(24, 12))
-    contour_filled = plt.contourf(unique_lons, unique_levs, variable_values, cmap= cmap_color, levels=contour_levels)
+    contour_filled = plt.contourf(unique_lons, unique_levs, variable_values, cmap= cmap_color, levels=contour_levels,vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lons, unique_levs, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
     cbar.set_label(variable_name+" ["+variable_unit+"]", size=28, labelpad=15)
     cbar.ax.tick_params(labelsize=18)
-    plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
-    if latitude == 'mean':
-        plt.text(0.5, 1.18,'ZONAL MEANS', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+    if clean_plot == False:
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        if latitude == 'mean':
+            plt.text(0.5, 1.18,'ZONAL MEANS', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        else:
+            plt.text(0.5, 1.18,'LAT='+str(latitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        
+    if log_level == True:
+        plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
     else:
-        plt.text(0.5, 1.18,'LAT='+str(latitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
+        plt.ylabel('PRESSURE (HPA)',fontsize=28)
     plt.xlabel('Longitude (Deg)',fontsize=28)
     plt.xticks([value for value in unique_lons if value % 30 == 0],fontsize=18)  
     plt.yticks(fontsize=18) 
     plt.xlim(longitude_minimum,longitude_maximum)
     plt.ylim(level_minimum, level_maximum)
+    
+    if model == 'WACCM-X':
+        plt.gca().invert_yaxis()
 
     # Add Local Time secondary x-axis
     ax = plt.gca()
@@ -442,12 +481,13 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     ax2.set_xticklabels([str(int(longitude_to_local_time(longitude) % 24)) for longitude in ax2_xticks],fontsize=18)
     ax2.set_xlabel('Local Time (Hrs)', labelpad=15, fontsize=28)
 
-    # Add subtext to the plot
-    plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.5, -0.3, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+    if clean_plot == False:
+        # Add subtext to the plot
+        plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.3, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
 
     
     #plot, ax = plt.subplots()
@@ -457,7 +497,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, varia
     return(plot)
 
 
-def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None):
+def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, clean_plot = False):
     """
     Generates a Level vs Latitude contour plot for a specified time and/or longitude.
 
@@ -467,16 +507,20 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         variable_unit (str, optional): The desired unit of the variable.
-        contour_intervals (int, optional): The number of contour intervals. Defaults to 20.
+        contour_intervals (int, optional): The number of contour intervals. Defaults to 20. Ignored if contour_value is provided.
         contour_value (int, optional): The value between each contour interval.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
         cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        cmap_lim_min (float, optional): Minimum limit for the color map. Defaults to the minimum value of the variable.
+        cmap_lim_max (float, optional): Maximum limit for the color map. Defaults to the maximum value of the variable.
         line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
         level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         latitude_minimum (float, optional): Minimum latitude value for the plot. Defaults to -87.5.
         latitude_maximum (float, optional): Maximum latitude value for the plot. Defaults to 87.5.
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -491,7 +535,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     # Generate 2D arrays, extract variable_unit
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
-    variable_values, unique_lats, unique_levs,longitude, variable_unit, variable_long_name, selected_mtime, filename = arr_lev_lat(datasets, variable_name, time, longitude,  variable_unit, plot_mode = True)
+    variable_values, unique_lats, unique_levs,longitude, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lev_lat(datasets, variable_name, time, longitude,  variable_unit, plot_mode = True)
 
     if level_minimum == None:
         level_minimum = np.nanmin(unique_levs)
@@ -507,6 +551,15 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     selected_hour=selected_mtime[1]
     selected_min=selected_mtime[2]
     selected_sec=selected_mtime[3]
+
+    if cmap_lim_min == None:
+        cmap_lim_min = min_val
+    else:
+        min_val = cmap_lim_min
+    if cmap_lim_max == None:
+        cmap_lim_max = max_val
+    else:
+        max_val = cmap_lim_max
 
     if cmap_color == None:
         cmap_color, line_color = color_scheme(variable_name)
@@ -530,30 +583,38 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     
     # Generate contour plot
     plot=plt.figure(figsize=(24, 12))
-    contour_filled = plt.contourf(unique_lats, unique_levs, variable_values, cmap= cmap_color, levels=contour_levels)
+    contour_filled = plt.contourf(unique_lats, unique_levs, variable_values, cmap= cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lats, unique_levs, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
     cbar.set_label(variable_name+" ["+variable_unit+"]", size=28, labelpad=15)
     cbar.ax.tick_params(labelsize=18)
-    plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
-    if longitude == 'mean':
-        plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+    if clean_plot == False:
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+    
+        if longitude == 'mean':
+            plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        else:
+            plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+    if log_level == True:
+        plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
     else:
-        plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
+        plt.ylabel('PRESSURE (HPA)',fontsize=28)
     plt.xlabel('Latitude (Deg)',fontsize=28)
     plt.xticks(fontsize=18)  
     plt.yticks(fontsize=18) 
     plt.xlim(latitude_minimum,latitude_maximum)
     plt.ylim(level_minimum,level_maximum)
     
-    # Add subtext to the plot
-    plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.50, -0.3, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+    if model == 'WACCM-X':
+        plt.gca().invert_yaxis()
+    if clean_plot == False:
+        # Add subtext to the plot
+        plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.50, -0.3, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
 
     
     #plot, ax = plt.subplots()
@@ -565,7 +626,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
 
 
 
-def plt_lev_time(datasets, variable_name, latitude, longitude = None, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None):
+def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level = True, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False):
     """
     Generates a Level vs Time contour plot for a specified latitude and/or longitude.
 
@@ -574,16 +635,20 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, variable_u
         variable_name (str): The name of the variable with latitude, longitude, time, and ilev dimensions.
         latitude (float): The specific latitude value for the plot.
         longitude (float, optional): The specific longitude value for the plot.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         variable_unit (str, optional): The desired unit of the variable.
-        contour_intervals (int, optional): The number of contour intervals. Defaults to 10.
+        contour_intervals (int, optional): The number of contour intervals. Defaults to 10. Ignored if contour_value is provided.
         contour_value (int, optional): The value between each contour interval.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
         cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        cmap_lim_min (float, optional): Minimum limit for the color map. Defaults to the minimum value of the variable.
+        cmap_lim_max (float, optional): Maximum limit for the color map. Defaults to the maximum value of the variable.
         line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
         level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         mtime_minimum (float, optional): Minimum time value for the plot. Defaults to None.
         mtime_maximum (float, optional): Maximum time value for the plot. Defaults to None.
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -592,7 +657,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, variable_u
     if contour_intervals == None:
         contour_intervals = 20
     #print(datasets)
-    variable_values_all, levs_ilevs, mtime_values, longitude, variable_unit, variable_long_name = arr_lev_time(datasets, variable_name, latitude, longitude, variable_unit, plot_mode = True)
+    variable_values_all, levs_ilevs, mtime_values, longitude, variable_unit, variable_long_name, model = arr_lev_time(datasets, variable_name, latitude, longitude, variable_unit, plot_mode = True)
     
     if level_minimum == None:
         level_minimum = np.nanmin(levs_ilevs)
@@ -624,6 +689,15 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, variable_u
         variable_values_all = variable_values_all[:, num_deleted_before:-num_deleted_after]
 
     min_val, max_val = np.nanmin(variable_values_all), np.nanmax(variable_values_all)
+
+    if cmap_lim_min == None:
+        cmap_lim_min = min_val
+    else:
+        min_val = cmap_lim_min
+    if cmap_lim_max == None:
+        cmap_lim_max = max_val
+    else:
+        max_val = cmap_lim_max
 
     if cmap_color == None:
         cmap_color, line_color = color_scheme(variable_name)
@@ -657,7 +731,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, variable_u
 
     plot=plt.figure(figsize=(20, 12))
     X, Y = np.meshgrid(range(len(mtime_values)), levs_ilevs)
-    contour_filled = plt.contourf(X, Y, variable_values_all, cmap=cmap_color, levels=contour_levels)
+    contour_filled = plt.contourf(X, Y, variable_values_all, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(X, Y, variable_values_all, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
@@ -670,32 +744,31 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, variable_u
         plt.xticks(time_indices, unique_times, rotation=45)
         plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=28)
     plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
-    
-    plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
-    
+        
     plt.tight_layout()
     plt.xticks(fontsize=18)  
     plt.yticks(fontsize=18) 
     plt.ylim(level_minimum,level_maximum)
 
-
-    # Add subtext to the plot
-    if longitude == 'mean' and latitude == 'mean':
-        plt.text(0.5, 1.08,'  LAT= Mean LON= Mean', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    elif longitude == 'mean':
-        plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    elif latitude == 'mean':
-        plt.text(0.5, 1.08,'  LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    else:
-        plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-    plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+    if clean_plot == False:
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        # Add subtext to the plot
+        if longitude == 'mean' and latitude == 'mean':
+            plt.text(0.5, 1.08,'  LAT= Mean LON= Mean', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        elif longitude == 'mean':
+            plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        elif latitude == 'mean':
+            plt.text(0.5, 1.08,'  LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        else:
+            plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
     plt.close(plot)
     return(plot)
 
 
 
-def plt_lat_time(datasets, variable_name, level = None, longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None):
+def plt_lat_time(datasets, variable_name, level = None, longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False):
     """
     Generates a Latitude vs Time contour plot for a specified level and/or longitude.
 
@@ -705,16 +778,19 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
         level (float): The specific level value for the plot.
         longitude (float, optional): The specific longitude value for the plot.
         variable_unit (str, optional): The desired unit of the variable.
-        contour_intervals (int, optional): The number of contour intervals. Defaults to 10.
+        contour_intervals (int, optional): The number of contour intervals. Defaults to 10. Ignored if contour_value is provided.
         contour_value (int, optional): The value between each contour interval.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
         cmap_color (str, optional): The color map of the contour. Defaults to 'viridis' for Density, 'inferno' for Temp, 'bwr' for Wind, 'viridis' for undefined.
+        cmap_lim_min (float, optional): Minimum limit for the color map. Defaults to the minimum value of the variable.
+        cmap_lim_max (float, optional): Maximum limit for the color map. Defaults to the maximum value of the variable.
         line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
         latitude_minimum (float, optional): Minimum latitude value for the plot. Defaults to -87.5.
         latitude_maximum (float, optional): Maximum latitude value for the plot. Defaults to 87.5.
         mtime_minimum (float, optional): Minimum time value for the plot. Defaults to None.
         mtime_maximum (float, optional): Maximum time value for the plot. Defaults to None.
-
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+    
     Returns:
         matplotlib.figure.Figure: Contour plot.
     """
@@ -731,7 +807,7 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
     else:
         variable_values_all, unique_lats, mtime_values, longitude, variable_unit, variable_long_name, filename = lat_time(datasets, variable_name, longitude, variable_unit)
     '''
-    variable_values_all, unique_lats, mtime_values, longitude, variable_unit, variable_long_name, filename = arr_lat_time(datasets, variable_name, longitude, level, variable_unit, plot_mode = True)
+    variable_values_all, unique_lats, mtime_values, longitude, variable_unit, variable_long_name, model, filename = arr_lat_time(datasets, variable_name, longitude, level, variable_unit, plot_mode = True)
     # Assuming the levels are consistent across datasets, but using the minimum size for safety
     if latitude_minimum == None:
         latitude_minimum = np.nanmin(unique_lats)
@@ -758,6 +834,15 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
         variable_values_all = variable_values_all[:, num_deleted_before:-num_deleted_after]
     min_val, max_val = np.nanmin(variable_values_all), np.nanmax(variable_values_all)
     
+    if cmap_lim_min == None:
+        cmap_lim_min = min_val
+    else:
+        min_val = cmap_lim_min
+    if cmap_lim_max == None:
+        cmap_lim_max = max_val
+    else:
+        max_val = cmap_lim_max
+
     if cmap_color == None:
         cmap_color, line_color = color_scheme(variable_name)
 
@@ -790,7 +875,7 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
 
     plot = plt.figure(figsize=(20, 12))
     X, Y = np.meshgrid(range(len(mtime_values)), unique_lats)
-    contour_filled = plt.contourf(X, Y, variable_values_all, cmap=cmap_color, levels=contour_levels)
+    contour_filled = plt.contourf(X, Y, variable_values_all, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(X, Y, variable_values_all, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]")
@@ -804,24 +889,24 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
         plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=28)
     
     plt.ylabel('Latitude (Deg)',fontsize=28)
-    
-    plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
-    
+        
     plt.tight_layout()
     plt.xticks(fontsize=18)
     plt.yticks(fontsize=18)
     plt.ylim(latitude_minimum, latitude_maximum)
 
-    # Add subtext to the plot
-    if level == 'mean' and longitude == 'mean':
-        plt.text(0.5, 1.08, '  ZP= Mean LON= Mean', ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-    elif longitude == 'mean':
-        plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON= Mean", ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-    elif level == 'mean':
-        plt.text(0.5, 1.08, '  ZP= Mean' + " LON=" + str(longitude), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-    else:
-        plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON=" + str(longitude), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.5, -0.2, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-    plt.text(0.5, -0.25, "Contour Interval = " + str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+    if clean_plot == False:
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        # Add subtext to the plot
+        if level == 'mean' and longitude == 'mean':
+            plt.text(0.5, 1.08, '  ZP= Mean LON= Mean', ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+        elif longitude == 'mean':
+            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON= Mean", ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+        elif level == 'mean':
+            plt.text(0.5, 1.08, '  ZP= Mean' + " LON=" + str(longitude), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+        else:
+            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON=" + str(longitude), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.2, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.25, "Contour Interval = " + str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
     plt.close(plot)
     return plot
