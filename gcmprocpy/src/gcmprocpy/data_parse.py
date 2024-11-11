@@ -21,7 +21,7 @@ def time_list(datasets):
     
     # Extract timestamps from each file
     timestamps = []
-    for ds, filename in datasets:
+    for ds, filename, model in datasets:
         file = str(filename)
         for timestamp in ds['time'].values:
             timestamps.append(timestamp)
@@ -40,7 +40,7 @@ def var_list(datasets):
     
     unique_variables = set()
 
-    for ds, filename in datasets:
+    for ds, filename, model in datasets:
         # Convert the current dataset's variables to a set
         current_variables = set(ds.data_vars)
         # Union the current variables with the existing unique variables
@@ -48,12 +48,31 @@ def var_list(datasets):
     variables = sorted(unique_variables)
     return variables
 
-def level_list(datasets):
+def level_log_transform(array, model, log_level):
+    """
+    Applies a logarithmic or exponential transformation to the input array based on the model type and log_level flag.
+
+    Args:
+        array (numpy.ndarray): The input array to be transformed.
+        model (str): The model type, either 'WACCM-X' or 'TIE-GCM'.
+        log_level (bool): A flag indicating whether to apply a logarithmic transformation (True) or an exponential transformation (False).
+
+    Returns:
+        numpy.ndarray: The transformed array.
+    """
+    if model == 'WACCM-X' and log_level:
+        array = np.log(array)
+    elif model == 'TIE-GCM' and not log_level:
+        array = np.exp(array)
+    return array
+
+def level_list(datasets, log_level=True):
     """
     Reads all the datasets and returns the unique lev and ilev entries in sorted order.
     
     Args:
         datasets (list of tuples): A list of tuples, where each tuple contains an xarray dataset and its filename.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
 
     Returns:
         lev_ilevs (list): A sorted list of unique lev and ilev entries from the datasets.
@@ -61,15 +80,16 @@ def level_list(datasets):
     
     unique_levels = set()
 
-    for ds, filename in datasets:
-        # Get lev and ilev values and add them to the set
+    for ds, filename, model in datasets:
+        model = model
         levs = ds.lev.values
         ilevs = ds.ilev.values
         unique_levels.update(levs)
         unique_levels.update(ilevs)
+    
+    unique_levels_array = np.array(list(unique_levels))
+    lev_ilevs = sorted(level_log_transform(unique_levels_array, model, log_level))
 
-    # Convert the set to a sorted list
-    lev_ilevs = sorted(unique_levels)
     return lev_ilevs
 
 def lon_list(datasets):
@@ -85,7 +105,7 @@ def lon_list(datasets):
     
     unique_lons = set()
 
-    for ds, filename in datasets:
+    for ds, filename, model in datasets:
         # Get longitude values and add them to the set
         lons = ds.lon.values
         unique_lons.update(lons)
@@ -107,7 +127,7 @@ def lat_list(datasets):
     
     unique_lats = set()
 
-    for ds, filename in datasets:
+    for ds, filename, model in datasets:
         # Get latitude values and add them to the set
         lats = ds.lat.values
         unique_lats.update(lats)
@@ -129,7 +149,7 @@ def dim_list(datasets):
     
     unique_dims = set()
 
-    for ds, _ in datasets:
+    for ds, _, _ in datasets:
         unique_dims.update(ds.dims)
 
     # Convert the set to a sorted list
@@ -150,7 +170,7 @@ def var_info(datasets, variable_name):
     
     variable_details = {}
 
-    for ds, filename in datasets:
+    for ds, filename, model in datasets:
         if variable_name in ds:
             # Get attributes and dimension information
             attrs = ds[variable_name].attrs
@@ -179,7 +199,7 @@ def dim_info(datasets, dimension):
     
     dimension_info = {}
 
-    for ds, filename in datasets:
+    for ds, filename, model in datasets:
         if dimension in ds.dims:
             # Gather dimension details
             dim_details = {
@@ -197,7 +217,7 @@ def dim_info(datasets, dimension):
     
     return dimension_info
 
-def arr_var(datasets, variable_name, time, selected_unit=None, plot_mode=False):
+def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, plot_mode=False):
     """
     Extracts and processes data for a given variable at a specific time from multiple datasets. 
     It also handles unit conversion and provides additional information if needed for plotting.
@@ -208,6 +228,7 @@ def arr_var(datasets, variable_name, time, selected_unit=None, plot_mode=False):
         variable_name (str): The name of the variable to be extracted.
         time (Union[np.datetime64, str]): The specific time for which data is to be extracted.
         selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         plot_mode (bool, optional): If True, the function returns additional data useful for plotting.
 
     Returns:
@@ -220,7 +241,7 @@ def arr_var(datasets, variable_name, time, selected_unit=None, plot_mode=False):
             numpy.ndarray: Model time array corresponding to the specified time.
             str: The name of the dataset file from which data is extracted.
     """
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if time in ds['time'].values:
             # Extract variable attributes
             variable_unit = ds[variable_name].attrs.get('units', 'N/A')
@@ -242,8 +263,10 @@ def arr_var(datasets, variable_name, time, selected_unit=None, plot_mode=False):
             except:
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
 
+            levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
+
             if plot_mode:
-                return (variable_values, levs_ilevs, variable_unit, variable_long_name, selected_mtime, filename)
+                return (variable_values, levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename)
             else:
                 return variable_values
     print(f"{time} not found.")
@@ -277,7 +300,7 @@ def check_var_dims(ds, variable_name):
     else:
         return 'Variable not found in dataset'
 
-def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= None, plot_mode = False):
+def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= None, log_level=True, plot_mode = False):
     """
     Extracts and processes data from the dataset based on a specific variable, time, and latitude.
 
@@ -287,6 +310,7 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
         time (Union[str, numpy.datetime64]): Timestamp to filter the data.
         selected_lat (float): Latitude value to filter the data.
         selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         plot_mode (bool, optional): If True, returns additional information for plotting.
 
     Returns:
@@ -307,7 +331,7 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
         time = np.datetime64(time, 'ns')
 
     # Iterate over datasets to find the matching time and extract relevant data
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if time in ds['time'].values:
             # Extracting variable attributes and time information
             variable_unit = ds[variable_name].attrs.get('units', 'N/A')
@@ -339,9 +363,11 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
             except:
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
 
+            levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
+
             # Conditional return based on plot_mode
             if plot_mode == True:    
-                return variable_values, lons, levs_ilevs, selected_lat, variable_unit, variable_long_name, selected_mtime, filename
+                return variable_values, lons, levs_ilevs, selected_lat, variable_unit, variable_long_name, selected_mtime, model, filename
             else:
                 return variable_values
 
@@ -382,7 +408,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     first_pass = True
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if first_pass == True:
             lev_ilev = check_var_dims(ds, variable_name)
         if lev_ilev == 'lev':
@@ -460,7 +486,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             if selected_unit != None:
                                 variable_values , variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
                 if plot_mode == True:    
-                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, filename
+                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, model, filename
                 else:
                     return variable_values
 
@@ -540,7 +566,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                                 variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
                             
                 if plot_mode == True:    
-                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, filename
+                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, model, filename
                 else:
                     return variable_values
 
@@ -567,14 +593,14 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 
                 
                 if plot_mode == True:    
-                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, filename
+                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, model, filename
                 else:
                     return variable_values
 
 
 
     
-def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selected_unit= None, plot_mode = False):
+def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selected_unit= None, log_level=True, plot_mode = False):
     """
     Extracts data from the dataset for a given variable name, latitude, longitude, and time.
 
@@ -585,6 +611,7 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
         selected_lat (float): Latitude value.
         selected_lon (float): Longitude value.
         selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         plot_mode (bool, optional): If True, returns additional information for plotting.
 
     Returns:
@@ -601,7 +628,7 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
 
     
     
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if time in ds['time'].values:
 
             if selected_lon == "mean" and selected_lat == "mean":
@@ -630,8 +657,11 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
                 levs_ilevs = ds['lev'].values[valid_indices]
             except:
                 levs_ilevs = ds['ilev'].values[valid_indices]
+            
+            levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
+            
             if plot_mode == True:
-                return variable_values , levs_ilevs, variable_unit, variable_long_name, selected_mtime, filename
+                return variable_values , levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename
             else:
                 return variable_values 
     print(f"{time} not found.")
@@ -640,7 +670,7 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
 
 
 
-def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None, plot_mode = False):
+def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None, log_level=True, plot_mode = False):
     """
     Extracts data from a dataset based on the specified variable name, timestamp, and longitude.
 
@@ -650,6 +680,7 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
         time (Union[str, numpy.datetime64]): Timestamp to filter the data.
         selected_lon (Union[float, str]): Longitude to filter the data, or 'mean' for averaging over all longitudes.
         selected_unit (str, optional): Desired unit to convert the data to. If None, uses the original unit.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         plot_mode (bool, optional): If True, returns additional information for plotting.
 
     Returns:
@@ -667,7 +698,7 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
 
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if time in ds['time'].values:
             # Extract variable attributes
             variable_unit = ds[variable_name].attrs.get('units', 'N/A')
@@ -693,8 +724,11 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
                 levs_ilevs = data.lev.values[not_all_nan_indices]
             except AttributeError:
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
+            
+            lev_ilevs = level_log_transform(levs_ilevs, model, log_level)
+
             if plot_mode == True:
-                return variable_values, lats, levs_ilevs, selected_lon, variable_unit, variable_long_name, selected_mtime,filename
+                return variable_values, lats, levs_ilevs, selected_lon, variable_unit, variable_long_name, selected_mtime, model, filename
             else:
                 return variable_values
     print(f"{time} not found.")
@@ -702,7 +736,7 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
 
 
 
-def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_unit = None, plot_mode = False):
+def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_unit = None, log_level = True, plot_mode = False):
     """
     This function extracts and processes data from multiple datasets based on specified parameters. It focuses on extracting 
     data across different levels and times for a given latitude and longitude.
@@ -713,6 +747,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
         selected_lat (Union[float, str]): The latitude value or 'mean' to average over all latitudes.
         selected_lon (Union[float, str]): The longitude value or 'mean' to average over all longitudes.
         selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        log_level (bool): A flag indicating whether to display level in log values. Default is True.
         plot_mode (bool, optional): If True, the function returns additional data useful for plotting.
 
     Returns:
@@ -737,7 +772,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
     combined_mtime = []
     levs_ilevs_all = []
     avg_info_print = 0
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         variable_unit = ds[variable_name].attrs.get('units', 'N/A')
         if variable_unit == 'cm/s' and selected_unit == None:
             selected_unit = 'm/s'
@@ -794,7 +829,8 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
             levs_ilevs = data.lev.values
         except:
             levs_ilevs = data.ilev.values
-    
+
+
         # Adjusting levs_ilevs to match the shape of variable_values
         levs_ilevs = levs_ilevs[:variable_values.shape[0]]
 
@@ -816,8 +852,9 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
     min_lev_size = min([len(lev) for lev in levs_ilevs_all])
     levs_ilevs = levs_ilevs_all[0][:min_lev_size][mask[:min_lev_size]]
 
+    levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
     if plot_mode == True:
-        return variable_values_all, levs_ilevs, mtime_values, selected_lon, variable_unit, variable_long_name
+        return variable_values_all, levs_ilevs, mtime_values, selected_lon, variable_unit, variable_long_name, model
     else:
         return variable_values_all
 
@@ -856,7 +893,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
     lats_all = []
     avg_info_print = 0
 
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if first_pass == True:
             lev_ilev = check_var_dims(ds, variable_name)
         if lev_ilev == 'lev':
@@ -1047,7 +1084,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
         
     mtime_values = combined_mtime
     if plot_mode == True:    
-        return variable_values_all, lats, mtime_values, selected_lon, variable_unit, variable_long_name, filename
+        return variable_values_all, lats, mtime_values, selected_lon, variable_unit, variable_long_name, model, filename
     else:
         return variable_values_all
 
@@ -1069,7 +1106,7 @@ def calc_avg_ht(datasets, time, selected_lev_ilev):
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     #TIEGCM geoportial height variable is 'ZG'
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if 'ZG' in ds.variables:
             if time in ds['time'].values:
                 if selected_lev_ilev in ds['ilev'].values:
@@ -1134,7 +1171,7 @@ def get_time(datasets, mtime):
         np.datetime64: The corresponding datetime value in the dataset for the given mtime. Returns None if no match is found.
     """
 
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         # Convert mtime to numpy array for comparison
         mtime_array = np.array(mtime)
         

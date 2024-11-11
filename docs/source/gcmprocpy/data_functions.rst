@@ -198,6 +198,13 @@ This function extracts and processes data from the dataset based on the specifie
 Data manipulation
 ---------------------------------------------------------------------------------------------------------------------
 
+Level log transformation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function performs a log transformation on the pressure level array.
+
+.. autofunction:: level_log_transform
+   :noindex:
+   
 mTime to Time 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function searches for a specific time in a dataset based on the provided model time (mtime) and returns the corresponding         np.datetime64 time value. It iterates through multiple datasets to find a match.
