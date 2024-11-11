@@ -126,7 +126,7 @@ def arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = None, selecte
     TIEGCM = False
     WACCMX = False
 
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if 'TN' in ds.variables:
             TIEGCM = True
             break
@@ -142,13 +142,13 @@ def arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = None, selecte
         temp_name = 'T'
         o_name = 'O'
         no_name = 'NO'
-    arr_temp, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, temp_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    arr_o, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, o_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    arr_no, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, no_name, time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_temp, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, temp_name, time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_o, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, o_name, time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_no, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, no_name, time, selected_lev_ilev, selected_unit, plot_mode)
     NO_emission = mkeno53(arr_temp, arr_o, arr_no)
 
     if plot_mode == True:
-        return NO_emission, level,  unique_lats, unique_lons, "photons cm-3 sec-1", "5.3-micron NO", selected_mtime, filename
+        return NO_emission, level,  unique_lats, unique_lons, "photons cm-3 sec-1", "5.3-micron NO", selected_mtime, model, filename
     else:
         return NO_emission
 
@@ -184,7 +184,7 @@ def arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = None, select
     TIEGCM = False
     WACCMX = False
 
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if 'TN' in ds.variables:
             TIEGCM = True
             break
@@ -201,13 +201,13 @@ def arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = None, select
         o_name = 'O'
         co2_name = 'CO2'
     
-    arr_temp, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, temp_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    arr_o, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, o_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    arr_co2, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, co2_name, time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_temp, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, temp_name, time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_o, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, o_name, time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_co2, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, co2_name, time, selected_lev_ilev, selected_unit, plot_mode)
     CO2_emission = mkeco215(arr_temp, arr_o, arr_co2)
 
     if plot_mode == True:
-        return CO2_emission, level,  unique_lats, unique_lons, "photons cm-3 sec-1", "15-micron CO2", selected_mtime, filename
+        return CO2_emission, level,  unique_lats, unique_lons, "photons cm-3 sec-1", "15-micron CO2", selected_mtime, model, filename
     else:
         return CO2_emission
 
@@ -244,7 +244,7 @@ def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selecte
     TIEGCM = False
     WACCMX = False
 
-    for ds, filenames in datasets:
+    for ds, filenames, model in datasets:
         if 'TN' in ds.variables:
             TIEGCM = True
             break
@@ -263,13 +263,13 @@ def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selecte
         o2_name = 'O2'
         n2_name = 'N2'
     
-    arr_temp, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, 'TN', time, selected_lev_ilev, selected_unit, plot_mode)
-    arr_o, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, 'O1', time, selected_lev_ilev, selected_unit, plot_mode)
-    arr_o2, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, 'O2', time, selected_lev_ilev, selected_unit, plot_mode)
-    arr_n2, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename = arr_lat_lon(datasets, 'N2', time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_temp, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, 'TN', time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_o, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, 'O1', time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_o2, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, 'O2', time, selected_lev_ilev, selected_unit, plot_mode)
+    arr_n2, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lat_lon(datasets, 'N2', time, selected_lev_ilev, selected_unit, plot_mode)
     OH_emission = mkeoh83(arr_temp, arr_o, arr_o2, arr_n2)
 
     if plot_mode == True:
-        return OH_emission, level,  unique_lats, unique_lons, "photons cm-3 sec-1", "OH v(8,3)", selected_mtime, filename
+        return OH_emission, level,  unique_lats, unique_lons, "photons cm-3 sec-1", "OH v(8,3)", selected_mtime, model, filename
     else:
         return OH_emission
