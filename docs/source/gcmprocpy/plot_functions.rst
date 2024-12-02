@@ -36,18 +36,18 @@ gcmprocpy can be used in two modes in Jupyter notebooks: Regular plotting and In
 For regular plotting in Jupyter notebooks, use the following code snippet in an executable cell:
 
 .. code-block:: python
-   %matplotlib inline
+    %matplotlib inline
 
-.. note
-   Use `%config InlineBackend.figure_format = 'retina'` for high quality plots.
+.. note::
+    Use ``%config InlineBackend.figure_format = 'retina'`` for high quality plots.
 
 For interactive plotting in Jupyter notebooks, use the following code snippet in an executable cell:
 
 .. code-block:: python
-   %matplotlib widget
+    %matplotlib widget
 
 .. warning::
-   The interactive plotting mode doesnt work in Jupyter notebooks on NCAR JupyterHub.
+    The interactive plotting mode doesn't work in Jupyter notebooks on NCAR JupyterHub.
 
 Latitude vs Longitude Contour Plots
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
