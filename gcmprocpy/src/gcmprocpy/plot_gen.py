@@ -1,4 +1,3 @@
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, calc_avg_ht, min_max, get_time
@@ -6,10 +5,34 @@ from .data_emissions import arr_mkeno53, arr_mkeco215, arr_mkeoh83
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.feature.nightshade import Nightshade
+from cartopy.util import add_cyclic_point
 from datetime import datetime, timezone
 import matplotlib.ticker as mticker
+from matplotlib import get_backend
 import math
 import geomag
+import ipympl
+from cartopy.mpl.ticker import LongitudeFormatter, LatitudeFormatter
+import mplcursors
+
+def is_notebook():
+    """
+    Detects if the code is running inside a Jupyter Notebook.
+
+    Returns:
+        bool: True if running in a Jupyter Notebook, False otherwise.
+    """
+    try:
+        shell = get_ipython().__class__.__name__
+        if shell == 'ZMQInteractiveShell':
+            return True   # Jupyter notebook or qtconsole
+        elif shell == 'TerminalInteractiveShell':
+            return False  # Terminal running IPython
+        else:
+            return False  # Other type (?)
+    except NameError:
+        return False      # Probably standard Python interpreter
+
 
 def longitude_to_local_time(longitude):
     """
@@ -97,7 +120,7 @@ def color_scheme(variable_name):
 
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, center_longitude = 0, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False, verbose = False ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -109,6 +132,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         level (float, optional): The selected lev/ilev value.
         variable_unit (str, optional): The desired unit of the variable.
+        center_longitude (float, optional): The central longitude for the plot. Defaults to 0.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 20. Ignored if contour_value is provided.
         contour_value (int, optional): The value between each contour interval.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
@@ -134,7 +158,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         time = get_time(datasets, mtime)
     if contour_intervals == None:
         contour_intervals = 20
-    print("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---------------")
+    if verbose:
+        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---------------")
     # Generate 2D arrays, extract variable_unit
     '''
     if level != None:
@@ -165,6 +190,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     unique_lons = unique_lons[sorted_indices]
     variable_values = variable_values[:, sorted_indices]
 
+    # Adjust cyclic point handling for central_longitude=180
+    variable_values, unique_lons = add_cyclic_point(variable_values, coord=unique_lons, axis=1)
+
     if level != 'mean' and level != None:
             avg_ht=calc_avg_ht(datasets, time,level)
     if latitude_minimum == None:
@@ -172,10 +200,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     if latitude_maximum == None:
         latitude_maximum = np.nanmax(unique_lats)
     if longitude_minimum == None:
-        longitude_minimum = np.nanmin(unique_lons)
+        longitude_minimum = -180
     if longitude_maximum == None:   
-        longitude_maximum = np.nanmax(unique_lons)
-
+        longitude_maximum = 180
     min_val, max_val = min_max(variable_values)
     selected_day=selected_mtime[0]
     selected_hour=selected_mtime[1]
@@ -206,27 +233,30 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
         negative_levels = -np.flip(positive_levels)  # Generate negative levels symmetrically
         contour_levels = np.concatenate((negative_levels, [0], positive_levels))
-    if -180 in unique_lons:
-        lon_idx = np.where(unique_lons == -180)[0][-1]  # Get the index of the last occurrence of -180
-        unique_lons = np.append(unique_lons, 180)
-        variable_values = np.insert(variable_values, -1, variable_values[:, lon_idx], axis=1)
+
 
     # Generate contour plot
     
     interval_value = contour_value if contour_value else (max_val - min_val) / (contour_intervals - 1)
 
+    # Clean plot
+    if clean_plot == False:
+        figure_height = 6 
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
     # Generate contour plot
-    plot = plt.figure(figsize=(20, 9))
+    plot = plt.figure(figsize=(figure_width, figure_height))
 
-    if coastlines == True or nightshade == True or gm_equator ==True:
-        subtitle_ht= 100
-        ax = plt.axes(projection=ccrs.PlateCarree())
-    else:
-        subtitle_ht= 115
-        ax = plt.gca()
+    subtitle_ht= 100
+    ax = plt.axes(projection=ccrs.PlateCarree(central_longitude=center_longitude))
+
+    
+
     # Check if add_coastlines parameter is True
     if coastlines:
-        ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=3)
+        ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=1.5)
     if nightshade:
         ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O')/1e9, tz=timezone.utc), alpha=0.4))
     if gm_equator:
@@ -240,54 +270,93 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     
     contour_filled = plt.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lons, unique_lats, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
-    plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]",fraction=0.046, pad=0.04)
-    cbar.set_label(variable_name + " [" + variable_unit + "]", size=28, labelpad=15)
-    cbar.ax.tick_params(labelsize=18)
+    cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
     
+
+    plt.xlabel('Longitude (Deg)', fontsize=14)
+    #ax.set_xticks(np.arange(-180, 181, 30), crs=ccrs.PlateCarree())
+    plt.xticks([-180,-150,-120,-90,-60,-30,0,30,60,90,120,150,180],fontsize=9)
+    ax.xaxis.set_major_formatter(LongitudeFormatter())
+    plt.xticks(fontsize=9)
     
-    plt.xlabel('Longitude (Deg)', fontsize=28)
-    plt.xticks([value for value in unique_lons if value % 30 == 0],fontsize=18)
-    plt.ylabel('Latitude (Deg)', fontsize=28)
-    plt.yticks(range(-90, 91, 30),fontsize=18)
+    plt.ylabel('Latitude (Deg)', fontsize=14)
+    ax.set_yticks(np.arange(-90, 91, 30), crs=ccrs.PlateCarree())
+    ax.yaxis.set_major_formatter(LatitudeFormatter())
+    plt.yticks(fontsize=9)
+    
     plt.xlim(longitude_minimum,longitude_maximum)
     plt.ylim(latitude_minimum,latitude_maximum)
 
     plt.tight_layout()
-    
-    if coastlines == False and nightshade == False and gm_equator == False:
-        # Add Local Time secondary x-axis
-        ax2 = ax.twiny()
-        ax2.set_xlim(ax.get_xlim())
-        ax2_xticks = ax.get_xticks()
-        ax2.set_xticks(ax2_xticks)
-        ax2.set_xticklabels([str(int(longitude_to_local_time(longitude) % 24)) for longitude in ax2_xticks],fontsize=18)
-        ax2.set_xlabel('Local Time (Hrs)', labelpad=15, fontsize=28)
+
+
 
     if clean_plot == False:
         # Add plot title
-        plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ') ' + '\n\n', fontsize=36)
+        plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ') ' + '\n\n', fontsize=18)
         # Add plot subtitle
         if level == 'mean':
-            plt.text(0, subtitle_ht, 'ZP=' + str(level), ha='center', va='center', fontsize=28)
+            plt.text(0, subtitle_ht, 'ZP=' + str(level), ha='center', va='center', fontsize=14)
         elif level != None:
-            plt.text(0, subtitle_ht, 'ZP=' + str(level)+' AVG HT=' + str(avg_ht) + 'KM', ha='center', va='center', fontsize=28)
+            plt.text(0, subtitle_ht, 'ZP=' + str(level)+' AVG HT=' + str(avg_ht) + 'KM', ha='center', va='center', fontsize=14)
         else:
-            plt.text(0, subtitle_ht, '', ha='center', va='center', fontsize=28)
+            plt.text(0, subtitle_ht, '', ha='center', va='center', fontsize=14)
         
 
         # Add subtext to the plot
-        plt.text(-90, -115, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28)
-        plt.text(90, -115, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28)
-        plt.text(-90, -125, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28)
-        plt.text(90, -125, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28)
-        plt.text(0, -135, str(filename), ha='center', va='center',fontsize=28)
-    plt.close(plot)
-    return(plot)
+        plt.text(-90, -115, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14)
+        plt.text(90, -115, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=14)
+        plt.text(-90, -125, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=14)
+        plt.text(90, -125, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=14)
+        plt.text(0, -135, str(filename), ha='center', va='center',fontsize=14)
+    
+    
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            # Integrate mplcursors by attaching to each PolyCollection
+            cursor = mplcursors.cursor(contour_filled.collections, hover=True)
+            @cursor.connect("add")
+
+
+            def on_add(sel):
+                # sel.target gives the coordinates where the cursor is
+                x, y = sel.target
+                # Find the nearest longitude index
+                if (x + center_longitude) > 180:
+                    adjusted_lon =  - (360 -x -center_longitude)
+                elif (x + center_longitude) < -180:
+                    adjusted_lon = x + 360 + center_longitude #180 + (x + center_longitude) 
+                else:
+                    adjusted_lon = x + center_longitude
+                
+                lon_idx = (np.abs(unique_lons - adjusted_lon)).argmin() 
+                
+                # Find the nearest latitude index
+                lat_idx = (np.abs(unique_lats - y)).argmin()
+                
+                # Retrieve the corresponding value
+                value = variable_values[lat_idx, lon_idx]
+                
+                # Set annotation text
+                sel.annotation.set(
+                    text=f"Lon: {unique_lons[lon_idx]:.2f}°\nLat: {unique_lats[lat_idx]:.2f}°\n{variable_name}: {value:.2e} {variable_unit}"
+                )
+                
+                # Customize annotation appearance
+                sel.annotation.get_bbox_patch().set(alpha=0.9)
+            plt.show(block=False) 
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
 
 
 
-def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, log_level=True, variable_unit = None, level_minimum = None, level_maximum = None, clean_plot = False):
+def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, log_level=True, variable_unit = None, level_minimum = None, level_maximum = None, clean_plot = False, verbose = False):
     """
     Generates a Level vs Variable line plot for a given latitude.
 
@@ -311,7 +380,8 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     # Printing Execution data
     if time == None:
         time = get_time(datasets, mtime)
-    print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
+    if verbose:
+        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
 
@@ -328,13 +398,20 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     selected_min=selected_mtime[2]
     selected_sec=selected_mtime[3]
     
-    # Plotting
-    plot = plt.figure(figsize=(22, 12))
+    # Clean plot
+    if clean_plot == False:
+        figure_height = 6 
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
+    # Generate contour plot
+    plot = plt.figure(figsize=(figure_width, figure_height))
     plt.plot(variable_values, levs_ilevs)
-    plt.xlabel(variable_long_name, fontsize=28, labelpad=15)
-    plt.ylabel('LN(P0/P) (INTERFACES)', fontsize=28)
-    plt.xticks(fontsize=18)  
-    plt.yticks(fontsize=18) 
+    plt.xlabel(variable_long_name, fontsize=14, labelpad=15)
+    plt.ylabel('LN(P0/P) (INTERFACES)', fontsize=14)
+    plt.xticks(fontsize=9)  
+    plt.yticks(fontsize=9) 
 
     plt.ylim(level_minimum, level_maximum)
 
@@ -342,25 +419,48 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         plt.gca().invert_yaxis()
     
     if clean_plot == False:
-        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         if longitude == 'mean' and latitude == 'mean':
-            plt.text(0.5, 1.08,"LAT= Mean LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,"LAT= Mean LON= Mean", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         elif longitude == 'mean':
-            plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         elif latitude == 'mean':
-            plt.text(0.5, 1.08,'LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         else:
-            plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         
-        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-        plt.text(0.5, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-        plt.text(0.5, -0.3, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.5, -0.35, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.close(plot)
-    return(plot)
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
+        plt.text(0.5, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
+        plt.text(0.5, -0.3, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.35, str(filename), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+
+    if is_notebook():
+        backend = get_backend()
+        print(backend)
+        if "inline" in backend or "nbagg" in backend:
+            # Integrate mplcursors by attaching to each PolyCollection
+            cursor = mplcursors.cursor(plot, hover=True)
+            @cursor.connect("add")
+            def on_add(sel):
+                # Get the x (variable value) and y (level) from the cursor's target
+                x, y = sel.target
+                
+                # Set annotation text to show level and variable value
+                sel.annotation.set(
+                    text=f"Level: {y:.2f} ln(P0/P)\n{variable_name}: {x:.2e} {variable_unit}")
+                
+                # Customize the appearance of the annotation box
+                sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+            plt.show(block=False) 
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
 
 
-def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False):
+
+def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False, verbose = False):
     """
     Generates a Level vs Longitude contour plot for a given latitude.
 
@@ -394,7 +494,8 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         time = get_time(datasets, mtime)
     if contour_intervals == None:
         contour_intervals = 20    
-    print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---------------")
+    if verbose:
+        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---------------")
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     # Generate 2D arrays, extract variable_unit
@@ -444,57 +545,90 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         unique_lons = np.append(unique_lons, 180)
         variable_values = np.insert(variable_values, -1, variable_values[:, lon_idx], axis=1)
 
-    # Generate contour plot   
-    plot=plt.figure(figsize=(24, 12))
+    # Clean plot
+    if clean_plot == False:
+        figure_height = 6 
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
+    # Generate contour plot
+    plot = plt.figure(figsize=(figure_width, figure_height))
     contour_filled = plt.contourf(unique_lons, unique_levs, variable_values, cmap= cmap_color, levels=contour_levels,vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lons, unique_levs, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
-    plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
-    cbar.set_label(variable_name+" ["+variable_unit+"]", size=28, labelpad=15)
-    cbar.ax.tick_params(labelsize=18)
+    cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
     if clean_plot == False:
-        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         if latitude == 'mean':
-            plt.text(0.5, 1.18,'ZONAL MEANS', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.10,'ZONAL MEANS', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         else:
-            plt.text(0.5, 1.18,'LAT='+str(latitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.10,'LAT='+str(latitude), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         
     if log_level == True:
-        plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
+        plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
     else:
-        plt.ylabel('PRESSURE (HPA)',fontsize=28)
-    plt.xlabel('Longitude (Deg)',fontsize=28)
-    plt.xticks([value for value in unique_lons if value % 30 == 0],fontsize=18)  
-    plt.yticks(fontsize=18) 
+        plt.ylabel('PRESSURE (HPA)',fontsize=14)
+    plt.xlabel('Longitude (Deg)',fontsize=14)
+    plt.xticks([value for value in unique_lons if value % 30 == 0],fontsize=9)  
+    plt.yticks(fontsize=9) 
     plt.xlim(longitude_minimum,longitude_maximum)
     plt.ylim(level_minimum, level_maximum)
     
     if model == 'WACCM-X':
         plt.gca().invert_yaxis()
 
-    # Add Local Time secondary x-axis
-    ax = plt.gca()
-    ax2 = ax.twiny()
-    ax2.set_xlim(ax.get_xlim())
-    ax2_xticks = ax.get_xticks()
-    ax2.set_xticks(ax2_xticks)
-    ax2.set_xticklabels([str(int(longitude_to_local_time(longitude) % 24)) for longitude in ax2_xticks],fontsize=18)
-    ax2.set_xlabel('Local Time (Hrs)', labelpad=15, fontsize=28)
 
     if clean_plot == False:
         # Add subtext to the plot
-        plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.5, -0.3, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.3, str(filename), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
 
-    
-    #plot, ax = plt.subplots()
+    center_longitude = 0 
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            # Integrate mplcursors by attaching to each PolyCollection
+            cursor = mplcursors.cursor(contour_filled.collections, hover=True)
+            @cursor.connect("add")
 
-    
-    plt.close(plot)
-    return(plot)
+
+            def on_add(sel):
+                # sel.target gives the coordinates where the cursor is
+                x, y = sel.target
+                # Find the nearest longitude index
+                if (x + center_longitude) > 180:
+                    adjusted_lon =  - (360 -x -center_longitude)
+                elif (x + center_longitude) < -180:
+                    adjusted_lon = x + 360 + center_longitude #180 + (x + center_longitude) 
+                else:
+                    adjusted_lon = x + center_longitude
+                
+                lon_idx = (np.abs(unique_lons - adjusted_lon)).argmin() 
+                
+                # Find the nearest latitude index
+                level_idx = (np.abs(unique_levs - y)).argmin()
+                
+                # Retrieve the corresponding value
+                value = variable_values[level_idx, lon_idx]
+                
+                # Set annotation text
+                sel.annotation.set(
+                    text=f"Lon: {unique_lons[lon_idx]:.2f}°\nLev: {unique_levs[level_idx]:.2f}°\n{variable_name}: {value:.2e} {variable_unit}"
+                )
+                
+                # Customize annotation appearance
+                sel.annotation.get_bbox_patch().set(alpha=0.9)
+            plt.show(block=False) 
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
 
 
 def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, clean_plot = False):
@@ -581,28 +715,35 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     
     interval_value = contour_value if contour_value else (max_val - min_val) / (contour_intervals - 1)
     
+        # Clean plot
+    if clean_plot == False:
+        figure_height = 6 
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
     # Generate contour plot
-    plot=plt.figure(figsize=(24, 12))
+    plot = plt.figure(figsize=(figure_width, figure_height))
     contour_filled = plt.contourf(unique_lats, unique_levs, variable_values, cmap= cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lats, unique_levs, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
-    plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
-    cbar.set_label(variable_name+" ["+variable_unit+"]", size=28, labelpad=15)
-    cbar.ax.tick_params(labelsize=18)
+    cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
     if clean_plot == False:
-        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
     
         if longitude == 'mean':
-            plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         else:
-            plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
     if log_level == True:
-        plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
+        plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
     else:
-        plt.ylabel('PRESSURE (HPA)',fontsize=28)
-    plt.xlabel('Latitude (Deg)',fontsize=28)
-    plt.xticks(fontsize=18)  
-    plt.yticks(fontsize=18) 
+        plt.ylabel('PRESSURE (HPA)',fontsize=14)
+    plt.xlabel('Latitude (Deg)',fontsize=14)
+    plt.xticks(fontsize=9)  
+    plt.yticks(fontsize=9) 
     plt.xlim(latitude_minimum,latitude_maximum)
     plt.ylim(level_minimum,level_maximum)
     
@@ -610,18 +751,45 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         plt.gca().invert_yaxis()
     if clean_plot == False:
         # Add subtext to the plot
-        plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.50, -0.3, str(filename), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
+        plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.25, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.50, -0.3, str(filename), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
 
     
-    #plot, ax = plt.subplots()
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            # Integrate mplcursors by attaching to each PolyCollection
+            cursor = mplcursors.cursor(contour_filled.collections, hover=True)
+            @cursor.connect("add")
 
-    
-    plt.close(plot)
-    return(plot)
+
+            def on_add(sel):
+                # sel.target gives the coordinates where the cursor is
+                x, y = sel.target
+                
+                lat_idx = (np.abs(unique_lats - x)).argmin() 
+                
+                # Find the nearest latitude index
+                level_idx = (np.abs(unique_levs - y)).argmin()
+                
+                # Retrieve the corresponding value
+                value = variable_values[level_idx, lat_idx]
+                
+                # Set annotation text
+                sel.annotation.set(
+                    text=f"Lat: {unique_lats[lat_idx]:.2f}°\nLev: {unique_levs[level_idx]:.2f}°\n{variable_name}: {value:.2e} {variable_unit}"
+                )
+                
+                # Customize annotation appearance
+                sel.annotation.get_bbox_patch().set(alpha=0.9)
+            plt.show(block=False) 
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
 
 
 
@@ -729,42 +897,56 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
-    plot=plt.figure(figsize=(20, 12))
+        # Clean plot
+    if clean_plot == False:
+        figure_height = 6 
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
+    # Generate contour plot
+    plot = plt.figure(figsize=(figure_width, figure_height))
     X, Y = np.meshgrid(range(len(mtime_values)), levs_ilevs)
     contour_filled = plt.contourf(X, Y, variable_values_all, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(X, Y, variable_values_all, colors=line_color, linewidths=0.5, levels=contour_levels)
-    plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
-    cbar.set_label(variable_name+" ["+variable_unit+"]", size=28, labelpad=15)
-    cbar.ax.tick_params(labelsize=18)
+    cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
     try:
         plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
-        plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=28) 
+        plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14) 
     except:
         plt.xticks(time_indices, unique_times, rotation=45)
-        plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=28)
-    plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=28)
+        plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=14)
+    plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
         
     plt.tight_layout()
-    plt.xticks(fontsize=18)  
-    plt.yticks(fontsize=18) 
+    plt.xticks(fontsize=9)  
+    plt.yticks(fontsize=9) 
     plt.ylim(level_minimum,level_maximum)
 
     if clean_plot == False:
-        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         # Add subtext to the plot
         if longitude == 'mean' and latitude == 'mean':
-            plt.text(0.5, 1.08,'  LAT= Mean LON= Mean', ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'  LAT= Mean LON= Mean', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         elif longitude == 'mean':
-            plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON= Mean", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         elif latitude == 'mean':
-            plt.text(0.5, 1.08,'  LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
+            plt.text(0.5, 1.08,'  LAT= Mean'+" LON="+str(longitude), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         else:
-            plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes) 
-        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=28, transform=plt.gca().transAxes)
-    plt.close(plot)
-    return(plot)
+            plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            plt.show(block=False) 
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
 
 
 
@@ -873,40 +1055,54 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
         unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
-    plot = plt.figure(figsize=(20, 12))
+        # Clean plot
+    if clean_plot == False:
+        figure_height = 6 
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
+    # Generate contour plot
+    plot = plt.figure(figsize=(figure_width, figure_height))
     X, Y = np.meshgrid(range(len(mtime_values)), unique_lats)
     contour_filled = plt.contourf(X, Y, variable_values_all, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(X, Y, variable_values_all, colors=line_color, linewidths=0.5, levels=contour_levels)
-    plt.clabel(contour_lines, inline=True, fontsize=16, colors=line_color)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]")
-    cbar.set_label(variable_name + " [" + variable_unit + "]", size=28, labelpad=15)
-    cbar.ax.tick_params(labelsize=18)
+    cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
     try:
         plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
-        plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=28) 
+        plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14) 
     except:
         plt.xticks(time_indices, unique_times, rotation=45)
-        plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=28)
+        plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=14)
     
-    plt.ylabel('Latitude (Deg)',fontsize=28)
+    plt.ylabel('Latitude (Deg)',fontsize=14)
         
     plt.tight_layout()
-    plt.xticks(fontsize=18)
-    plt.yticks(fontsize=18)
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
     plt.ylim(latitude_minimum, latitude_maximum)
 
     if clean_plot == False:
-        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=36 )   
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         # Add subtext to the plot
         if level == 'mean' and longitude == 'mean':
-            plt.text(0.5, 1.08, '  ZP= Mean LON= Mean', ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+            plt.text(0.5, 1.08, '  ZP= Mean LON= Mean', ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         elif longitude == 'mean':
-            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON= Mean", ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON= Mean", ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         elif level == 'mean':
-            plt.text(0.5, 1.08, '  ZP= Mean' + " LON=" + str(longitude), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
+            plt.text(0.5, 1.08, '  ZP= Mean' + " LON=" + str(longitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         else:
-            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON=" + str(longitude), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.5, -0.2, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-        plt.text(0.5, -0.25, "Contour Interval = " + str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=28, transform=plt.gca().transAxes)
-    plt.close(plot)
-    return plot
+            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON=" + str(longitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.2, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.25, "Contour Interval = " + str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            plt.show(block=False) 
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot

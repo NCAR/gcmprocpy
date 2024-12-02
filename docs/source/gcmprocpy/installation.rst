@@ -130,7 +130,7 @@ To install gcmprocpy, run the following command:
 
     pip install gcmprocpy
 
-Installing gcmprocpy on NCAR JupyterHub
+Installing gcmprocpy for Jupyter Notebooks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. note::
@@ -141,11 +141,85 @@ Installing gcmprocpy on NCAR JupyterHub
 
     conda activate tiegcm
 
-Install ipykernal to use the conda environment in JupyterHub
+Install ipykernal to use the conda environment for Jupyter notebooks.
 
 .. code-block:: bash
 
     pip install ipykernel
+
+VS Code Jupyter Notebooks (Casper Nodes)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+### Step 1: Request an Interactive Session
+
+To begin, you need to request an interactive session on a **compute node** using `qsub`. This will allocate resources for your job, allowing you to use multiple processors instead of running on the login node.
+
+1. Open your terminal on the **Casper login node** and enter the following command to request an interactive session:
+
+   ```bash
+   qsub -I -A P28100045 -q casper -l select=1:ncpus=4:mpiprocs=4 -l walltime=01:00:00
+   ```
+
+   - `-I` specifies an interactive session.
+   - `-A P28100045` is your project/account code (replace with your own).
+   - `-q casper` requests the **Casper** queue.
+   - `-l select=1:ncpus=4:mpiprocs=4` requests 1 node with 4 CPUs and 4 MPI processes.
+   - `-l walltime=01:00:00` specifies the walltime limit (1 hour in this case).
+
+2. Once the job is submitted, you will see the following output indicating the job's status:
+
+   ```bash
+   qsub: waiting for job 2884283.casper-pbs to start
+   qsub: job 2884283.casper-pbs ready
+   ```
+
+### Step 2: Check the Hostname of the Compute Node
+
+After the job is ready, you need to check the hostname of the compute node that has been allocated to you.
+
+1. Run the following command to display the hostname of your current session:
+
+   ```bash
+   echo $HOSTNAME
+   ```
+
+   This will output something like:
+
+   ```bash
+   crhtc62
+   ```
+
+   This `hostname` is used to connect to the compute node via **SSH**.
+
+### Step 3: Connect to the Compute Node from VSC
+
+1. Open **Visual Studio Code** on your local machine.
+2. Use the **Remote-SSH** extension in VSC to connect to the compute node.
+3. In VSC, configure the SSH connection to the node using the following format:
+
+   ```
+   $HOSTNAME.hpc.ucar.edu
+   ```
+
+   Replace `$HOSTNAME` with the actual hostname from the previous step (e.g., `crhtc62`).
+
+4. Once connected, you can start editing and running code on the compute node as needed.
+
+.. note::
+
+    This process **only works on Casper** and will not work on **Derecho** due to firewall rules on Derecho.
+
+NCAR JupyterHub
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. warning::
+
+   NCAR JupyterHub only workes when matplotlib is in inline backend. 
+   Use the following at the start of your Jupyter notebook to enable inline backend.
+
+   .. code-block:: python
+
+       %matplotlib inline
 
 Open JupyterHub by visiting the `NCAR JupyterHub <https://jupyterhub.hpc.ucar.edu/stable/hub/home>`_.
 

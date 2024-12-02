@@ -3,7 +3,7 @@ Ploting Routines
 
 gcmprocpy provides a range of functions for data visualization. Below are the key plotting routines along with their detailed parameters and usage examples.
 
-API
+Mode: API
 --------------------------------------------------------------------------------------------------------------------------------------------
 
 .. currentmodule:: gcmprocpy.io
@@ -17,6 +17,34 @@ This function loads the netCDF datasets for the plotting routines.
    :noindex:
 
 .. currentmodule:: gcmprocpy.plot_gen
+
+Closing Datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function closes the netCDF datasets.
+
+.. autofunction:: close_datasets
+   :noindex:
+
+.. currentmodule:: gcmprocpy.close_datasets
+
+Jupyter notebooks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+gcmprocpy can be used in two modes in Jupyter notebooks: Regular plotting and Interactive plotting.
+
+For regular plotting in Jupyter notebooks, use the following code snippet in an executable cell:
+
+.. code-block:: python
+   %matplotlib inline
+
+For interactive plotting in Jupyter notebooks, use the following code snippet in an executable cell:
+
+.. code-block:: python
+   %matplotlib widget
+
+.. warning::
+   The interactive plotting mode doesnt work in Jupyter notebooks on NCAR JupyterHub.
 
 Latitude vs Longitude Contour Plots
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -147,7 +175,7 @@ Example:
 
 
 
-CLI
+Mode: CLI
 --------------------------------------------------------------------------------------------------------------------------------------------
 
 Latitude vs Longitude Contour Plots

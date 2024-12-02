@@ -27,7 +27,16 @@ Loading a dataset/datasets:
 
       gy.load_datasets(directory/file, dataset_filter)
 
+Closing Datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+This function closes the netCDF datasets.
+
+.. autofunction:: close_datasets
+   :noindex:
+
+.. currentmodule:: gcmprocpy.close_datasets
+    
 Plot Generation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

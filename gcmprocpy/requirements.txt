@@ -5,3 +5,6 @@ xarray
 ipython
 geomag
 netcdf4
+datetime
+ipympl
+mplcursors

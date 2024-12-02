@@ -43,6 +43,19 @@ def load_datasets(directory,dataset_filter = None):
         datasets.append([dataset, file_name, model])
     return(datasets)
 
+def close_datasets(datasets):
+    """
+    Closes the xarray datasets.
+
+    Args:
+        datasets (list[tuple]): A list containing tuples, each with an xarray.Dataset object and the corresponding filename and model in string.
+
+    Returns:
+        None
+    """
+    for dataset in datasets:
+        dataset[0].close()
+    return
 
 def save_output(output_directory,filename,output_format,plot_object):
     output_directory = os.path.join(output_directory, 'proc')
@@ -50,3 +63,19 @@ def save_output(output_directory,filename,output_format,plot_object):
     output = os.path.join(output_directory, f'{filename}.{output_format}')
     plot_object.savefig(output, format=output_format, bbox_inches='tight', pad_inches=0.5)
     print(f"Plot saved as {filename}")
+
+
+def print_handler(string, verbose):
+    """
+    Prints a string if verbose is set to True.
+    
+    Args:
+        string (str): The string to print.
+        verbose (bool): A boolean to determine if the string should be printed.
+    
+    Returns:
+        None
+    """
+    if verbose:
+        print(string)
+    return
