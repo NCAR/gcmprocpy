@@ -38,6 +38,9 @@ For regular plotting in Jupyter notebooks, use the following code snippet in an 
 .. code-block:: python
    %matplotlib inline
 
+.. note
+   Use `%config InlineBackend.figure_format = 'retina'` for high quality plots.
+
 For interactive plotting in Jupyter notebooks, use the following code snippet in an executable cell:
 
 .. code-block:: python
