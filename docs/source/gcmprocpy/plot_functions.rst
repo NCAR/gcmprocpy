@@ -36,6 +36,7 @@ gcmprocpy can be used in two modes in Jupyter notebooks: Regular plotting and In
 For regular plotting in Jupyter notebooks, use the following code snippet in an executable cell:
 
 .. code-block:: python
+    
     %matplotlib inline
 
 .. note::
@@ -44,6 +45,7 @@ For regular plotting in Jupyter notebooks, use the following code snippet in an 
 For interactive plotting in Jupyter notebooks, use the following code snippet in an executable cell:
 
 .. code-block:: python
+    
     %matplotlib widget
 
 .. warning::
