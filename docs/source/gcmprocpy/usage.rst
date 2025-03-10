@@ -3,6 +3,21 @@ Usage
 
 gcmprocpy can be run in two modes: API and Command Line Interface (CLI).
 
+Mode: GUI
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+gcmprocpy can be run in GUI mode by running the following command:
+
+.. code-block:: bash
+
+    gcmprocpy
+
+This will open the GUI window where the user can select the dataset and the plot type.
+
+.. warning:: 
+    
+    The GUI mode requires an interactive ssh session. If you are using a remote server, you can use the following command to open the GUI window: ``ssh -X user@server``.
+
 Mode: API
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 

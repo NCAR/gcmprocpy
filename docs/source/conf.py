@@ -25,7 +25,7 @@ extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx.ext.viewcode'
 templates_path = ['_templates']
 exclude_patterns = []
 
-autodoc_mock_imports = ["numpy","cartopy","matplotlib","xarray","ipython","geomag","netcdf4","ipympl","mplcursors"]
+autodoc_mock_imports = ["numpy","cartopy","matplotlib","xarray","ipython","geomag","netcdf4","ipympl","mplcursors","PyQt5"]
 
 
 # -- Options for HTML output -------------------------------------------------
