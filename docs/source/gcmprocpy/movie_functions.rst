@@ -16,18 +16,22 @@ This function loads the netCDF datasets for the plotting routines.
 .. autofunction:: load_datasets
    :noindex:
 
-.. currentmodule:: gcmprocpy.mov_gen
+
 
 Closing Datasets
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This function closes the netCDF datasets.
 
+.. warning::
+
+   This function should be called after the plotting routines have been executed.
+
 .. autofunction:: close_datasets
    :noindex:
 
-.. currentmodule:: gcmprocpy.close_datasets
-   
+.. currentmodule:: gcmprocpy.mov_gen
+
 Latitude vs Longitude Contour Movie
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function generates a sequence of contour plots of a variable against latitude and longitude over time and creates a video animation.
