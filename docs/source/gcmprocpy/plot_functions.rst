@@ -6,27 +6,6 @@ gcmprocpy provides a range of functions for data visualization. Below are the ke
 Mode: API
 --------------------------------------------------------------------------------------------------------------------------------------------
 
-.. currentmodule:: gcmprocpy.io
-
-Loading Datasets
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This function loads the netCDF datasets for the plotting routines.
-
-.. autofunction:: load_datasets
-   :noindex:
-
-.. currentmodule:: gcmprocpy.plot_gen
-
-Closing Datasets
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-This function closes the netCDF datasets.
-
-.. autofunction:: close_datasets
-   :noindex:
-
-.. currentmodule:: gcmprocpy.close_datasets
 
 Jupyter notebooks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -50,6 +29,28 @@ For interactive plotting in Jupyter notebooks, use the following code snippet in
 
 .. warning::
     The interactive plotting mode doesn't work in Jupyter notebooks on NCAR JupyterHub.
+
+.. currentmodule:: gcmprocpy.io
+
+Loading Datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function loads the netCDF datasets for the plotting routines.
+
+.. autofunction:: load_datasets
+   :noindex:
+
+Closing Datasets
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function closes the netCDF datasets.
+
+.. autofunction:: close_datasets
+   :noindex:
+
+
+.. currentmodule:: gcmprocpy.plot_gen
+
 
 Latitude vs Longitude Contour Plots
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
