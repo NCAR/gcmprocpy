@@ -10,7 +10,7 @@ from matplotlib.animation import FuncAnimation
 def extract_number(filename):
         return int(filename.split('_')[-1].split('.')[0])
 
-def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, time_minimum=None, time_maximum=None, fps=None, clean_plot= False):
+def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, center_longitude = 0, contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, time_minimum=None, time_maximum=None, fps=None, clean_plot= False):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable and creates a video of the plot over time.
@@ -20,6 +20,7 @@ def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, co
         variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
         level (float, optional): The selected lev/ilev value. Defaults to None.
         variable_unit (str, optional): The desired unit of the variable. Defaults to None.
+        center_longitude (float, optional): The central longitude for the plot. Defaults to 0.        
         contour_intervals (int, optional): The number of contour intervals. Defaults to None.
         contour_value (int, optional): The value between each contour interval. Defaults to None.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
@@ -61,7 +62,7 @@ def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, co
     os.makedirs(output_dir, exist_ok=True)
 
     for timestamp in filtered_timestamps:
-        plot = plt_lat_lon(datasets, variable_name, time= timestamp, level = level,  variable_unit = variable_unit, contour_intervals = contour_intervals, contour_value = contour_value,symmetric_interval= symmetric_interval, cmap_color = cmap_color,  cmap_lim_min = cmap_lim_min, cmap_lim_max = cmap_lim_max,line_color = 'white', coastlines=coastlines, nightshade=nightshade, gm_equator=gm_equator, latitude_minimum = latitude_minimum, latitude_maximum = latitude_maximum, longitude_minimum = longitude_minimum, longitude_maximum = longitude_maximum)
+        plot = plt_lat_lon(datasets, variable_name, time= timestamp, level = level,  variable_unit = variable_unit,  center_longitude = center_longitude, contour_intervals = contour_intervals, contour_value = contour_value,symmetric_interval= symmetric_interval, cmap_color = cmap_color,  cmap_lim_min = cmap_lim_min, cmap_lim_max = cmap_lim_max,line_color = 'white', coastlines=coastlines, nightshade=nightshade, gm_equator=gm_equator, latitude_minimum = latitude_minimum, latitude_maximum = latitude_maximum, longitude_minimum = longitude_minimum, longitude_maximum = longitude_maximum)
         plot_filename = f"plt_lat_lon_{count}.png"
 
     

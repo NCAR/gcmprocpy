@@ -403,7 +403,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 str: Name of the dataset file from which data is extracted.
     """
 
-    if selected_lev_ilev != None:
+    if selected_lev_ilev != None and selected_lev_ilev != "mean":
         selected_lev_ilev = float(selected_lev_ilev)
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
