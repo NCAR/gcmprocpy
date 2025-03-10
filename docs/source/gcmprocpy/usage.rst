@@ -47,10 +47,9 @@ Closing Datasets
 
 This function closes the netCDF datasets.
 
-.. autofunction:: close_datasets
-   :noindex:
+    .. code-block:: python
 
-.. currentmodule:: gcmprocpy.close_datasets
+      gy.close_datasets(datasets)
     
 Plot Generation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
