@@ -23,6 +23,10 @@ Closing Datasets
 
 This function closes the netCDF datasets.
 
+.. warning::
+
+   This function should be called after the plotting routines have been executed.
+
 .. autofunction:: close_datasets
    :noindex:
 
