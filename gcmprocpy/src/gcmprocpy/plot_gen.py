@@ -148,6 +148,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         longitude_minimum (float, optional): Minimum longitude to slice plots. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude to slice plots. Defaults to 175.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -271,7 +272,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     contour_filled = plt.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lons, unique_lats, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
-    cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]",fraction=0.046, pad=0.04)
+    cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]",fraction=0.046, pad=0.04, shrink=0.65)
     cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
     
@@ -348,9 +349,12 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
                 
                 # Customize annotation appearance
                 sel.annotation.get_bbox_patch().set(alpha=0.9)
-            plt.show(block=False) 
+            plt.show(block=False)    
     else:
-        if plot is not None:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, contour_filled, unique_lons, unique_lats, variable_values
+        elif plot is not None:
             plt.close(plot)
         return plot
 
@@ -372,6 +376,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Line plot.
@@ -436,7 +441,6 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
 
     if is_notebook():
         backend = get_backend()
-        print(backend)
         if "inline" in backend or "nbagg" in backend:
             # Integrate mplcursors by attaching to each PolyCollection
             cursor = mplcursors.cursor(plot, hover=True)
@@ -454,10 +458,12 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
 
             plt.show(block=False) 
     else:
-        if plot is not None:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, level_minimum, level_maximum
+        elif plot is not None:
             plt.close(plot)
         return plot
-
 
 
 def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False, verbose = False):
@@ -484,6 +490,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         longitude_minimum (float, optional): Minimum longitude value for the plot. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude value for the plot. Defaults to 175.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -626,12 +633,15 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
                 sel.annotation.get_bbox_patch().set(alpha=0.9)
             plt.show(block=False) 
     else:
-        if plot is not None:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, latitude, time, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, longitude_minimum, longitude_maximum, contour_filled, unique_lons, unique_levs, variable_values
+        elif plot is not None:
             plt.close(plot)
         return plot
 
 
-def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, clean_plot = False):
+def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, clean_plot = False, verbose = False):
     """
     Generates a Level vs Latitude contour plot for a specified time and/or longitude.
 
@@ -655,6 +665,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         latitude_minimum (float, optional): Minimum latitude value for the plot. Defaults to -87.5.
         latitude_maximum (float, optional): Maximum latitude value for the plot. Defaults to 87.5.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -665,7 +676,8 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         time = get_time(datasets, mtime)
     if contour_intervals == None:
         contour_intervals = 20
-    print("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
+    if verbose:    
+        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
     # Generate 2D arrays, extract variable_unit
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
@@ -787,14 +799,17 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
                 sel.annotation.get_bbox_patch().set(alpha=0.9)
             plt.show(block=False) 
     else:
-        if plot is not None:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, time, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, latitude_minimum, latitude_maximum, contour_filled, unique_lats, unique_levs, variable_values
+        elif plot is not None:
             plt.close(plot)
         return plot
 
 
 
 
-def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level = True, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False):
+def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level = True, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
     """
     Generates a Level vs Time contour plot for a specified latitude and/or longitude.
 
@@ -817,6 +832,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         mtime_minimum (float, optional): Minimum time value for the plot. Defaults to None.
         mtime_maximum (float, optional): Maximum time value for the plot. Defaults to None.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
     Returns:
         matplotlib.figure.Figure: Contour plot.
@@ -831,8 +847,8 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         level_minimum = np.nanmin(levs_ilevs)
     if level_maximum == None:
         level_maximum = np.nanmax(levs_ilevs)
-
-    print("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
+    if verbose:
+        print("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
     
 
 
@@ -950,7 +966,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
 
 
 
-def plt_lat_time(datasets, variable_name, level = None, longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False):
+def plt_lat_time(datasets, variable_name, level = None, longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
     """
     Generates a Latitude vs Time contour plot for a specified level and/or longitude.
 
@@ -972,14 +988,16 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
         mtime_minimum (float, optional): Minimum time value for the plot. Defaults to None.
         mtime_maximum (float, optional): Maximum time value for the plot. Defaults to None.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
-    
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
+        
     Returns:
         matplotlib.figure.Figure: Contour plot.
     """
 
     if contour_intervals == None:
         contour_intervals = 20
-    print("---------------["+variable_name+"]---["+str(level)+"]---["+str(longitude)+"]---------------")
+    if verbose:
+        print("---------------["+variable_name+"]---["+str(level)+"]---["+str(longitude)+"]---------------")
     '''
     if level != None: 
         try:
