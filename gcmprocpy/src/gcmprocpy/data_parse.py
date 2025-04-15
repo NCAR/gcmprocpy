@@ -252,8 +252,8 @@ def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, p
             filename = filenames
             data = ds[variable_name].sel(time=time)
 
-            not_all_nan_indices = ~np.isnan(data.values).all(axis=1)
-            variable_values = data.values[not_all_nan_indices, :]
+            not_all_nan_indices = ~np.isnan(data.values).all(axis=(1,2))
+            variable_values = data.values[not_all_nan_indices, :, :]
 
             if selected_unit is not None:
                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
