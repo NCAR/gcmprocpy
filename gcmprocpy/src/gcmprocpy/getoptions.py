@@ -1,5 +1,9 @@
 import argparse
+import logging
 import os
+
+logger = logging.getLogger(__name__)
+
 def get_options():
     parser = argparse.ArgumentParser(description='Generate different types of plots based on user input.')
     #
@@ -84,11 +88,11 @@ def get_options():
     }
     '''
     if args.recursive:
-        print('Entering Interactive Mode')
+        logger.info('Entering Interactive Mode')
 
     if args.multiple_output:
          if getattr(args, 'recursive') is None:
-             parser.error(f"--multiple_output requires tiepy to be in interactive mode to pass multiple outputs using --recursive")
+             parser.error(f"--multiple_output requires gcmprocpy to be in interactive mode to pass multiple outputs using --recursive")
     #
     # Check and verify required arguments and values for the plots.
     #
@@ -162,19 +166,19 @@ def get_options():
         #
         if level_bound_plot is not True:
             if args.level_minimum is not None or args.level_maximum is not None:
-                parser.error(f"--level_minimum and --level_maximum are not valid for {args.plot_type} \n              Valid optoins for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ")     
+                parser.error(f"--level_minimum and --level_maximum are not valid for {args.plot_type} \n              Valid options for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ")     
         #
         # Check if longitude_minimum and/or longitude_maximum is used and applies to the provided plot.
         #
         if longitude_bound_plot is not True:
             if args.longitude_minimum is not None or args.longitude_maximum is not None:
-                parser.error(f"--longitude_minimum and --longitude_maximum are not valid for {args.plot_type} \n              Valid optoins for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ")  
+                parser.error(f"--longitude_minimum and --longitude_maximum are not valid for {args.plot_type} \n              Valid options for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ")  
         #
         # Check if latitude_minimum and/or latitude_maximum is used and applies to the provided plot.
         #
         if latitude_bound_plot is not True:
             if args.latitude_minimum is not None or args.latitude_maximum is not None:
-                parser.error(f"--latitude_minimum and --latitude_maximum are not valid for {args.plot_type} \n              Valid optoins for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ") 
+                parser.error(f"--latitude_minimum and --latitude_maximum are not valid for {args.plot_type} \n              Valid options for {args.plot_type}: {', '.join(plot_requirements[args.plot_type]['optional'])} ") 
 
 
         if args.dataset:
@@ -186,7 +190,7 @@ def get_options():
     if args.level != 'mean' and args.level != None:
         try:
             args.level = float(args.level)
-        except:
+        except (ValueError, TypeError):
             parser.error(f"{args.plot_type} expects --level values to be numerical float values or 'mean'")
     #
     # Setting variable type float if latitude value is numerical 
@@ -194,15 +198,15 @@ def get_options():
     if args.latitude != 'mean' and args.latitude != None:
         try:
             args.latitude = float(args.latitude)
-        except:
+        except (ValueError, TypeError):
             parser.error(f"{args.plot_type} expects --latitude values to be numerical float values or 'mean'")
     #
     # Setting variable type float if longitude value is numerical 
     #
-    if args.longitude != 'mean'and args.longitude != None:
+    if args.longitude != 'mean' and args.longitude != None:
         try:
             args.longitude = float(args.longitude)
-        except:
+        except (ValueError, TypeError):
             parser.error(f"{args.plot_type} expects --longitude values to be numerical float values or 'mean'")
 
     return args

@@ -68,7 +68,7 @@ Examples and detailed usage can be found in the Functionality section.
 Mode: CLI
 -------------------------------------------------------------------------------------------------------
 
-TIEGCMy can also be used directly from the command line. The following plots can be made on the command line:
+GCMprocpy can also be used directly from the command line. The following plots can be made on the command line:
 
 - Latitude vs Longitude plots
 - Pressure level vs Variable Value plots
