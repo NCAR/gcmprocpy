@@ -36,6 +36,9 @@ jobs:
         working-directory: gcmprocpy
         run: |
           pip install --upgrade pip
-          pip install -e .
+          pip install -e . pytest
       - name: Verify import
         run: python -c "import gcmprocpy; print('gcmprocpy imported successfully')"
+      - name: Run tests
+        working-directory: gcmprocpy
+        run: python -m pytest tests/ -v
