@@ -1,9 +1,12 @@
 import os
-import sys  
+import sys
 import inspect
+import logging
 import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -22,7 +25,7 @@ def load_datasets(directory,dataset_filter = None):
     datasets=[]
     if os.path.isdir(directory):
         files = sorted(os.listdir(directory)) 
-        print("Loading datasets globally.") 
+        logger.info("Loading datasets globally.")
         for file in files:
             if file.endswith('.nc') and (dataset_filter is None or dataset_filter in file):
                 file_path = os.path.join(directory, file)
@@ -62,7 +65,7 @@ def save_output(output_directory,filename,output_format,plot_object):
     os.makedirs(output_directory, exist_ok=True)
     output = os.path.join(output_directory, f'{filename}.{output_format}')
     plot_object.savefig(output, format=output_format, bbox_inches='tight', pad_inches=0.5)
-    print(f"Plot saved as {filename}")
+    logger.info(f"Plot saved as {filename}")
 
 
 def print_handler(string, verbose):
@@ -77,5 +80,5 @@ def print_handler(string, verbose):
         None
     """
     if verbose:
-        print(string)
+        logger.debug(string)
     return

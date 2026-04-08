@@ -1,6 +1,9 @@
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, calc_avg_ht, min_max, get_time
+
+logger = logging.getLogger(__name__)
 from .data_emissions import arr_mkeno53, arr_mkeco215, arr_mkeoh83
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -160,7 +163,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     if contour_intervals == None:
         contour_intervals = 20
     if verbose:
-        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---------------")
+        logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---------------")
     # Generate 2D arrays, extract variable_unit
     '''
     if level != None:
@@ -386,7 +389,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     if time == None:
         time = get_time(datasets, mtime)
     if verbose:
-        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
+        logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
 
@@ -502,7 +505,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     if contour_intervals == None:
         contour_intervals = 20    
     if verbose:
-        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---------------")
+        logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---------------")
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     # Generate 2D arrays, extract variable_unit
@@ -677,7 +680,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     if contour_intervals == None:
         contour_intervals = 20
     if verbose:    
-        print("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
+        logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
     # Generate 2D arrays, extract variable_unit
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
@@ -848,7 +851,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
     if level_maximum == None:
         level_maximum = np.nanmax(levs_ilevs)
     if verbose:
-        print("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
+        logger.debug("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
     
 
 
@@ -909,7 +912,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         if len(time_indices) >24:
             unique_times = sorted(list(set([day for day, _, _, _ in mtime_values])))
             time_indices = [i for i, (day, _, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
-    except:
+    except (ValueError, TypeError):
         unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
@@ -932,7 +935,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
     try:
         plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
         plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14) 
-    except:
+    except (ValueError, TypeError):
         plt.xticks(time_indices, unique_times, rotation=45)
         plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=14)
     plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
@@ -997,7 +1000,7 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
     if contour_intervals == None:
         contour_intervals = 20
     if verbose:
-        print("---------------["+variable_name+"]---["+str(level)+"]---["+str(longitude)+"]---------------")
+        logger.debug("---------------["+variable_name+"]---["+str(level)+"]---["+str(longitude)+"]---------------")
     '''
     if level != None: 
         try:
@@ -1069,7 +1072,7 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
         if len(time_indices) >24:
             unique_times = sorted(list(set([day for day, _, _, _ in mtime_values])))
             time_indices = [i for i, (day, _, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
-    except:
+    except (ValueError, TypeError):
         unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
@@ -1092,7 +1095,7 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
     try:
         plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
         plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14) 
-    except:
+    except (ValueError, TypeError):
         plt.xticks(time_indices, unique_times, rotation=45)
         plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=14)
     

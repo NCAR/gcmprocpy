@@ -52,7 +52,7 @@ def mov_lat_lon(datasets, variable_name, level = None,  variable_unit = None, ce
     
     try:
         filtered_timestamps = timestamps[(timestamps >= time_minimum) & (timestamps <= time_maximum)]
-    except:
+    except (TypeError, ValueError):
         filtered_timestamps = timestamps
     count = 0
     

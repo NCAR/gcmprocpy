@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 conversion_units = {
     'cm-3': {'m-3': 1000000.0},
     'km': {'m': 1000.0},
@@ -40,7 +44,7 @@ def convert_units(data, from_unit, to_unit):
     # Check if conversion is possible
     if from_unit in conversion_units and to_unit in conversion_units[from_unit]:
         conversion = conversion_units[from_unit][to_unit]
-        print(f"Converting from {from_unit} to {to_unit}")
+        logger.info(f"Converting from {from_unit} to {to_unit}")
 
         # Check if conversion is a dictionary or direct float
         if isinstance(conversion, dict):
@@ -52,5 +56,5 @@ def convert_units(data, from_unit, to_unit):
             return data * conversion, to_unit
     else:
         #raise ValueError(f"No conversion factor found for {from_unit} to {to_unit}")
-        print(f"No conversion factor found for {from_unit} to {to_unit}")
+        logger.warning(f"No conversion factor found for {from_unit} to {to_unit}")
         return data, from_unit

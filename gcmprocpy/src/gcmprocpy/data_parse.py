@@ -1,9 +1,12 @@
 import os
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
 from .convert_units import convert_units
 import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def time_list(datasets):
@@ -260,7 +263,7 @@ def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, p
 
             try:
                 levs_ilevs = data.lev.values[not_all_nan_indices]
-            except:
+            except (KeyError, AttributeError):
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
 
             levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
@@ -269,7 +272,7 @@ def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, p
                 return (variable_values, levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename)
             else:
                 return variable_values
-    print(f"{time} not found.")
+    logger.warning(f"{time} not found.")
     return None
 
 def check_var_dims(ds, variable_name):
@@ -360,7 +363,7 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
             # Extracting level or ilevel values
             try:
                 levs_ilevs = data.lev.values[not_all_nan_indices]
-            except:
+            except (KeyError, AttributeError):
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
 
             levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
@@ -372,7 +375,7 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
                 return variable_values
 
     # Handling cases where the specified time is not found in the dataset
-    print(f"{time} not found.")
+    logger.warning(f"{time} not found.")
     return None
 
 
@@ -447,11 +450,11 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
                             
                     else:
-                        print(f"The lev {selected_lev_ilev} isn't in the listed valid values.")
+                        logger.warning(f"The lev {selected_lev_ilev} isn't in the listed valid values.")
                         lev_max = ds['lev'].max().values.item()
                         lev_min = ds['lev'].min().values.item()
                         if selected_lev_ilev > lev_max:
-                            print(f"Using maximun valid lev {lev_max}")
+                            logger.warning(f"Using maximum valid lev {lev_max}")
                             selected_lev_ilev = lev_max
                             data = ds[variable_name].sel(time=time, lev=selected_lev_ilev)
                             lons = data.lon.values
@@ -460,7 +463,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             if selected_unit != None:
                                 variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < lev_min:
-                            print(f"Using minimum valid lev {lev_min}")
+                            logger.warning(f"Using minimum valid lev {lev_min}")
                             selected_lev_ilev = lev_min
                             data = ds[variable_name].sel(time=time, lev=selected_lev_ilev)
                             lons = data.lon.values
@@ -472,7 +475,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             sorted_levs = sorted(ds['lev'].values, key=lambda x: abs(x - selected_lev_ilev))
                             closest_lev1 = sorted_levs[0]
                             closest_lev2 = sorted_levs[1]
-                            print(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
+                            logger.warning(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
                             # Extract data for the two closest lev values using .sel()
                             data1 = ds[variable_name].sel(time=time, lev=closest_lev1)
                             lons = data1.lon.values
@@ -526,11 +529,11 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             
                     else:
                         
-                        print(f"The ilev {selected_lev_ilev} isn't in the listed valid values.")
+                        logger.warning(f"The ilev {selected_lev_ilev} isn't in the listed valid values.")
                         ilev_max = ds['ilev'].max().values.item()
                         ilev_min = ds['ilev'].min().values.item()
                         if selected_lev_ilev > ilev_max:
-                            print(f"Using maximun valid ilev {ilev_max}")
+                            logger.warning(f"Using maximum valid ilev {ilev_max}")
                             selected_lev_ilev = ilev_max
                             data = ds[variable_name].sel(time=time, ilev=selected_lev_ilev)
                             lons = data.lon.values
@@ -539,7 +542,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             if selected_unit != None:
                                 variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < ilev_min:
-                            print(f"Using minimum valid ilev {ilev_min}")
+                            logger.warning(f"Using minimum valid ilev {ilev_min}")
                             selected_lev_ilev = ilev_min
                             data = ds[variable_name].sel(time=time, ilev=selected_lev_ilev)
                             lons = data.lon.values
@@ -551,7 +554,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             sorted_levs = sorted(ds['ilev'].values, key=lambda x: abs(x - selected_lev_ilev))
                             closest_lev1 = sorted_levs[0]
                             closest_lev2 = sorted_levs[1]
-                            print(f"Averaging from the closest valid ilevs: {closest_lev1} and {closest_lev2}")
+                            logger.warning(f"Averaging from the closest valid ilevs: {closest_lev1} and {closest_lev2}")
                             # Extract data for the two closest lev values using .sel()
                             data1 = ds[variable_name].sel(time=time, ilev=closest_lev1)
                             lons = data1.lon.values
@@ -655,7 +658,7 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
                 
             try:
                 levs_ilevs = ds['lev'].values[valid_indices]
-            except:
+            except KeyError:
                 levs_ilevs = ds['ilev'].values[valid_indices]
             
             levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
@@ -664,7 +667,7 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
                 return variable_values , levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename
             else:
                 return variable_values 
-    print(f"{time} not found.")
+    logger.warning(f"{time} not found.")
     return None
 
 
@@ -731,7 +734,7 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
                 return variable_values, lats, levs_ilevs, selected_lon, variable_unit, variable_long_name, selected_mtime, model, filename
             else:
                 return variable_values
-    print(f"{time} not found.")
+    logger.warning(f"{time} not found.")
     return None
 
 
@@ -764,7 +767,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
 
     try:
         selected_lon = float(selected_lon)
-    except:
+    except (ValueError, TypeError):
         selected_lon = selected_lon
     if selected_lon == 180:
             selected_lon = -180
@@ -779,7 +782,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
         variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
         try:
             mtime_values = ds['mtime'].values
-        except:
+        except KeyError:
             mtime_values = []
             for timestamp in ds['time'].values:
                 mtime_values.append(get_mtime(ds, timestamp))
@@ -796,8 +799,8 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
                 closest_lat1 = sorted_lats[0]
                 closest_lat2 = sorted_lats[1]
                 if avg_info_print == 0:
-                    print(f"The lat {selected_lat} isn't in the listed valid values.")
-                    print(f"Averaging from the closest valid levs: {closest_lat1} and {closest_lat2}")
+                    logger.warning(f"The lat {selected_lat} isn't in the listed valid values.")
+                    logger.warning(f"Averaging from the closest valid lats: {closest_lat1} and {closest_lat2}")
                     avg_info_print = 1
                 data1 = ds[variable_name].sel(lat=closest_lat1, method='nearest').mean(dim='lon')
                 variable_values_1 = data1.T 
@@ -813,8 +816,8 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
                 closest_lon1 = sorted_lons[0]
                 closest_lon2 = sorted_lons[1]
                 if avg_info_print == 0:
-                    print(f"The lon {selected_lon} isn't in the listed valid values.")
-                    print(f"Averaging from the closest valid levs: {closest_lon1} and {closest_lon2}")
+                    logger.warning(f"The lon {selected_lon} isn't in the listed valid values.")
+                    logger.warning(f"Averaging from the closest valid lons: {closest_lon1} and {closest_lon2}")
                     avg_info_print = 1
                 data1 = ds[variable_name].sel(lon=closest_lon1, method='nearest').mean(dim='lat')
                 variable_values_1 = data1.T 
@@ -827,7 +830,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
             variable_values = data.T 
         try:
             levs_ilevs = data.lev.values
-        except:
+        except (KeyError, AttributeError):
             levs_ilevs = data.ilev.values
 
 
@@ -907,7 +910,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
             variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
             try:
                 mtime_values = ds['mtime'].values
-            except:
+            except KeyError:
                 mtime_values = []
                 for timestamp in ds['time'].values:
                     mtime_values.append(get_mtime(ds, timestamp))
@@ -928,8 +931,8 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
                     closest_lev1 = sorted_levs[0]
                     closest_lev2 = sorted_levs[1]
                     if avg_info_print == 0:
-                        print(f"The lev {selected_lev_ilev} isn't in the listed valid values.")
-                        print(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
+                        logger.warning(f"The lev {selected_lev_ilev} isn't in the listed valid values.")
+                        logger.warning(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
                         avg_info_print = 1
                     data1 = ds[variable_name].sel(lev=closest_lev1, method='nearest').mean(dim='lon')
                     variable_values_1 = data1.T 
@@ -954,8 +957,8 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
                     closest_lev1 = sorted_levs[0]
                     closest_lev2 = sorted_levs[1]
                     if avg_info_print == 0:
-                        print(f"The lev {selected_lev_ilev} isn't in the listed valid values.")
-                        print(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
+                        logger.warning(f"The lev {selected_lev_ilev} isn't in the listed valid values.")
+                        logger.warning(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
                         avg_info_print = 1
                     data1 = ds[variable_name].sel(lev=closest_lev1, lon=selected_lon, method='nearest')
                     variable_values_1 = data1.T 
@@ -980,7 +983,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
             variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
             try:
                 mtime_values = ds['mtime'].values
-            except:
+            except KeyError:
                 mtime_values = []
                 for timestamp in ds['time'].values:
                     mtime_values.append(get_mtime(ds, timestamp))
@@ -1002,8 +1005,8 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
                     closest_lev1 = sorted_levs[0]
                     closest_lev2 = sorted_levs[1]
                     if avg_info_print == 0:
-                        print(f"The ilev {selected_lev_ilev} isn't in the listed valid values.")
-                        print(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
+                        logger.warning(f"The ilev {selected_lev_ilev} isn't in the listed valid values.")
+                        logger.warning(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
                         avg_info_print = 1
                     data1 = ds[variable_name].sel(ilev=closest_lev1, method='nearest').mean(dim='lon')
                     variable_values_1 = data1.T 
@@ -1028,8 +1031,8 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
                     closest_lev1 = sorted_levs[0]
                     closest_lev2 = sorted_levs[1]
                     if avg_info_print == 0:
-                        print(f"The ilev {selected_lev_ilev} isn't in the listed valid values.")
-                        print(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
+                        logger.warning(f"The ilev {selected_lev_ilev} isn't in the listed valid values.")
+                        logger.warning(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
                         avg_info_print = 1
                     data1 = ds[variable_name].sel(ilev=closest_lev1, lon=selected_lon, method='nearest')
                     variable_values_1 = data1.T 
@@ -1055,7 +1058,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
             variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
             try:
                 mtime_values = ds['mtime'].values
-            except:
+            except KeyError:
                 mtime_values = []
                 for timestamp in ds['time'].values:
                     mtime_values.append(get_mtime(ds, timestamp))
