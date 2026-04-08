@@ -1,65 +1,68 @@
 #!/usr/bin/env python3
 import os
-import sys  
+import sys
 import inspect
+import logging
 import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
 from .getoptions import get_options
 from .plot_gen import plt_lat_lon, plt_lev_var, plt_lev_lon, plt_lev_lat, plt_lev_time, plt_lat_time
+from .containers import ModelDataset
 from matplotlib.backends.backend_pdf import PdfPages
 
+logger = logging.getLogger(__name__)
 
-globaldatasets = []
-multiple_output = False
+
 def main():
+    logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
     args = get_options()
 
     if args.recursive:  # If recursive flag is provided, enter into recursive mode immediately.
-        global multiple_output
-        global globaldatasets
+        cached_datasets = []
         if args.directory:
-            files = sorted(os.listdir(args.directory)) 
-            print("Loading datasets globally.") 
+            files = sorted(os.listdir(args.directory))
+            logger.info("Loading datasets globally.")
             for file in files:
                 if file.endswith('.nc') and (args.dataset_filter is None or args.dataset_filter in file):
                     file_path = os.path.join(args.directory, file)
-                    globaldatasets.append([xr.open_dataset(file_path), file]) #loading datasets to xarray
+                    ds = xr.open_dataset(file_path, chunks='auto', decode_timedelta=False)
+                    model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+                    cached_datasets.append(ModelDataset(ds=ds, filename=file, model=model))
         if args.multiple_output:
-            multiple_output = True
             filename = args.multiple_output + '.pdf'
             output_directory = os.path.join(args.output_directory, 'proc')
             os.makedirs(output_directory, exist_ok=True)
             output = os.path.join(output_directory, filename)
-            
+
             with PdfPages(output) as pdf:
-                while True:  # Keep running until the user inputs "exit"  
+                while True:  # Keep running until the user inputs "exit"
                     print("Enter command or 'exit' to terminate: ")
                     next_command = input()
                     if next_command.strip().lower() == 'exit':
-                        break 
-                    else:                   
+                        break
+                    else:
                         sys.argv = [sys.argv[0]] + next_command.split()
                         args = get_options()
-                        plot = plot_routine(args)
+                        plot = plot_routine(args, cached_datasets=cached_datasets, multiple_output=True)
                         pdf.savefig(plot, bbox_inches='tight', pad_inches=0.5)
                         plt.close(plot)
         else:
             while True:  # Keep running until the user inputs "exit"
-                print("Enter command or 'exit' to terminate: ")           
+                print("Enter command or 'exit' to terminate: ")
                 next_command = input()
                 if next_command.strip().lower() == 'exit':
-                    break 
-                else:                   
+                    break
+                else:
                     sys.argv = [sys.argv[0]] + next_command.split()
                     args = get_options()
-                    plot_routine(args)  # Extract the common execution logic to a new function
+                    plot_routine(args, cached_datasets=cached_datasets)  # Extract the common execution logic to a new function
     else:
         plot_routine(args)  # Execute the command once if recursive flag is not provided.
 
 
 
-def plot_routine(args):    
+def plot_routine(args, cached_datasets=None, multiple_output=False):
     #
     # Map plot types to their respective functions
     #
@@ -74,28 +77,31 @@ def plot_routine(args):
     #
     # Get the plotting function based on the user input plot type
     #
-    plot_function = plot_functions.get(args.plot_type)    
-    
+    plot_function = plot_functions.get(args.plot_type)
+
     if plot_function:
         #
         # Checking if a directory is provided in the arguments
         #
         datasets = []
-        global globaldatasets
-        if globaldatasets:
-            datasets = globaldatasets
+        if cached_datasets:
+            datasets = cached_datasets
         else:
             if args.directory:
                 files = sorted(os.listdir(args.directory))
-                print("Loading datasets.") 
+                logger.info("Loading datasets.")
                 for file in files:
                     if file.endswith('.nc') and (args.dataset_filter is None or args.dataset_filter in file):
                         file_path = os.path.join(args.directory, file)
-                        datasets.append([xr.open_dataset(file_path), file]) #loading datasets to xarray
+                        ds = xr.open_dataset(file_path, chunks='auto', decode_timedelta=False)
+                        model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+                        datasets.append(ModelDataset(ds=ds, filename=file, model=model))
             elif args.dataset:
                 file = args.dataset
                 if file.endswith('.nc'):
-                    datasets.append([xr.open_dataset(file_path)])
+                    ds = xr.open_dataset(file, chunks='auto', decode_timedelta=False)
+                    model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+                    datasets.append(ModelDataset(ds=ds, filename=file, model=model))
 
         #
         # Check and validate the specified time argument
@@ -103,18 +109,18 @@ def plot_routine(args):
         if args.time: 
             available_times = set()  
             args.time = np.datetime64(args.time, 'ns')
-            for ds, filename in datasets:
-                times = ds['time'].values  
+            for mds in datasets:
+                times = mds.ds['time'].values
                 available_times.update(times)
             if np.datetime64(args.time) not in available_times:
-                raise ValueError(f"The specified time {args.time} is not available in the datasets.") #Available times are {available_times}")
+                raise ValueError(f"The specified time {args.time} is not available in the datasets.")
         #
         # Check and validate the specified time argument
         #
-        if args.mtime:  
-            available_mtimes = set()  
-            for ds, filename in datasets:
-                mtimes = [tuple(m) for m in ds['mtime'].values]  
+        if args.mtime:
+            available_mtimes = set()
+            for mds in datasets:
+                mtimes = [tuple(m) for m in mds.ds['mtime'].values]
                 available_mtimes.update(mtimes)
             input_mtime = tuple(args.mtime)  
             if input_mtime not in available_mtimes:
@@ -141,7 +147,7 @@ def plot_routine(args):
         #
         # Save the plot if an output format is specified
         #
-        if multiple_output == True:
+        if multiple_output:
             #
             # Return plot_object to build muilti plot pdfs
             #
@@ -151,7 +157,7 @@ def plot_routine(args):
             # Set name to file if provided
             #                     
             if args.standard_output:
-                filename = f"{filename_prefix}.{args.output_format}"
+                filename = f"{args.standard_output}.{args.output_format}"
             else:
                 #
                 # Extract non-None arguments values and convert them to strings
@@ -171,9 +177,9 @@ def plot_routine(args):
             # Save plot as the given format type
             #
             plot_object.savefig(output, format=args.output_format, bbox_inches='tight', pad_inches=0.5)
-            print(f"Plot saved as {filename}")
+            logger.info(f"Plot saved as {filename}")
     else:
-        print(f"Invalid plot_type: {args.plot_type}")
+        logger.error(f"Invalid plot_type: {args.plot_type}")
 
 
 if __name__ == "__main__":

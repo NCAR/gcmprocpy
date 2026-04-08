@@ -45,7 +45,7 @@ Example:
 
     .. code-block:: python
 
-        from your_module import mov_lat_lon  # Replace 'your_module' with the actual module name
+        from gcmprocpy import mov_lat_lon 
 
         datasets = load_datasets(directory, dataset_filter)  # Ensure to define your load_datasets function
         variable_name = 'TN'

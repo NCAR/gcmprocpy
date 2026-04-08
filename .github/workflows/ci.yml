@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: pip install flake8
+      - name: Lint with flake8
+        run: |
+          # Stop on syntax errors or undefined names
+          flake8 gcmprocpy/src/gcmprocpy --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Warnings (non-blocking)
+          flake8 gcmprocpy/src/gcmprocpy --count --exit-zero --max-line-length=150 --statistics
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        working-directory: gcmprocpy
+        run: |
+          pip install --upgrade pip
+          pip install -e . pytest
+      - name: Verify import
+        run: python -c "import gcmprocpy; print('gcmprocpy imported successfully')"
+      - name: Run tests
+        working-directory: gcmprocpy
+        run: python -m pytest tests/ -v
