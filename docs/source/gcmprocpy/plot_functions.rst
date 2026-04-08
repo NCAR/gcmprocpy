@@ -30,6 +30,21 @@ For interactive plotting in Jupyter notebooks, use the following code snippet in
 .. warning::
     The interactive plotting mode doesn't work in Jupyter notebooks on NCAR JupyterHub.
 
+.. currentmodule:: gcmprocpy.containers
+
+Data Containers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These dataclasses are used throughout gcmprocpy to hold dataset metadata and extracted plot data.
+
+.. autoclass:: ModelDataset
+   :noindex:
+   :members:
+
+.. autoclass:: PlotData
+   :noindex:
+   :members:
+
 .. currentmodule:: gcmprocpy.io
 
 Loading Datasets
@@ -48,9 +63,26 @@ This function closes the netCDF datasets.
 .. warning::
 
    This function should be called after the plotting routines have been executed.
-   
+
 .. autofunction:: close_datasets
    :noindex:
+
+Saving Output
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function saves a plot to a file.
+
+.. autofunction:: save_output
+   :noindex:
+
+Example:
+    Save a plot as a PNG file.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0)
+        gy.save_output('/output/path', 'my_plot', 'png', plot)
 
 
 .. currentmodule:: gcmprocpy.plot_gen
@@ -76,6 +108,23 @@ Example:
         unit_of_variable = 'K'
         intervals = 20
         plot = gy.plt_lat_lon(datasets, variable_name, mtime=value_of_mtime, level=pressure_level, variable_unit=unit_of_variable, contour_intervals=intervals)
+
+Polar Projections:
+    The ``projection`` parameter supports polar stereographic views in addition to the default Mercator projection.
+
+    .. code-block:: python
+
+        # North polar stereographic
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='north_polar')
+
+        # South polar stereographic
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='south_polar')
+
+        # Both hemispheres side by side
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar')
+
+        # Polar with coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar', coastlines=True)
 
 Pressure Level vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
