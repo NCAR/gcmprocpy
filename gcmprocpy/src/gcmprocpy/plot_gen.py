@@ -180,14 +180,24 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         time = np.datetime64(time, 'ns')
 
     if variable_name == 'NO53':
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        result = arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
     elif variable_name == 'CO215':
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        result = arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
     elif variable_name == 'OH83':
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename = arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        result = arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
     else:
-        variable_values, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, model, filename =arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
-    
+        result = arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+
+    variable_values = result.values
+    level = result.selected_lev
+    unique_lats = result.lats
+    unique_lons = result.lons
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    selected_mtime = result.mtime
+    model = result.model
+    filename = result.filename
+
     # WACCM-X uses 0 to 360 longitude range, convert to -180 to 180
     unique_lons = np.where(unique_lons > 180, unique_lons - 360, unique_lons)
     sorted_indices = np.argsort(unique_lons)
@@ -205,7 +215,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         latitude_maximum = np.nanmax(unique_lats)
     if longitude_minimum == None:
         longitude_minimum = -180
-    if longitude_maximum == None:   
+    if longitude_maximum == None:
         longitude_maximum = 180
     min_val, max_val = min_max(variable_values)
     selected_day=selected_mtime[0]
@@ -393,7 +403,14 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
 
-    variable_values , levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lev_var(datasets, variable_name, time, latitude, longitude,  variable_unit, plot_mode = True)
+    result = arr_lev_var(datasets, variable_name, time, latitude, longitude, variable_unit, plot_mode=True)
+    variable_values = result.values
+    levs_ilevs = result.levs
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    selected_mtime = result.mtime
+    model = result.model
+    filename = result.filename
 
     if level_minimum == None:
         level_minimum = np.nanmin(levs_ilevs)
@@ -509,7 +526,16 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     # Generate 2D arrays, extract variable_unit
-    variable_values, unique_lons, unique_levs,latitude, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lev_lon(datasets, variable_name, time, latitude, variable_unit, log_level, plot_mode = True)
+    result = arr_lev_lon(datasets, variable_name, time, latitude, variable_unit, log_level, plot_mode=True)
+    variable_values = result.values
+    unique_lons = result.lons
+    unique_levs = result.levs
+    latitude = result.selected_lat
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    selected_mtime = result.mtime
+    model = result.model
+    filename = result.filename
 
     if level_minimum == None:
         level_minimum = np.nanmin(unique_levs)
@@ -684,7 +710,16 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     # Generate 2D arrays, extract variable_unit
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
-    variable_values, unique_lats, unique_levs,longitude, variable_unit, variable_long_name, selected_mtime, model, filename = arr_lev_lat(datasets, variable_name, time, longitude,  variable_unit, plot_mode = True)
+    result = arr_lev_lat(datasets, variable_name, time, longitude, variable_unit, plot_mode=True)
+    variable_values = result.values
+    unique_lats = result.lats
+    unique_levs = result.levs
+    longitude = result.selected_lon
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    selected_mtime = result.mtime
+    model = result.model
+    filename = result.filename
 
     if level_minimum == None:
         level_minimum = np.nanmin(unique_levs)
@@ -844,7 +879,14 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
     if contour_intervals == None:
         contour_intervals = 20
     #print(datasets)
-    variable_values_all, levs_ilevs, mtime_values, longitude, variable_unit, variable_long_name, model = arr_lev_time(datasets, variable_name, latitude, longitude, variable_unit, plot_mode = True)
+    result = arr_lev_time(datasets, variable_name, latitude, longitude, variable_unit, plot_mode=True)
+    variable_values_all = result.values
+    levs_ilevs = result.levs
+    mtime_values = result.mtime_values
+    longitude = result.selected_lon
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    model = result.model
     
     if level_minimum == None:
         level_minimum = np.nanmin(levs_ilevs)
@@ -1010,7 +1052,15 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
     else:
         variable_values_all, unique_lats, mtime_values, longitude, variable_unit, variable_long_name, filename = lat_time(datasets, variable_name, longitude, variable_unit)
     '''
-    variable_values_all, unique_lats, mtime_values, longitude, variable_unit, variable_long_name, model, filename = arr_lat_time(datasets, variable_name, longitude, level, variable_unit, plot_mode = True)
+    result = arr_lat_time(datasets, variable_name, longitude, level, variable_unit, plot_mode=True)
+    variable_values_all = result.values
+    unique_lats = result.lats
+    mtime_values = result.mtime_values
+    longitude = result.selected_lon
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    model = result.model
+    filename = result.filename
     # Assuming the levels are consistent across datasets, but using the minimum size for safety
     if latitude_minimum == None:
         latitude_minimum = np.nanmin(unique_lats)

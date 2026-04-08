@@ -8,6 +8,7 @@ import xarray as xr
 import numpy as np
 from .getoptions import get_options
 from .plot_gen import plt_lat_lon, plt_lev_var, plt_lev_lon, plt_lev_lat, plt_lev_time, plt_lat_time
+from .containers import ModelDataset
 from matplotlib.backends.backend_pdf import PdfPages
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,9 @@ def main():
             for file in files:
                 if file.endswith('.nc') and (args.dataset_filter is None or args.dataset_filter in file):
                     file_path = os.path.join(args.directory, file)
-                    cached_datasets.append([xr.open_dataset(file_path), file]) #loading datasets to xarray
+                    ds = xr.open_dataset(file_path)
+                    model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+                    cached_datasets.append(ModelDataset(ds=ds, filename=file, model=model))
         if args.multiple_output:
             filename = args.multiple_output + '.pdf'
             output_directory = os.path.join(args.output_directory, 'proc')
@@ -90,11 +93,15 @@ def plot_routine(args, cached_datasets=None, multiple_output=False):
                 for file in files:
                     if file.endswith('.nc') and (args.dataset_filter is None or args.dataset_filter in file):
                         file_path = os.path.join(args.directory, file)
-                        datasets.append([xr.open_dataset(file_path), file]) #loading datasets to xarray
+                        ds = xr.open_dataset(file_path)
+                        model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+                        datasets.append(ModelDataset(ds=ds, filename=file, model=model))
             elif args.dataset:
                 file = args.dataset
                 if file.endswith('.nc'):
-                    datasets.append([xr.open_dataset(file), file])
+                    ds = xr.open_dataset(file)
+                    model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+                    datasets.append(ModelDataset(ds=ds, filename=file, model=model))
 
         #
         # Check and validate the specified time argument
@@ -102,18 +109,18 @@ def plot_routine(args, cached_datasets=None, multiple_output=False):
         if args.time: 
             available_times = set()  
             args.time = np.datetime64(args.time, 'ns')
-            for ds, filename in datasets:
-                times = ds['time'].values  
+            for mds in datasets:
+                times = mds.ds['time'].values
                 available_times.update(times)
             if np.datetime64(args.time) not in available_times:
-                raise ValueError(f"The specified time {args.time} is not available in the datasets.") #Available times are {available_times}")
+                raise ValueError(f"The specified time {args.time} is not available in the datasets.")
         #
         # Check and validate the specified time argument
         #
-        if args.mtime:  
-            available_mtimes = set()  
-            for ds, filename in datasets:
-                mtimes = [tuple(m) for m in ds['mtime'].values]  
+        if args.mtime:
+            available_mtimes = set()
+            for mds in datasets:
+                mtimes = [tuple(m) for m in mds.ds['mtime'].values]
                 available_mtimes.update(mtimes)
             input_mtime = tuple(args.mtime)  
             if input_mtime not in available_mtimes:

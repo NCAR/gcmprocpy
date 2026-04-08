@@ -2,6 +2,7 @@
 import numpy as np
 import xarray as xr
 import pytest
+from gcmprocpy.containers import ModelDataset
 
 
 @pytest.fixture
@@ -64,11 +65,11 @@ def waccmx_dataset():
 
 @pytest.fixture
 def tiegcm_datasets(tiegcm_dataset):
-    """Wrap a TIE-GCM dataset in the list-of-lists format used throughout gcmprocpy."""
-    return [[tiegcm_dataset, 'test_tiegcm.nc', 'TIE-GCM']]
+    """Wrap a TIE-GCM dataset as a list of ModelDataset objects."""
+    return [ModelDataset(ds=tiegcm_dataset, filename='test_tiegcm.nc', model='TIE-GCM')]
 
 
 @pytest.fixture
 def waccmx_datasets(waccmx_dataset):
-    """Wrap a WACCM-X dataset in the list-of-lists format used throughout gcmprocpy."""
-    return [[waccmx_dataset, 'test_waccmx.nc', 'WACCM-X']]
+    """Wrap a WACCM-X dataset as a list of ModelDataset objects."""
+    return [ModelDataset(ds=waccmx_dataset, filename='test_waccmx.nc', model='WACCM-X')]

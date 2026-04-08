@@ -4,9 +4,28 @@ import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
 from .convert_units import convert_units
+from .containers import ModelDataset, PlotData
 import datetime
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_var_attrs(ds, variable_name, selected_unit=None):
+    """Extract common variable attributes from a dataset.
+
+    Args:
+        ds: xarray.Dataset
+        variable_name: Name of the variable.
+        selected_unit: Desired unit override, or None.
+
+    Returns:
+        tuple: (variable_unit, variable_long_name, selected_unit)
+    """
+    variable_unit = ds[variable_name].attrs.get('units', 'N/A')
+    if variable_unit == 'cm/s' and selected_unit is None:
+        selected_unit = 'm/s'
+    variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
+    return variable_unit, variable_long_name, selected_unit
 
 
 def time_list(datasets):
@@ -24,9 +43,8 @@ def time_list(datasets):
     
     # Extract timestamps from each file
     timestamps = []
-    for ds, filename, model in datasets:
-        file = str(filename)
-        for timestamp in ds['time'].values:
+    for mds in datasets:
+        for timestamp in mds.ds['time'].values:
             timestamps.append(timestamp)
     return timestamps
 
@@ -43,10 +61,8 @@ def var_list(datasets):
     
     unique_variables = set()
 
-    for ds, filename, model in datasets:
-        # Convert the current dataset's variables to a set
-        current_variables = set(ds.data_vars)
-        # Union the current variables with the existing unique variables
+    for mds in datasets:
+        current_variables = set(mds.ds.data_vars)
         unique_variables = unique_variables.union(current_variables)
     variables = sorted(unique_variables)
     return variables
@@ -83,13 +99,13 @@ def level_list(datasets, log_level=True):
     
     unique_levels = set()
 
-    for ds, filename, model in datasets:
-        model = model
-        levs = ds.lev.values
-        ilevs = ds.ilev.values
+    for mds in datasets:
+        levs = mds.ds.lev.values
+        ilevs = mds.ds.ilev.values
         unique_levels.update(levs)
         unique_levels.update(ilevs)
-    
+        model = mds.model
+
     unique_levels_array = np.array(list(unique_levels))
     lev_ilevs = sorted(level_log_transform(unique_levels_array, model, log_level))
 
@@ -108,9 +124,8 @@ def lon_list(datasets):
     
     unique_lons = set()
 
-    for ds, filename, model in datasets:
-        # Get longitude values and add them to the set
-        lons = ds.lon.values
+    for mds in datasets:
+        lons = mds.ds.lon.values
         unique_lons.update(lons)
 
     # Convert the set to a sorted list
@@ -130,9 +145,8 @@ def lat_list(datasets):
     
     unique_lats = set()
 
-    for ds, filename, model in datasets:
-        # Get latitude values and add them to the set
-        lats = ds.lat.values
+    for mds in datasets:
+        lats = mds.ds.lat.values
         unique_lats.update(lats)
 
     # Convert the set to a sorted list
@@ -152,8 +166,8 @@ def dim_list(datasets):
     
     unique_dims = set()
 
-    for ds, _, _ in datasets:
-        unique_dims.update(ds.dims)
+    for mds in datasets:
+        unique_dims.update(mds.ds.dims)
 
     # Convert the set to a sorted list
     dims = sorted(unique_dims)
@@ -173,7 +187,8 @@ def var_info(datasets, variable_name):
     
     variable_details = {}
 
-    for ds, filename, model in datasets:
+    for mds in datasets:
+        ds, filename = mds.ds, mds.filename
         if variable_name in ds:
             # Get attributes and dimension information
             attrs = ds[variable_name].attrs
@@ -202,7 +217,8 @@ def dim_info(datasets, dimension):
     
     dimension_info = {}
 
-    for ds, filename, model in datasets:
+    for mds in datasets:
+        ds, filename = mds.ds, mds.filename
         if dimension in ds.dims:
             # Gather dimension details
             dim_details = {
@@ -244,16 +260,11 @@ def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, p
             numpy.ndarray: Model time array corresponding to the specified time.
             str: The name of the dataset file from which data is extracted.
     """
-    for ds, filenames, model in datasets:
-        if time in ds['time'].values:
-            # Extract variable attributes
-            variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit is None:
-                selected_unit = 'm/s'
-            variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
-            selected_mtime = get_mtime(ds, time)
-            filename = filenames
-            data = ds[variable_name].sel(time=time)
+    for mds in datasets:
+        if time in mds.ds['time'].values:
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(mds.ds, variable_name, selected_unit)
+            selected_mtime = get_mtime(mds.ds, time)
+            data = mds.ds[variable_name].sel(time=time)
 
             not_all_nan_indices = ~np.isnan(data.values).all(axis=(1,2))
             variable_values = data.values[not_all_nan_indices, :, :]
@@ -266,10 +277,12 @@ def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, p
             except (KeyError, AttributeError):
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
 
-            levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
+            levs_ilevs = level_log_transform(levs_ilevs, mds.model, log_level)
 
             if plot_mode:
-                return (variable_values, levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename)
+                return PlotData(values=variable_values, levs=levs_ilevs, variable_unit=variable_unit,
+                                variable_long_name=variable_long_name, mtime=selected_mtime,
+                                model=mds.model, filename=mds.filename)
             else:
                 return variable_values
     logger.warning(f"{time} not found.")
@@ -334,47 +347,39 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
         time = np.datetime64(time, 'ns')
 
     # Iterate over datasets to find the matching time and extract relevant data
-    for ds, filenames, model in datasets:
-        if time in ds['time'].values:
-            # Extracting variable attributes and time information
-            variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit == None:
-                selected_unit = 'm/s'
-            variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
-            selected_mtime = get_mtime(ds,time)
-            filename = filenames
+    for mds in datasets:
+        if time in mds.ds['time'].values:
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(mds.ds, variable_name, selected_unit)
+            selected_mtime = get_mtime(mds.ds, time)
             # Data selection based on latitude
             if selected_lat == "mean":
-                # Averaging over all latitudes
-                data = ds[variable_name].sel(time=time).mean(dim='lat')
+                data = mds.ds[variable_name].sel(time=time).mean(dim='lat')
             else:
-                # Nearest latitude selection
-                data = ds[variable_name].sel(time=time, lat=selected_lat, method='nearest')
+                data = mds.ds[variable_name].sel(time=time, lat=selected_lat, method='nearest')
             lons = data.lon.values
 
             # Filtering non-NaN data
             not_all_nan_indices = ~np.isnan(data.values).all(axis=1)
             variable_values = data.values[not_all_nan_indices, :]
 
-            # Unit conversion if a different unit is specified
-            if selected_unit != None:
+            if selected_unit is not None:
                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
-            # Extracting level or ilevel values
             try:
                 levs_ilevs = data.lev.values[not_all_nan_indices]
             except (KeyError, AttributeError):
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
 
-            levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
+            levs_ilevs = level_log_transform(levs_ilevs, mds.model, log_level)
 
-            # Conditional return based on plot_mode
-            if plot_mode == True:    
-                return variable_values, lons, levs_ilevs, selected_lat, variable_unit, variable_long_name, selected_mtime, model, filename
+            if plot_mode:
+                return PlotData(values=variable_values, lons=lons, levs=levs_ilevs,
+                                selected_lat=selected_lat, variable_unit=variable_unit,
+                                variable_long_name=variable_long_name, mtime=selected_mtime,
+                                model=mds.model, filename=mds.filename)
             else:
                 return variable_values
 
-    # Handling cases where the specified time is not found in the dataset
     logger.warning(f"{time} not found.")
     return None
 
@@ -411,7 +416,8 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     first_pass = True
-    for ds, filenames, model in datasets:
+    for mds in datasets:
+        ds = mds.ds
         if first_pass == True:
             lev_ilev = check_var_dims(ds, variable_name)
         if lev_ilev == 'lev':
@@ -419,36 +425,27 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
             if time in ds['time'].values:
                 if 'lev' not in ds[variable_name].dims:
                     raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'lev'")
-                    return 0
 
-                # Extract variable attributes
-                variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-                if variable_unit == 'cm/s' and selected_unit == None:
-                    selected_unit = 'm/s'
-                variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
-                selected_mtime = get_mtime(ds,time)
-                filename = filenames
-
+                variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+                selected_mtime = get_mtime(ds, time)
 
                 if selected_lev_ilev == "mean":
-                    # if selected_lon is "mean", then we calculate the mean over all longitudes.
                     data = ds[variable_name].sel(time=time).mean(dim='lev')
                     lons = data.lon.values
                     lats = data.lat.values
                     variable_values = data.values
                     if selected_unit != None:
-                        variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                        
+                        variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
                 else:
-                    # Extract the data for the given time and lev
                     if selected_lev_ilev in ds['lev'].values:
                         data = ds[variable_name].sel(time=time, lev=selected_lev_ilev)
                         lons = data.lon.values
                         lats = data.lat.values
                         variable_values = data.values
                         if selected_unit != None:
-                            variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                            
+                            variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
                     else:
                         logger.warning(f"The lev {selected_lev_ilev} isn't in the listed valid values.")
                         lev_max = ds['lev'].max().values.item()
@@ -461,7 +458,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lats = data.lat.values
                             variable_values = data.values
                             if selected_unit != None:
-                                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
+                                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < lev_min:
                             logger.warning(f"Using minimum valid lev {lev_min}")
                             selected_lev_ilev = lev_min
@@ -470,13 +467,12 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lats = data.lat.values
                             variable_values = data.values
                             if selected_unit != None:
-                                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
+                                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         else:
                             sorted_levs = sorted(ds['lev'].values, key=lambda x: abs(x - selected_lev_ilev))
                             closest_lev1 = sorted_levs[0]
                             closest_lev2 = sorted_levs[1]
                             logger.warning(f"Averaging from the closest valid levs: {closest_lev1} and {closest_lev2}")
-                            # Extract data for the two closest lev values using .sel()
                             data1 = ds[variable_name].sel(time=time, lev=closest_lev1)
                             lons = data1.lon.values
                             lats = data1.lat.values
@@ -484,12 +480,13 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
 
                             data2 = ds[variable_name].sel(time=time, lev=closest_lev2)
                             variable_values_2 = data2.values
-                            # Return the averaged data
                             variable_values = (variable_values_1 + variable_values_2) / 2
                             if selected_unit != None:
-                                variable_values , variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                if plot_mode == True:    
-                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, model, filename
+                                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+                if plot_mode:
+                    return PlotData(values=variable_values, selected_lev=selected_lev_ilev, lats=lats, lons=lons,
+                                    variable_unit=variable_unit, variable_long_name=variable_long_name,
+                                    mtime=selected_mtime, model=mds.model, filename=mds.filename)
                 else:
                     return variable_values
 
@@ -498,37 +495,28 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
             if time in ds['time'].values:
                 if 'ilev' not in ds[variable_name].dims:
                     raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'ilev'")
-                    return 0
-                            
-                # Extract variable attributes
-                variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-                if variable_unit == 'cm/s' and selected_unit == None:
-                    selected_unit = 'm/s'
-                variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
-                selected_mtime=get_mtime(ds,time)
-                filename = filenames
+
+                variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+                selected_mtime = get_mtime(ds, time)
 
                 if selected_lev_ilev == "mean":
-                    # if selected_lon is "mean", then we calculate the mean over all longitudes.
                     data = ds[variable_name].sel(time=time).mean(dim='lev')
                     lons = data.lon.values
                     lats = data.lat.values
                     variable_values = data.values
                     if selected_unit != None:
-                        variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                        
+                        variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
                 else:
-                    # Extract the data for the given time and lev
                     if selected_lev_ilev in ds['ilev'].values:
                         data = ds[variable_name].sel(time=time, ilev=selected_lev_ilev)
                         lons = data.lon.values
                         lats = data.lat.values
                         variable_values = data.values
                         if selected_unit != None:
-                            variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                            
+                            variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
                     else:
-                        
                         logger.warning(f"The ilev {selected_lev_ilev} isn't in the listed valid values.")
                         ilev_max = ds['ilev'].max().values.item()
                         ilev_min = ds['ilev'].min().values.item()
@@ -540,7 +528,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lats = data.lat.values
                             variable_values = data.values
                             if selected_unit != None:
-                                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
+                                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < ilev_min:
                             logger.warning(f"Using minimum valid ilev {ilev_min}")
                             selected_lev_ilev = ilev_min
@@ -549,13 +537,12 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lats = data.lat.values
                             variable_values = data.values
                             if selected_unit != None:
-                                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
+                                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         else:
                             sorted_levs = sorted(ds['ilev'].values, key=lambda x: abs(x - selected_lev_ilev))
                             closest_lev1 = sorted_levs[0]
                             closest_lev2 = sorted_levs[1]
                             logger.warning(f"Averaging from the closest valid ilevs: {closest_lev1} and {closest_lev2}")
-                            # Extract data for the two closest lev values using .sel()
                             data1 = ds[variable_name].sel(time=time, ilev=closest_lev1)
                             lons = data1.lon.values
                             lats = data1.lat.values
@@ -563,13 +550,14 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
 
                             data2 = ds[variable_name].sel(time=time, ilev=closest_lev2)
                             variable_values_2 = data2.values
-                            # Return the averaged data
                             variable_values = (variable_values_1 + variable_values_2) / 2
                             if selected_unit != None:
-                                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                            
-                if plot_mode == True:    
-                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, model, filename
+                                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
+                if plot_mode:
+                    return PlotData(values=variable_values, selected_lev=selected_lev_ilev, lats=lats, lons=lons,
+                                    variable_unit=variable_unit, variable_long_name=variable_long_name,
+                                    mtime=selected_mtime, model=mds.model, filename=mds.filename)
                 else:
                     return variable_values
 
@@ -577,26 +565,20 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
             first_pass == False
             selected_lev_ilev = None
             if time in ds['time'].values:
+                variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+                selected_mtime = get_mtime(ds, time)
 
-                # Extract variable attributes
-                variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-                if variable_unit == 'cm/s' and selected_unit == None:
-                    selected_unit = 'm/s'
-                variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
-                selected_mtime = get_mtime(ds,time)
-                filename = filenames
-
-                # Extract the data for the given time and lev
                 data = ds[variable_name].sel(time=time)
                 lons = data.lon.values
                 lats = data.lat.values
                 variable_values = data.values
                 if selected_unit != None:
-                    variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                
-                
-                if plot_mode == True:    
-                    return variable_values, selected_lev_ilev, lats, lons, variable_unit, variable_long_name, selected_mtime, model, filename
+                    variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
+                if plot_mode:
+                    return PlotData(values=variable_values, selected_lev=selected_lev_ilev, lats=lats, lons=lons,
+                                    variable_unit=variable_unit, variable_long_name=variable_long_name,
+                                    mtime=selected_mtime, model=mds.model, filename=mds.filename)
                 else:
                     return variable_values
 
@@ -631,42 +613,38 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
 
     
     
-    for ds, filenames, model in datasets:
-        if time in ds['time'].values:
-
+    for mds in datasets:
+        if time in mds.ds['time'].values:
+            ds = mds.ds
             if selected_lon == "mean" and selected_lat == "mean":
-                # if selected_lon is "mean", then we calculate the mean over all longitudes.
                 data = ds[variable_name].sel(time=time).mean(dim=['lon', 'lat'])
             elif selected_lon == "mean":
-                data = ds[variable_name].sel(time=time, lat=selected_lat, method="nearest").mean(dim='lon')  #look into method nearest
+                data = ds[variable_name].sel(time=time, lat=selected_lat, method="nearest").mean(dim='lon')
             elif selected_lat == "mean":
                 data = ds[variable_name].sel(time=time, lon=selected_lon).mean(dim='lat')
             else:
                 data = ds[variable_name].sel(time=time, lat=selected_lat, lon=selected_lon, method="nearest")
 
-
-            variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit == None:
-                selected_unit = 'm/s'
-            variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
-            selected_mtime=get_mtime(ds,time)
-            filename = filenames
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+            selected_mtime = get_mtime(ds, time)
             valid_indices = ~np.isnan(data.values)
             variable_values = data.values[valid_indices]
-            if selected_unit != None:
-                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                
+            if selected_unit is not None:
+                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
             try:
                 levs_ilevs = ds['lev'].values[valid_indices]
             except KeyError:
                 levs_ilevs = ds['ilev'].values[valid_indices]
-            
-            levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
-            
-            if plot_mode == True:
-                return variable_values , levs_ilevs, variable_unit, variable_long_name, selected_mtime, model, filename
+
+            levs_ilevs = level_log_transform(levs_ilevs, mds.model, log_level)
+
+            if plot_mode:
+                return PlotData(values=variable_values, levs=levs_ilevs, variable_unit=variable_unit,
+                                variable_long_name=variable_long_name, mtime=selected_mtime,
+                                model=mds.model, filename=mds.filename)
             else:
-                return variable_values 
+                return variable_values
     logger.warning(f"{time} not found.")
     return None
 
@@ -701,17 +679,12 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
 
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
-    for ds, filenames, model in datasets:
-        if time in ds['time'].values:
-            # Extract variable attributes
-            variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit == None:
-                selected_unit = 'm/s'
-            variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
-            selected_mtime = get_mtime(ds,time)
-            filename = filenames
+    for mds in datasets:
+        if time in mds.ds['time'].values:
+            ds = mds.ds
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+            selected_mtime = get_mtime(ds, time)
             if selected_lon == "mean":
-                # if selected_lon is "mean", then we calculate the mean over all longitudes.
                 data = ds[variable_name].sel(time=time).mean(dim='lon')
             else:
                 selected_lon = float(selected_lon)
@@ -720,18 +693,21 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
 
             not_all_nan_indices = ~np.isnan(data.values).all(axis=1)
             variable_values = data.values[not_all_nan_indices, :]
-            if selected_unit != None:
-                variable_values ,variable_unit  = convert_units (variable_values, variable_unit, selected_unit)
-                
+            if selected_unit is not None:
+                variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
+
             try:
                 levs_ilevs = data.lev.values[not_all_nan_indices]
             except AttributeError:
                 levs_ilevs = data.ilev.values[not_all_nan_indices]
-            
-            lev_ilevs = level_log_transform(levs_ilevs, model, log_level)
 
-            if plot_mode == True:
-                return variable_values, lats, levs_ilevs, selected_lon, variable_unit, variable_long_name, selected_mtime, model, filename
+            levs_ilevs = level_log_transform(levs_ilevs, mds.model, log_level)
+
+            if plot_mode:
+                return PlotData(values=variable_values, lats=lats, levs=levs_ilevs,
+                                selected_lon=selected_lon, variable_unit=variable_unit,
+                                variable_long_name=variable_long_name, mtime=selected_mtime,
+                                model=mds.model, filename=mds.filename)
             else:
                 return variable_values
     logger.warning(f"{time} not found.")
@@ -775,11 +751,9 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
     combined_mtime = []
     levs_ilevs_all = []
     avg_info_print = 0
-    for ds, filenames, model in datasets:
-        variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-        if variable_unit == 'cm/s' and selected_unit == None:
-            selected_unit = 'm/s'
-        variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
+    for mds in datasets:
+        ds = mds.ds
+        variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
         try:
             mtime_values = ds['mtime'].values
         except KeyError:
@@ -787,13 +761,12 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
             for timestamp in ds['time'].values:
                 mtime_values.append(get_mtime(ds, timestamp))
         if selected_lon == "mean" and selected_lat == "mean":
-            # if selected_lon is "mean", then we calculate the mean over all longitudes. This doesn't work fix
             data = ds[variable_name].mean(dim=['lon', 'lat'])
-            variable_values = data.T 
+            variable_values = data.T
         elif selected_lon == "mean":
             if selected_lat in ds['lat'].values:
                 data = ds[variable_name].sel(lat=selected_lat).mean(dim='lon')
-                variable_values = data.T 
+                variable_values = data.T
             else:
                 sorted_lats = sorted(ds['lat'].values, key=lambda x: abs(x - selected_lat))
                 closest_lat1 = sorted_lats[0]
@@ -803,14 +776,14 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
                     logger.warning(f"Averaging from the closest valid lats: {closest_lat1} and {closest_lat2}")
                     avg_info_print = 1
                 data1 = ds[variable_name].sel(lat=closest_lat1, method='nearest').mean(dim='lon')
-                variable_values_1 = data1.T 
+                variable_values_1 = data1.T
                 data2 = ds[variable_name].sel(lat=closest_lat2, method='nearest').mean(dim='lon')
-                variable_values_2 = data2.T 
+                variable_values_2 = data2.T
                 variable_values = (variable_values_1 + variable_values_2) / 2
         elif selected_lat == "mean":
             if selected_lon in ds['lon'].values:
                 data = ds[variable_name].sel(lon=selected_lon).mean(dim='lat')
-                variable_values = data.T 
+                variable_values = data.T
             else:
                 sorted_lons = sorted(ds['lat'].values, key=lambda x: abs(x - selected_lon))
                 closest_lon1 = sorted_lons[0]
@@ -820,44 +793,43 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
                     logger.warning(f"Averaging from the closest valid lons: {closest_lon1} and {closest_lon2}")
                     avg_info_print = 1
                 data1 = ds[variable_name].sel(lon=closest_lon1, method='nearest').mean(dim='lat')
-                variable_values_1 = data1.T 
+                variable_values_1 = data1.T
                 data2 = ds[variable_name].sel(lon=closest_lon2, method='nearest').mean(dim='lat')
-                variable_values_2 = data2.T 
+                variable_values_2 = data2.T
                 variable_values = (variable_values_1 + variable_values_2) / 2
         else:
-            #data = ds[variable_name].sel(time=time, lat=selected_lat, lon=selected_lon, method="nearest")    
             data = ds[variable_name].sel(lat=selected_lat, lon=selected_lon, method='nearest')
-            variable_values = data.T 
+            variable_values = data.T
         try:
             levs_ilevs = data.lev.values
         except (KeyError, AttributeError):
             levs_ilevs = data.ilev.values
 
-
-        # Adjusting levs_ilevs to match the shape of variable_values
         levs_ilevs = levs_ilevs[:variable_values.shape[0]]
-
 
         variable_values_all.append(variable_values)
         combined_mtime.extend(mtime_values)
         levs_ilevs_all.append(levs_ilevs)
-    
+        model = mds.model
+
     # Concatenate data along the time dimension
     variable_values_all = np.concatenate(variable_values_all, axis=1)
     mtime_values = combined_mtime
-    
+
     # Mask out levels with all NaN values
     mask = ~np.isnan(variable_values_all).all(axis=1)
     variable_values_all = variable_values_all[mask, :]
-    if selected_unit != None:
-        variable_values_all ,variable_unit  = convert_units (variable_values_all, variable_unit, selected_unit)
-        
+    if selected_unit is not None:
+        variable_values_all, variable_unit = convert_units(variable_values_all, variable_unit, selected_unit)
+
     min_lev_size = min([len(lev) for lev in levs_ilevs_all])
     levs_ilevs = levs_ilevs_all[0][:min_lev_size][mask[:min_lev_size]]
 
     levs_ilevs = level_log_transform(levs_ilevs, model, log_level)
-    if plot_mode == True:
-        return variable_values_all, levs_ilevs, mtime_values, selected_lon, variable_unit, variable_long_name, model
+    if plot_mode:
+        return PlotData(values=variable_values_all, levs=levs_ilevs, mtime_values=mtime_values,
+                        selected_lon=selected_lon, variable_unit=variable_unit,
+                        variable_long_name=variable_long_name, model=model, filename='')
     else:
         return variable_values_all
 
@@ -896,25 +868,21 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
     lats_all = []
     avg_info_print = 0
 
-    for ds, filenames, model in datasets:
+    for mds in datasets:
+        ds = mds.ds
         if first_pass == True:
             lev_ilev = check_var_dims(ds, variable_name)
         if lev_ilev == 'lev':
-            first_pass == False            
+            first_pass == False
             if 'lev' not in ds[variable_name].dims:
                 raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'lev'")
-                return 0
-            variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit == None:
-                selected_unit = 'm/s'
-            variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
             try:
                 mtime_values = ds['mtime'].values
             except KeyError:
                 mtime_values = []
                 for timestamp in ds['time'].values:
                     mtime_values.append(get_mtime(ds, timestamp))
-            filename = filenames
             if selected_lon == 'mean' and selected_lev_ilev == 'mean':
                 data = ds[variable_name].sel(method='nearest').mean(dim=['lev', 'lon'])
                 variable_values = data.T 
@@ -976,18 +944,13 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
             avg_info_print = 0
             if 'ilev' not in ds[variable_name].dims:
                 raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'ilev'")
-                return 0
-            variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit == None:
-                selected_unit = 'm/s'
-            variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
             try:
                 mtime_values = ds['mtime'].values
             except KeyError:
                 mtime_values = []
                 for timestamp in ds['time'].values:
                     mtime_values.append(get_mtime(ds, timestamp))
-            filename = filenames
             
             if selected_lon == 'mean' and selected_lev_ilev == 'mean':
                 data = ds[variable_name].sel(method='nearest').mean(dim=['ilev', 'lon'])
@@ -1052,17 +1015,13 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
             selected_lev_ilev = None
 
             avg_info_print = 0
-            variable_unit = ds[variable_name].attrs.get('units', 'N/A')
-            if variable_unit == 'cm/s' and selected_unit == None:
-                selected_unit = 'm/s'
-            variable_long_name = ds[variable_name].attrs.get('long_name', 'N/A')
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
             try:
                 mtime_values = ds['mtime'].values
             except KeyError:
                 mtime_values = []
                 for timestamp in ds['time'].values:
                     mtime_values.append(get_mtime(ds, timestamp))
-            filename = filenames
 
             if selected_lon =='mean':
                 data = ds[variable_name].sel(method='nearest').mean(dim='lon')
@@ -1086,8 +1045,10 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
         variable_values_all ,variable_unit  = convert_units (variable_values_all, variable_unit, selected_unit)
         
     mtime_values = combined_mtime
-    if plot_mode == True:    
-        return variable_values_all, lats, mtime_values, selected_lon, variable_unit, variable_long_name, model, filename
+    if plot_mode:
+        return PlotData(values=variable_values_all, lats=lats, mtime_values=mtime_values,
+                        selected_lon=selected_lon, variable_unit=variable_unit,
+                        variable_long_name=variable_long_name, model=mds.model, filename=mds.filename)
     else:
         return variable_values_all
 
@@ -1109,7 +1070,8 @@ def calc_avg_ht(datasets, time, selected_lev_ilev):
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     #TIEGCM geoportial height variable is 'ZG'
-    for ds, filenames, model in datasets:
+    for mds in datasets:
+        ds = mds.ds
         if 'ZG' in ds.variables:
             if time in ds['time'].values:
                 if selected_lev_ilev in ds['ilev'].values:
@@ -1174,19 +1136,19 @@ def get_time(datasets, mtime):
         np.datetime64: The corresponding datetime value in the dataset for the given mtime. Returns None if no match is found.
     """
 
-    for ds, filenames, model in datasets:
+    for mds in datasets:
         # Convert mtime to numpy array for comparison
         mtime_array = np.array(mtime)
-        
+
         # Find the index where mtime matches in the dataset
-        idx = np.where(np.all(ds['mtime'].values == mtime_array, axis=1))[0]
-        
+        idx = np.where(np.all(mds.ds['mtime'].values == mtime_array, axis=1))[0]
+
         if len(idx) == 0:
             continue  # Return None if no matching time is found
-        
+
         # Get the corresponding datetime64 value from the time variable
-        time = ds['time'].values[idx][0]
-        
+        time = mds.ds['time'].values[idx][0]
+
         return time
 
 def get_mtime(ds, time):

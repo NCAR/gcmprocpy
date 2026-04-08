@@ -13,8 +13,8 @@ class TestLoadDatasets:
         tiegcm_dataset.to_netcdf(filepath)
         datasets = load_datasets(str(filepath))
         assert len(datasets) == 1
-        assert datasets[0][1] == "test.nc"
-        assert datasets[0][2] in ('TIE-GCM', 'WACCM-X')
+        assert datasets[0].filename == "test.nc"
+        assert datasets[0].model in ('TIE-GCM', 'WACCM-X')
         close_datasets(datasets)
 
     def test_load_directory(self, tmp_path, tiegcm_dataset):
@@ -36,7 +36,7 @@ class TestLoadDatasets:
 
         datasets = load_datasets(str(tmp_path), dataset_filter='sech')
         assert len(datasets) == 1
-        assert 'sech' in datasets[0][1]
+        assert 'sech' in datasets[0].filename
         close_datasets(datasets)
 
 

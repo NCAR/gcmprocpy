@@ -125,13 +125,13 @@ class TestLevelLogTransform:
 
 class TestGetMtime:
     def test_returns_mtime_for_timestamp(self, tiegcm_datasets):
-        ds = tiegcm_datasets[0][0]
+        ds = tiegcm_datasets[0].ds
         time = np.datetime64('2003-03-20T00:00:00', 'ns')
         mtime = get_mtime(ds, time)
         assert mtime is not None
 
     def test_returns_mtime_array(self, tiegcm_datasets):
-        ds = tiegcm_datasets[0][0]
+        ds = tiegcm_datasets[0].ds
         time = np.datetime64('2003-03-20T01:00:00', 'ns')
         mtime = get_mtime(ds, time)
         # mtime should be [day, hour, min, sec]

@@ -5,6 +5,7 @@ import logging
 import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
+from .containers import ModelDataset
 
 logger = logging.getLogger(__name__)
 
@@ -19,31 +20,24 @@ def load_datasets(directory,dataset_filter = None):
         dataset_filter (str, optional): The string to filter the NetCDF files to select from (e.g., 'prim', 'sech'). Defaults to None.
 
     Returns:
-        list[tuple]: A list containing tuples, each with an xarray.Dataset object and the corresponding filename and model in string.
+        list[ModelDataset]: A list of ModelDataset objects, each containing an xarray.Dataset, filename, and model type.
     """
 
     datasets=[]
     if os.path.isdir(directory):
-        files = sorted(os.listdir(directory)) 
+        files = sorted(os.listdir(directory))
         logger.info("Loading datasets globally.")
         for file in files:
             if file.endswith('.nc') and (dataset_filter is None or dataset_filter in file):
                 file_path = os.path.join(directory, file)
-                dataset = xr.open_dataset(file_path)
-                file_name = file
-                if dataset.lev.units == 'hPa':
-                    model = 'WACCM-X'
-                else:
-                    model = 'TIE-GCM'
-                datasets.append([dataset, file_name, model])
+                ds = xr.open_dataset(file_path)
+                model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+                datasets.append(ModelDataset(ds=ds, filename=file, model=model))
     else:
         file_name = os.path.basename(directory)
-        dataset = xr.open_dataset(directory)
-        if dataset.lev.units == 'hPa':
-            model = 'WACCM-X'
-        else:
-            model = 'TIE-GCM'
-        datasets.append([dataset, file_name, model])
+        ds = xr.open_dataset(directory)
+        model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
+        datasets.append(ModelDataset(ds=ds, filename=file_name, model=model))
     return(datasets)
 
 def close_datasets(datasets):
@@ -51,13 +45,13 @@ def close_datasets(datasets):
     Closes the xarray datasets.
 
     Args:
-        datasets (list[tuple]): A list containing tuples, each with an xarray.Dataset object and the corresponding filename and model in string.
+        datasets (list[ModelDataset]): A list of ModelDataset objects.
 
     Returns:
         None
     """
     for dataset in datasets:
-        dataset[0].close()
+        dataset.ds.close()
     return
 
 def save_output(output_directory,filename,output_format,plot_object):
