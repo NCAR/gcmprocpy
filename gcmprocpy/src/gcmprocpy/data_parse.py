@@ -1000,6 +1000,179 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
         return variable_values_all
 
 
+def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
+    """
+    Extracts and processes data from the dataset based on the specified variable name, latitude, and level/ilev.
+    Returns a 2D array of longitudes x time.
+
+    Args:
+        datasets (list[ModelDataset]): List of ModelDataset objects.
+        variable_name (str): The name of the variable to extract.
+        selected_lat (Union[float, str]): Latitude value or 'mean' to average over all latitudes.
+        selected_lev_ilev (Union[float, str, None]): Level or intermediate level value, 'mean' for averaging, or None if not applicable.
+        selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        plot_mode (bool, optional): If True, returns a PlotData object.
+
+    Returns:
+        Union[numpy.ndarray, PlotData]:
+            If plot_mode is False, returns a numpy array of variable values concatenated across datasets.
+            If plot_mode is True, returns a PlotData object.
+    """
+
+    if selected_lev_ilev != 'mean' and selected_lev_ilev is not None:
+        selected_lev_ilev = float(selected_lev_ilev)
+    if selected_lat != 'mean':
+        selected_lat = float(selected_lat)
+
+    data_arrays = []
+    combined_mtime = []
+    avg_info_print = 0
+    lev_ilev = None
+
+    for mds in datasets:
+        ds = mds.ds
+        if lev_ilev is None:
+            lev_ilev = check_var_dims(ds, variable_name)
+
+        coord = lev_ilev
+
+        if coord is not None and coord not in ds[variable_name].dims:
+            raise ValueError(f"The variable {variable_name} doesn't use the dimensions 'lat', 'lon', '{coord}'")
+
+        variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+        try:
+            mtime_values = ds['mtime'].values
+        except KeyError:
+            mtime_values = [get_mtime(ds, ts) for ts in mds._time_values]
+        combined_mtime.extend(mtime_values)
+
+        # Level selection
+        if coord is not None and selected_lev_ilev == 'mean':
+            data = ds[variable_name].mean(dim=coord)
+        elif coord is not None and selected_lev_ilev is not None:
+            coord_vals = ds[coord].values
+            if selected_lev_ilev in coord_vals:
+                data = ds[variable_name].sel(**{coord: selected_lev_ilev}, method='nearest')
+            else:
+                sorted_levs = sorted(coord_vals, key=lambda x: abs(x - selected_lev_ilev))
+                closest_lev1, closest_lev2 = sorted_levs[0], sorted_levs[1]
+                if avg_info_print == 0:
+                    logger.warning(f"The {coord} {selected_lev_ilev} isn't in the listed valid values.")
+                    logger.warning(f"Averaging from the closest valid {coord}s: {closest_lev1} and {closest_lev2}")
+                    avg_info_print = 1
+                data = (ds[variable_name].sel(**{coord: closest_lev1}, method='nearest') +
+                        ds[variable_name].sel(**{coord: closest_lev2}, method='nearest')) / 2
+        else:
+            data = ds[variable_name]
+
+        # Latitude selection
+        if selected_lat == 'mean':
+            data = data.mean(dim='lat')
+        else:
+            data = data.sel(lat=selected_lat, method='nearest')
+
+        data_arrays.append(data)
+
+    computed = dask.compute(*data_arrays)
+    variable_values_all = np.concatenate([c.values.T for c in computed], axis=1)
+    lons = computed[0].lon.values
+
+    if selected_unit is not None:
+        variable_values_all, variable_unit = convert_units(variable_values_all, variable_unit, selected_unit)
+
+    if plot_mode:
+        return PlotData(values=variable_values_all, lons=lons, mtime_values=combined_mtime,
+                        selected_lat=selected_lat, variable_unit=variable_unit,
+                        variable_long_name=variable_long_name, model=mds.model, filename=mds.filename)
+    else:
+        return variable_values_all
+
+
+def arr_var_time(datasets, variable_name, selected_lat, selected_lon, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
+    """
+    Extracts a 1D time series of a variable at a specific lat/lon/level location.
+
+    Args:
+        datasets (list[ModelDataset]): List of ModelDataset objects.
+        variable_name (str): The name of the variable to extract.
+        selected_lat (float): Latitude value.
+        selected_lon (float): Longitude value.
+        selected_lev_ilev (Union[float, str, None]): Level or intermediate level value, 'mean' for averaging, or None if not applicable.
+        selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        plot_mode (bool, optional): If True, returns a PlotData object.
+
+    Returns:
+        Union[numpy.ndarray, PlotData]:
+            If plot_mode is False, returns a 1D numpy array of variable values over time.
+            If plot_mode is True, returns a PlotData object.
+    """
+
+    if selected_lev_ilev != 'mean' and selected_lev_ilev is not None:
+        selected_lev_ilev = float(selected_lev_ilev)
+    selected_lat = float(selected_lat)
+    selected_lon = float(selected_lon)
+
+    data_arrays = []
+    combined_mtime = []
+    avg_info_print = 0
+    lev_ilev = None
+
+    for mds in datasets:
+        ds = mds.ds
+        if lev_ilev is None:
+            lev_ilev = check_var_dims(ds, variable_name)
+
+        coord = lev_ilev
+
+        if coord is not None and coord not in ds[variable_name].dims:
+            raise ValueError(f"The variable {variable_name} doesn't use the dimensions 'lat', 'lon', '{coord}'")
+
+        variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+        try:
+            mtime_values = ds['mtime'].values
+        except KeyError:
+            mtime_values = [get_mtime(ds, ts) for ts in mds._time_values]
+        combined_mtime.extend(mtime_values)
+
+        # Level selection
+        if coord is not None and selected_lev_ilev == 'mean':
+            data = ds[variable_name].mean(dim=coord)
+        elif coord is not None and selected_lev_ilev is not None:
+            coord_vals = ds[coord].values
+            if selected_lev_ilev in coord_vals:
+                data = ds[variable_name].sel(**{coord: selected_lev_ilev}, method='nearest')
+            else:
+                sorted_levs = sorted(coord_vals, key=lambda x: abs(x - selected_lev_ilev))
+                closest_lev1, closest_lev2 = sorted_levs[0], sorted_levs[1]
+                if avg_info_print == 0:
+                    logger.warning(f"The {coord} {selected_lev_ilev} isn't in the listed valid values.")
+                    logger.warning(f"Averaging from the closest valid {coord}s: {closest_lev1} and {closest_lev2}")
+                    avg_info_print = 1
+                data = (ds[variable_name].sel(**{coord: closest_lev1}, method='nearest') +
+                        ds[variable_name].sel(**{coord: closest_lev2}, method='nearest')) / 2
+        else:
+            data = ds[variable_name]
+
+        # Lat/Lon selection
+        data = data.sel(lat=selected_lat, method='nearest')
+        data = data.sel(lon=selected_lon, method='nearest')
+
+        data_arrays.append(data)
+
+    computed = dask.compute(*data_arrays)
+    variable_values_all = np.concatenate([c.values for c in computed])
+
+    if selected_unit is not None:
+        variable_values_all, variable_unit = convert_units(variable_values_all, variable_unit, selected_unit)
+
+    if plot_mode:
+        return PlotData(values=variable_values_all, mtime_values=combined_mtime,
+                        selected_lat=selected_lat, selected_lon=selected_lon,
+                        variable_unit=variable_unit, variable_long_name=variable_long_name,
+                        model=mds.model, filename=mds.filename)
+    else:
+        return variable_values_all
+
 
 def calc_avg_ht(datasets, time, selected_lev_ilev):
     """

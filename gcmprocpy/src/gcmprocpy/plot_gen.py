@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, calc_avg_ht, min_max, get_time
+from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, calc_avg_ht, min_max, get_time
 
 logger = logging.getLogger(__name__)
 from .data_emissions import arr_mkeno53, arr_mkeco215, arr_mkeoh83
@@ -1209,6 +1209,284 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
             plt.text(0.5, 1.08,'  LAT='+str(latitude)+" LON="+str(longitude), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            plt.show(block=False)
+        return plot
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
+
+
+def plt_lon_time(datasets, variable_name, latitude, level = None, variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', longitude_minimum = None, longitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+    """
+    Generates a Longitude vs Time contour plot for a specified latitude and/or level.
+
+    Args:
+        datasets (xarray.Dataset): The loaded dataset/s using xarray.
+        variable_name (str): The name of the variable with latitude, longitude, time, and lev/ilev dimensions.
+        latitude (float): The specific latitude value for the plot.
+        level (float, optional): The specific level value for the plot.
+        variable_unit (str, optional): The desired unit of the variable.
+        contour_intervals (int, optional): The number of contour intervals. Defaults to 10. Ignored if contour_value is provided.
+        contour_value (int, optional): The value between each contour interval.
+        symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
+        cmap_color (str, optional): The color map of the contour.
+        cmap_lim_min (float, optional): Minimum limit for the color map.
+        cmap_lim_max (float, optional): Maximum limit for the color map.
+        line_color (str, optional): The color for all lines in the plot. Defaults to 'white'.
+        longitude_minimum (float, optional): Minimum longitude value for the plot.
+        longitude_maximum (float, optional): Maximum longitude value for the plot.
+        mtime_minimum (list, optional): Minimum time value as [day, hour, min, sec].
+        mtime_maximum (list, optional): Maximum time value as [day, hour, min, sec].
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
+
+    Returns:
+        matplotlib.figure.Figure: Contour plot.
+    """
+
+    if contour_intervals == None:
+        contour_intervals = 20
+    if verbose:
+        logger.debug("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(level)+"]---------------")
+
+    result = arr_lon_time(datasets, variable_name, latitude, level, variable_unit, plot_mode=True)
+    variable_values_all = result.values
+    unique_lons = result.lons
+    mtime_values = result.mtime_values
+    latitude = result.selected_lat
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    model = result.model
+    filename = result.filename
+
+    if longitude_minimum == None:
+        longitude_minimum = np.nanmin(unique_lons)
+    if longitude_maximum == None:
+        longitude_maximum = np.nanmax(unique_lons)
+
+    num_deleted_before = 0
+    num_deleted_after = 0
+
+    if mtime_minimum is not None and mtime_maximum is not None:
+        new_mtime_values = []
+        for t_mtime in mtime_values:
+            mtime_total_minutes = t_mtime[0] * 24 * 60 *60 + t_mtime[1] * 60 *60+ t_mtime[2] *60+ t_mtime[3]
+            mtime_min_total = mtime_minimum[0] * 24 * 60*60 + mtime_minimum[1] * 60 *60+ mtime_minimum[2]*60 + mtime_minimum[3]
+            mtime_max_total = mtime_maximum[0] * 24 * 60*60 + mtime_maximum[1] * 60 *60+ mtime_maximum[2]*60 + mtime_maximum[3]
+            if mtime_total_minutes >= mtime_min_total and mtime_total_minutes <= mtime_max_total:
+                new_mtime_values.append(t_mtime)
+            else:
+                if mtime_total_minutes < mtime_min_total:
+                    num_deleted_before += 1
+                elif mtime_total_minutes > mtime_max_total:
+                    num_deleted_after += 1
+        mtime_values = new_mtime_values
+        if num_deleted_after > 0:
+            variable_values_all = variable_values_all[:, num_deleted_before:-num_deleted_after]
+        else:
+            variable_values_all = variable_values_all[:, num_deleted_before:]
+
+    min_val, max_val = np.nanmin(variable_values_all), np.nanmax(variable_values_all)
+
+    if cmap_lim_min == None:
+        cmap_lim_min = min_val
+    else:
+        min_val = cmap_lim_min
+    if cmap_lim_max == None:
+        cmap_lim_max = max_val
+    else:
+        max_val = cmap_lim_max
+
+    if cmap_color == None:
+        cmap_color, line_color = color_scheme(variable_name)
+
+    if contour_value is not None:
+        contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
+        interval_value = contour_value
+    elif symmetric_interval == False:
+        contour_levels = np.linspace(min_val, max_val, contour_intervals)
+        interval_value = (max_val - min_val) / (contour_intervals - 1)
+    elif symmetric_interval == True:
+        range_half = math.ceil(max(abs(min_val), abs(max_val))/10)*10
+        interval_value = range_half / (contour_intervals // 2)
+        positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
+        negative_levels = -np.flip(positive_levels)
+        contour_levels = np.concatenate((negative_levels, [0], positive_levels))
+
+    interval_value = contour_value if contour_value else (max_val - min_val) / (contour_intervals - 1)
+
+    mtime_tuples = [tuple(entry) for entry in mtime_values]
+    try:
+        unique_times = sorted(list(set([(day, hour) for day, hour, _, _ in mtime_values])))
+        time_indices = [i for i, (day, hour, _, _) in enumerate(mtime_tuples) if i == 0 or mtime_tuples[i-1][:2] != (day, hour)]
+        if len(time_indices) >24:
+            unique_times = sorted(list(set([day for day, _, _, _ in mtime_values])))
+            time_indices = [i for i, (day, _, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
+    except (ValueError, TypeError):
+        unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
+        time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
+
+    if clean_plot == False:
+        figure_height = 6
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
+
+    plot = plt.figure(figsize=(figure_width, figure_height))
+    X, Y = np.meshgrid(range(len(mtime_values)), unique_lons)
+    contour_filled = plt.contourf(X, Y, variable_values_all, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
+    contour_lines = plt.contour(X, Y, variable_values_all, colors=line_color, linewidths=0.5, levels=contour_levels)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
+    cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]")
+    cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
+    try:
+        plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
+        plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14)
+    except (ValueError, TypeError):
+        plt.xticks(time_indices, unique_times, rotation=45)
+        plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)), fontsize=14)
+
+    plt.ylabel('Longitude (Deg)', fontsize=14)
+
+    plt.tight_layout()
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
+    plt.ylim(longitude_minimum, longitude_maximum)
+
+    if clean_plot == False:
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n', fontsize=18)
+        if level == 'mean' and latitude == 'mean':
+            plt.text(0.5, 1.08, '  ZP= Mean LAT= Mean', ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        elif latitude == 'mean':
+            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LAT= Mean", ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        elif level == 'mean':
+            plt.text(0.5, 1.08, '  ZP= Mean' + " LAT=" + str(latitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        elif level is not None:
+            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LAT=" + str(latitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        else:
+            plt.text(0.5, 1.08, '  LAT=' + str(latitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            plt.show(block=False)
+        return plot
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
+
+
+def plt_var_time(datasets, variable_name, latitude, longitude, level = None, variable_unit = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+    """
+    Generates a Variable vs Time line plot at a specific lat/lon/level location.
+
+    Args:
+        datasets (xarray.Dataset): The loaded dataset/s using xarray.
+        variable_name (str): The name of the variable with latitude, longitude, time, and lev/ilev dimensions.
+        latitude (float): The specific latitude value for the plot.
+        longitude (float): The specific longitude value for the plot.
+        level (float, optional): The specific level value for the plot.
+        variable_unit (str, optional): The desired unit of the variable.
+        mtime_minimum (list, optional): Minimum time value as [day, hour, min, sec].
+        mtime_maximum (list, optional): Maximum time value as [day, hour, min, sec].
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
+
+    Returns:
+        matplotlib.figure.Figure: Line plot.
+    """
+
+    if verbose:
+        logger.debug("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(longitude)+"]---["+str(level)+"]---------------")
+
+    result = arr_var_time(datasets, variable_name, latitude, longitude, level, variable_unit, plot_mode=True)
+    variable_values = result.values
+    mtime_values = result.mtime_values
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    model = result.model
+    filename = result.filename
+
+    num_deleted_before = 0
+    num_deleted_after = 0
+
+    if mtime_minimum is not None and mtime_maximum is not None:
+        new_mtime_values = []
+        for t_mtime in mtime_values:
+            mtime_total_minutes = t_mtime[0] * 24 * 60 *60 + t_mtime[1] * 60 *60+ t_mtime[2] *60+ t_mtime[3]
+            mtime_min_total = mtime_minimum[0] * 24 * 60*60 + mtime_minimum[1] * 60 *60+ mtime_minimum[2]*60 + mtime_minimum[3]
+            mtime_max_total = mtime_maximum[0] * 24 * 60*60 + mtime_maximum[1] * 60 *60+ mtime_maximum[2]*60 + mtime_maximum[3]
+            if mtime_total_minutes >= mtime_min_total and mtime_total_minutes <= mtime_max_total:
+                new_mtime_values.append(t_mtime)
+            else:
+                if mtime_total_minutes < mtime_min_total:
+                    num_deleted_before += 1
+                elif mtime_total_minutes > mtime_max_total:
+                    num_deleted_after += 1
+        mtime_values = new_mtime_values
+        if num_deleted_after > 0:
+            variable_values = variable_values[num_deleted_before:-num_deleted_after]
+        else:
+            variable_values = variable_values[num_deleted_before:]
+
+    min_val, max_val = np.nanmin(variable_values), np.nanmax(variable_values)
+
+    mtime_tuples = [tuple(entry) for entry in mtime_values]
+    try:
+        unique_times = sorted(list(set([(day, hour) for day, hour, _, _ in mtime_values])))
+        time_indices = [i for i, (day, hour, _, _) in enumerate(mtime_tuples) if i == 0 or mtime_tuples[i-1][:2] != (day, hour)]
+        if len(time_indices) > 24:
+            unique_times = sorted(list(set([day for day, _, _, _ in mtime_values])))
+            time_indices = [i for i, (day, _, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
+    except (ValueError, TypeError):
+        unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
+        time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
+
+    if clean_plot == False:
+        figure_height = 6
+        figure_width = 10
+    elif clean_plot == True:
+        figure_height = 5
+        figure_width = 10
+
+    plot = plt.figure(figsize=(figure_width, figure_height))
+    plt.plot(range(len(mtime_values)), variable_values, linewidth=1.5)
+
+    try:
+        plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
+        plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14)
+    except (ValueError, TypeError):
+        plt.xticks(time_indices, unique_times, rotation=45)
+        plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)), fontsize=14)
+
+    plt.ylabel(variable_name + ' (' + variable_unit + ')', fontsize=14)
+
+    plt.tight_layout()
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
+    plt.grid(True, alpha=0.3)
+
+    if clean_plot == False:
+        plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n', fontsize=18)
+        subtitle_parts = []
+        if latitude is not None:
+            subtitle_parts.append('LAT=' + str(latitude))
+        if longitude is not None:
+            subtitle_parts.append('LON=' + str(longitude))
+        if level == 'mean':
+            subtitle_parts.append('ZP= Mean')
+        elif level is not None:
+            subtitle_parts.append('ZP=' + str(level))
+        plt.text(0.5, 1.08, '  ' + ' '.join(subtitle_parts), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
     if is_notebook():
         backend = get_backend()
         if "inline" in backend or "nbagg" in backend:

@@ -5,7 +5,9 @@ from gcmprocpy.data_parse import (
     time_list, var_list, level_list, lon_list, lat_list,
     dim_list, var_info, dim_info, check_var_dims,
     level_log_transform, get_mtime, get_time,
+    arr_lon_time, arr_var_time,
 )
+from gcmprocpy.containers import PlotData
 
 
 class TestTimeList:
@@ -143,3 +145,46 @@ class TestGetTime:
         mtime = [80, 0, 0, 0]
         time = get_time(tiegcm_datasets, mtime)
         assert time == np.datetime64('2003-03-20T00:00:00', 'ns')
+
+
+class TestArrLonTime:
+    def test_returns_array(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lev_ilev=5.0)
+        assert isinstance(result, np.ndarray)
+        # shape should be (num_lons, num_times)
+        assert result.shape == (5, 2)
+
+    def test_plot_mode_returns_plotdata(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lev_ilev=5.0, plot_mode=True)
+        assert isinstance(result, PlotData)
+        assert result.lons is not None
+        assert len(result.mtime_values) == 2
+        assert result.variable_unit == 'K'
+
+    def test_lat_mean(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat='mean', selected_lev_ilev=5.0, plot_mode=True)
+        assert result.values.shape == (5, 2)
+
+    def test_lev_mean(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lev_ilev='mean', plot_mode=True)
+        assert result.values.shape == (5, 2)
+
+
+class TestArrVarTime:
+    def test_returns_array(self, tiegcm_datasets):
+        result = arr_var_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lon=0.0, selected_lev_ilev=5.0)
+        assert isinstance(result, np.ndarray)
+        # shape should be (num_times,)
+        assert result.shape == (2,)
+
+    def test_plot_mode_returns_plotdata(self, tiegcm_datasets):
+        result = arr_var_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lon=0.0, selected_lev_ilev=5.0, plot_mode=True)
+        assert isinstance(result, PlotData)
+        assert len(result.mtime_values) == 2
+        assert result.variable_unit == 'K'
+        assert result.selected_lat == 2.5
+        assert result.selected_lon == 0.0
+
+    def test_lev_mean(self, tiegcm_datasets):
+        result = arr_var_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lon=0.0, selected_lev_ilev='mean')
+        assert result.shape == (2,)
