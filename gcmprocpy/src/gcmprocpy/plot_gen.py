@@ -171,7 +171,7 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
     return cf
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, center_longitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False, verbose = False ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False, verbose = False ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -184,7 +184,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         level (float, optional): The selected lev/ilev value.
         variable_unit (str, optional): The desired unit of the variable.
         center_longitude (float, optional): The central longitude for the plot. Defaults to 0.
-        projection (str, optional): Map projection type. Options: 'mercator' (default), 'north_polar', 'south_polar', 'polar' (both hemispheres side by side).
+        central_latitude (float, optional): The central latitude for the plot. Used by the orthographic projection to set the viewing angle. Defaults to 0.
+        projection (str, optional): Map projection type. Options: 'mercator' (default), 'north_polar', 'south_polar', 'polar' (both hemispheres side by side), 'orthographic' (satellite view), 'mollweide' (equal-area).
         contour_intervals (int, optional): The number of contour intervals. Defaults to 20. Ignored if contour_value is provided.
         contour_value (int, optional): The value between each contour interval.
         symmetric_interval (bool, optional): If True, the contour intervals will be symmetric around zero. Defaults to False.
@@ -343,6 +344,109 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
             elif level is not None:
                 title_str += '\nZP=' + str(level) + ' AVG HT=' + str(avg_ht) + 'KM'
             plot.suptitle(title_str, fontsize=16, y=0.94)
+            minmax_str = "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val))
+            ci_str = "Contour Interval = " + str("{:.2e}".format(interval_value))
+            time_str = "Time=" + str(time.astype('M8[s]').astype(datetime))
+            mtime_str = "Day,Hr,Min,Sec=" + str(selected_day) + "," + str(selected_hour) + "," + str(selected_min) + "," + str(selected_sec)
+            plot.text(0.5, 0.06, minmax_str + "   " + ci_str + "\n" + time_str + "   " + mtime_str + "   " + str(filename),
+                      ha='center', va='center', fontsize=10, transform=plot.transFigure)
+
+        return plot
+
+    # ---- Orthographic (satellite view) projection branch ----
+    if projection == 'orthographic':
+        plot = plt.figure(figsize=(10, 10))
+        ax = plot.add_subplot(1, 1, 1, projection=ccrs.Orthographic(
+            central_longitude=center_longitude, central_latitude=central_latitude))
+
+        if coastlines:
+            ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=1.5)
+        if nightshade:
+            ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O')/1e9, tz=timezone.utc), alpha=0.4))
+        if gm_equator:
+            gm = geomag.geomag.GeoMag()
+            geomagnetic_lats = []
+            for lon in unique_lons:
+                geo_coord = gm.GeoMag(0, lon)
+                geomagnetic_lats.append(geo_coord.dec)
+            ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--',
+                    transform=ccrs.Geodetic(), label='Geomagnetic Equator')
+
+        ax.set_global()
+        gl = ax.gridlines(draw_labels=False, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 30))
+        gl.ylocator = mticker.FixedLocator(np.arange(-90, 91, 30))
+
+        cf = ax.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color,
+                         levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max,
+                         transform=ccrs.PlateCarree())
+        cl = ax.contour(unique_lons, unique_lats, variable_values, colors=line_color,
+                        linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
+        ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
+
+        cbar = plot.colorbar(cf, label=variable_name + " [" + variable_unit + "]",
+                             fraction=0.046, pad=0.04, shrink=0.65)
+        cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
+        cbar.ax.tick_params(labelsize=9)
+
+        if clean_plot == False:
+            title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
+            if level == 'mean':
+                title_str += '\nZP=' + str(level)
+            elif level is not None:
+                title_str += '\nZP=' + str(level) + ' AVG HT=' + str(avg_ht) + 'KM'
+            ax.set_title(title_str, fontsize=16, pad=20)
+            minmax_str = "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val))
+            ci_str = "Contour Interval = " + str("{:.2e}".format(interval_value))
+            time_str = "Time=" + str(time.astype('M8[s]').astype(datetime))
+            mtime_str = "Day,Hr,Min,Sec=" + str(selected_day) + "," + str(selected_hour) + "," + str(selected_min) + "," + str(selected_sec)
+            plot.text(0.5, 0.06, minmax_str + "   " + ci_str + "\n" + time_str + "   " + mtime_str + "   " + str(filename),
+                      ha='center', va='center', fontsize=10, transform=plot.transFigure)
+
+        return plot
+
+    # ---- Mollweide projection branch ----
+    if projection == 'mollweide':
+        plot = plt.figure(figsize=(14, 7))
+        ax = plot.add_subplot(1, 1, 1, projection=ccrs.Mollweide(central_longitude=center_longitude))
+
+        if coastlines:
+            ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=1.5)
+        if nightshade:
+            ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O')/1e9, tz=timezone.utc), alpha=0.4))
+        if gm_equator:
+            gm = geomag.geomag.GeoMag()
+            geomagnetic_lats = []
+            for lon in unique_lons:
+                geo_coord = gm.GeoMag(0, lon)
+                geomagnetic_lats.append(geo_coord.dec)
+            ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--',
+                    transform=ccrs.Geodetic(), label='Geomagnetic Equator')
+
+        ax.set_global()
+        gl = ax.gridlines(draw_labels=False, linewidth=0.5, color='gray', alpha=0.5, linestyle='--')
+        gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 30))
+        gl.ylocator = mticker.FixedLocator(np.arange(-90, 91, 30))
+
+        cf = ax.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color,
+                         levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max,
+                         transform=ccrs.PlateCarree())
+        cl = ax.contour(unique_lons, unique_lats, variable_values, colors=line_color,
+                        linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
+        ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
+
+        cbar = plot.colorbar(cf, label=variable_name + " [" + variable_unit + "]",
+                             fraction=0.046, pad=0.04, shrink=0.65)
+        cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
+        cbar.ax.tick_params(labelsize=9)
+
+        if clean_plot == False:
+            title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
+            if level == 'mean':
+                title_str += '\nZP=' + str(level)
+            elif level is not None:
+                title_str += '\nZP=' + str(level) + ' AVG HT=' + str(avg_ht) + 'KM'
+            ax.set_title(title_str, fontsize=16, pad=20)
             minmax_str = "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val))
             ci_str = "Contour Interval = " + str("{:.2e}".format(interval_value))
             time_str = "Time=" + str(time.astype('M8[s]').astype(datetime))
