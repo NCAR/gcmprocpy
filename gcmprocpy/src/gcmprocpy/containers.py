@@ -12,10 +12,21 @@ class ModelDataset:
         ds: The opened xarray Dataset.
         filename: The source filename (e.g. 'decsol_smin_2.5x0.25_sech_001.nc').
         model: The model type ('TIE-GCM' or 'WACCM-X').
+        _time_set: Cached set of time values for fast lookup.
     """
     ds: xr.Dataset
     filename: str
     model: str
+    _time_set: set = None
+    _time_values: np.ndarray = None
+
+    def __post_init__(self):
+        self._time_values = self.ds['time'].values
+        self._time_set = set(self._time_values)
+
+    def has_time(self, time):
+        """Fast check whether a timestamp exists in this dataset."""
+        return time in self._time_set
 
 
 @dataclass

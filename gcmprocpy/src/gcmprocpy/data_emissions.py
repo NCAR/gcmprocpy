@@ -1,6 +1,6 @@
 import numpy as np
 from .containers import PlotData
-from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, calc_avg_ht, min_max, get_time
+from .data_parse import arr_lat_lon, batch_arr_lat_lon, arr_lev_var, arr_lev_lon, arr_lev_lat, arr_lev_time, arr_lat_time, calc_avg_ht, min_max, get_time
 
 
 def mkeno53(arr_temp, arr_o, arr_no):
@@ -143,12 +143,11 @@ def arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = None, selecte
         temp_name = 'T'
         o_name = 'O'
         no_name = 'NO'
-    result_temp = arr_lat_lon(datasets, temp_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    result_o = arr_lat_lon(datasets, o_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    result_no = arr_lat_lon(datasets, no_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    NO_emission = mkeno53(result_temp.values, result_o.values, result_no.values)
+    results = batch_arr_lat_lon(datasets, [temp_name, o_name, no_name], time, selected_lev_ilev, selected_unit, plot_mode)
+    result_temp, result_o, result_no = results[temp_name], results[o_name], results[no_name]
 
-    if plot_mode == True:
+    if plot_mode:
+        NO_emission = mkeno53(result_temp.values, result_o.values, result_no.values)
         return PlotData(
             values=NO_emission, variable_unit="photons cm-3 sec-1",
             variable_long_name="5.3-micron NO", model=result_temp.model,
@@ -157,7 +156,7 @@ def arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = None, selecte
             mtime=result_temp.mtime,
         )
     else:
-        return NO_emission
+        return mkeno53(result_temp, result_o, result_no)
 
 def arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
@@ -208,12 +207,11 @@ def arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = None, select
         o_name = 'O'
         co2_name = 'CO2'
 
-    result_temp = arr_lat_lon(datasets, temp_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    result_o = arr_lat_lon(datasets, o_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    result_co2 = arr_lat_lon(datasets, co2_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    CO2_emission = mkeco215(result_temp.values, result_o.values, result_co2.values)
+    results = batch_arr_lat_lon(datasets, [temp_name, o_name, co2_name], time, selected_lev_ilev, selected_unit, plot_mode)
+    result_temp, result_o, result_co2 = results[temp_name], results[o_name], results[co2_name]
 
-    if plot_mode == True:
+    if plot_mode:
+        CO2_emission = mkeco215(result_temp.values, result_o.values, result_co2.values)
         return PlotData(
             values=CO2_emission, variable_unit="photons cm-3 sec-1",
             variable_long_name="15-micron CO2", model=result_temp.model,
@@ -222,7 +220,7 @@ def arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = None, select
             mtime=result_temp.mtime,
         )
     else:
-        return CO2_emission
+        return mkeco215(result_temp, result_o, result_co2)
 
 def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
@@ -276,13 +274,12 @@ def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selecte
         o2_name = 'O2'
         n2_name = 'N2'
 
-    result_temp = arr_lat_lon(datasets, temp_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    result_o = arr_lat_lon(datasets, o_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    result_o2 = arr_lat_lon(datasets, o2_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    result_n2 = arr_lat_lon(datasets, n2_name, time, selected_lev_ilev, selected_unit, plot_mode)
-    OH_emission = mkeoh83(result_temp.values, result_o.values, result_o2.values, result_n2.values)
+    results = batch_arr_lat_lon(datasets, [temp_name, o_name, o2_name, n2_name], time, selected_lev_ilev, selected_unit, plot_mode)
+    result_temp, result_o = results[temp_name], results[o_name]
+    result_o2, result_n2 = results[o2_name], results[n2_name]
 
-    if plot_mode == True:
+    if plot_mode:
+        OH_emission = mkeoh83(result_temp.values, result_o.values, result_o2.values, result_n2.values)
         return PlotData(
             values=OH_emission, variable_unit="photons cm-3 sec-1",
             variable_long_name="OH v(8,3)", model=result_temp.model,
@@ -291,7 +288,7 @@ def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selecte
             mtime=result_temp.mtime,
         )
     else:
-        return OH_emission
+        return mkeoh83(result_temp, result_o, result_o2, result_n2)
 
 
     

@@ -30,12 +30,12 @@ def load_datasets(directory,dataset_filter = None):
         for file in files:
             if file.endswith('.nc') and (dataset_filter is None or dataset_filter in file):
                 file_path = os.path.join(directory, file)
-                ds = xr.open_dataset(file_path)
+                ds = xr.open_dataset(file_path, chunks='auto', decode_timedelta=False)
                 model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
                 datasets.append(ModelDataset(ds=ds, filename=file, model=model))
     else:
         file_name = os.path.basename(directory)
-        ds = xr.open_dataset(directory)
+        ds = xr.open_dataset(directory, chunks='auto', decode_timedelta=False)
         model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
         datasets.append(ModelDataset(ds=ds, filename=file_name, model=model))
     return(datasets)

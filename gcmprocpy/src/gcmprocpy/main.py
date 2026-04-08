@@ -26,7 +26,7 @@ def main():
             for file in files:
                 if file.endswith('.nc') and (args.dataset_filter is None or args.dataset_filter in file):
                     file_path = os.path.join(args.directory, file)
-                    ds = xr.open_dataset(file_path)
+                    ds = xr.open_dataset(file_path, chunks='auto', decode_timedelta=False)
                     model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
                     cached_datasets.append(ModelDataset(ds=ds, filename=file, model=model))
         if args.multiple_output:
@@ -93,13 +93,13 @@ def plot_routine(args, cached_datasets=None, multiple_output=False):
                 for file in files:
                     if file.endswith('.nc') and (args.dataset_filter is None or args.dataset_filter in file):
                         file_path = os.path.join(args.directory, file)
-                        ds = xr.open_dataset(file_path)
+                        ds = xr.open_dataset(file_path, chunks='auto', decode_timedelta=False)
                         model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
                         datasets.append(ModelDataset(ds=ds, filename=file, model=model))
             elif args.dataset:
                 file = args.dataset
                 if file.endswith('.nc'):
-                    ds = xr.open_dataset(file)
+                    ds = xr.open_dataset(file, chunks='auto', decode_timedelta=False)
                     model = 'WACCM-X' if ds.lev.units == 'hPa' else 'TIE-GCM'
                     datasets.append(ModelDataset(ds=ds, filename=file, model=model))
 

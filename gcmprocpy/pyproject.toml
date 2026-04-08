@@ -30,6 +30,7 @@ dependencies = [
     "matplotlib",
     "numpy",
     "xarray",
+    "dask",
     "ipython",
     "geomag",
     "netcdf4",
