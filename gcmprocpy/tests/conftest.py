@@ -21,12 +21,20 @@ def tiegcm_dataset():
     un_data = np.random.uniform(-100, 100, size=(2, len(levs), len(lats), len(lons)))
     vn_data = np.random.uniform(-50, 50, size=(2, len(levs), len(lats), len(lons)))
 
+    # ZG: geometric height on ilev in cm, increasing with level index
+    zg_base = np.linspace(80e5, 700e5, len(ilevs))  # 80–700 km in cm
+    zg_data = np.broadcast_to(
+        zg_base[np.newaxis, :, np.newaxis, np.newaxis],
+        (2, len(ilevs), len(lats), len(lons)),
+    ).copy()
+
     ds = xr.Dataset(
         {
             'TN': (['time', 'lev', 'lat', 'lon'], tn_data, {'units': 'K', 'long_name': 'NEUTRAL TEMPERATURE'}),
             'NE': (['time', 'ilev', 'lat', 'lon'], ne_data, {'units': 'cm-3', 'long_name': 'ELECTRON DENSITY'}),
             'UN': (['time', 'lev', 'lat', 'lon'], un_data, {'units': 'cm/s', 'long_name': 'NEUTRAL ZONAL WIND'}),
             'VN': (['time', 'lev', 'lat', 'lon'], vn_data, {'units': 'cm/s', 'long_name': 'NEUTRAL MERIDIONAL WIND'}),
+            'ZG': (['time', 'ilev', 'lat', 'lon'], zg_data, {'units': 'cm', 'long_name': 'GEOMETRIC HEIGHT'}),
             'mtime': (['time', 'mtimedim'], mtime),
         },
         coords={
@@ -52,9 +60,17 @@ def waccmx_dataset():
     np.random.seed(42)
     tn_data = np.random.uniform(200, 1500, size=(2, len(levs), len(lats), len(lons)))
 
+    # Z3: geometric height on lev in m, increasing with level index (lower pressure = higher)
+    z3_base = np.linspace(0, 500e3, len(levs))  # 0–500 km in m
+    z3_data = np.broadcast_to(
+        z3_base[np.newaxis, :, np.newaxis, np.newaxis],
+        (2, len(levs), len(lats), len(lons)),
+    ).copy()
+
     ds = xr.Dataset(
         {
             'TN': (['time', 'lev', 'lat', 'lon'], tn_data, {'units': 'K', 'long_name': 'NEUTRAL TEMPERATURE'}),
+            'Z3': (['time', 'lev', 'lat', 'lon'], z3_data, {'units': 'm', 'long_name': 'GEOMETRIC HEIGHT'}),
         },
         coords={
             'time': times,

@@ -1228,6 +1228,172 @@ def calc_avg_ht(datasets, time, selected_lev_ilev):
                 return avg_ht
     return 0
 
+
+def _get_height_var(ds):
+    """Return (height_var_name, lev_dim, scale_to_km) for TIE-GCM or WACCM-X."""
+    if 'ZG' in ds.variables:
+        return 'ZG', 'ilev', 1e-5     # ZG is in cm → km
+    elif 'Z3' in ds.variables:
+        return 'Z3', 'lev', 1e-3      # Z3 is in m → km
+    return None, None, None
+
+
+def height_to_pres_level(datasets, time, target_height_km, latitude=None, longitude=None):
+    """
+    Convert a target height (km) to the nearest pressure level.
+
+    Finds the pressure level whose average geometric height is closest
+    to the requested height. Optionally narrows to a specific lat/lon.
+
+    Args:
+        datasets: Loaded datasets.
+        time: Timestamp for height lookup.
+        target_height_km (float): Desired height in km.
+        latitude (float, optional): Latitude to evaluate height at.
+        longitude (float, optional): Longitude to evaluate height at.
+
+    Returns:
+        float: The pressure level (lev or ilev value) closest to target_height_km.
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    for mds in datasets:
+        ds = mds.ds
+        if not mds.has_time(time):
+            continue
+        ht_var, lev_dim, scale = _get_height_var(ds)
+        if ht_var is None:
+            continue
+
+        heights = ds[ht_var].sel(time=time)
+        if latitude is not None and 'lat' in heights.dims:
+            lat_vals = ds['lat'].values
+            closest_lat = lat_vals[np.abs(lat_vals - latitude).argmin()]
+            heights = heights.sel(lat=closest_lat)
+        if longitude is not None and 'lon' in heights.dims:
+            lon_vals = ds['lon'].values
+            closest_lon = lon_vals[np.abs(lon_vals - longitude).argmin()]
+            heights = heights.sel(lon=closest_lon)
+
+        # Average over remaining spatial dims to get height per level
+        avg_dims = [d for d in heights.dims if d != lev_dim]
+        if avg_dims:
+            avg_heights = heights.mean(dim=avg_dims).values * scale
+        else:
+            avg_heights = heights.values * scale
+
+        lev_values = ds[lev_dim].values
+        closest_idx = np.abs(avg_heights - target_height_km).argmin()
+        return float(lev_values[closest_idx])
+
+    raise ValueError(f"Could not find height variable in datasets for time {time}")
+
+
+def interpolate_to_height(datasets, variable_values, levs, time,
+                          target_heights=None, n_heights=50, log_interp=False):
+    """
+    Interpolate a field from pressure levels to constant height surfaces.
+
+    Args:
+        datasets: Loaded datasets (to access ZG/Z3).
+        variable_values (np.ndarray): 2D array (nlev, nlat) or (nlev, nlon) on pressure levels.
+        levs (np.ndarray): Pressure level coordinate values matching axis 0 of variable_values.
+        time: Timestamp for height field lookup.
+        target_heights (np.ndarray, optional): Desired height levels in km.
+            If None, auto-generates n_heights levels spanning the data range.
+        n_heights (int): Number of height levels if target_heights is None.
+        log_interp (bool): If True, use exponential interpolation (for densities).
+
+    Returns:
+        tuple: (interpolated_values, target_heights_km)
+            interpolated_values: 2D array (n_heights, n_spatial)
+            target_heights_km: 1D array of height levels in km
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    # Get height field from datasets
+    for mds in datasets:
+        ds = mds.ds
+        if not mds.has_time(time):
+            continue
+        ht_var, lev_dim, scale = _get_height_var(ds)
+        if ht_var is None:
+            continue
+
+        height_field = ds[ht_var].sel(time=time).values * scale  # (nlev, nlat, nlon) in km
+
+        # Average over all spatial dims to get a 1D height profile (nlev,)
+        if height_field.ndim == 3:
+            height_1d = height_field.mean(axis=(1, 2))
+        elif height_field.ndim == 2:
+            height_1d = height_field.mean(axis=1)
+        elif height_field.ndim == 1:
+            height_1d = height_field
+        else:
+            raise ValueError(f"Unexpected height field shape: {height_field.shape}")
+
+        # Match pressure levels: height field may be on ilev while data is on lev
+        ht_levs = ds[lev_dim].values
+        if len(height_1d) != len(levs):
+            from scipy.interpolate import interp1d
+            f = interp1d(ht_levs, height_1d, fill_value='extrapolate')
+            height_1d = f(levs)
+
+        # Auto-generate target heights if not provided
+        if target_heights is None:
+            ht_min = np.nanmin(height_1d)
+            ht_max = np.nanmax(height_1d)
+            target_heights = np.linspace(ht_min, ht_max, n_heights)
+
+        # Interpolate variable_values from pressure to height at each spatial point
+        n_spatial = variable_values.shape[1]
+        result = np.full((len(target_heights), n_spatial), np.nan)
+
+        # Use the same 1D height profile for all spatial columns
+        for j in range(n_spatial):
+            col_heights = height_1d.copy()
+            col_values = variable_values[:, j]
+
+            # Sort by height (ascending)
+            sort_idx = np.argsort(col_heights)
+            col_heights = col_heights[sort_idx]
+            col_values = col_values[sort_idx]
+
+            # Remove NaN entries
+            valid = ~np.isnan(col_heights) & ~np.isnan(col_values)
+            col_heights = col_heights[valid]
+            col_values = col_values[valid]
+
+            if len(col_heights) < 2:
+                continue
+
+            for k, ht in enumerate(target_heights):
+                if ht < col_heights[0] or ht > col_heights[-1]:
+                    continue  # out of range
+
+                # Find bracketing levels
+                idx = np.searchsorted(col_heights, ht) - 1
+                idx = max(0, min(idx, len(col_heights) - 2))
+
+                h0, h1 = col_heights[idx], col_heights[idx + 1]
+                v0, v1 = col_values[idx], col_values[idx + 1]
+
+                if log_interp and v0 > 0 and v1 > 0:
+                    # Exponential interpolation
+                    exparg = (np.log(v1 / v0) / (h1 - h0)) * (ht - h0)
+                    result[k, j] = v0 * np.exp(exparg)
+                else:
+                    # Linear interpolation
+                    frac = (ht - h0) / (h1 - h0) if h1 != h0 else 0
+                    result[k, j] = v0 + frac * (v1 - v0)
+
+        return result, target_heights
+
+    raise ValueError("Could not find height variable in datasets")
+
+
 def min_max(variable_values):
     """
     Find the minimum and maximum values of varval from the 2D array.

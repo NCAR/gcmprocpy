@@ -31,7 +31,8 @@ def cmd_parser():
     parser.add_argument('-lvl_max','--level_maximum', type=float, help="Maximum level value for the plot. Defaults to None.", default=None)
     parser.add_argument('-lat_min','--latitude_minimum', type=float, help="Minimum latitude value for the plot. Defaults to -87.5.", default=-87.5)
     parser.add_argument('-lat_max','--latitude_maximum', type=float, help="Maximum latitude value for the plot. Defaults to 87.5.", default=87.5)
-    
+    parser.add_argument('-ya','--y_axis', type=str, default='pressure', choices=['pressure', 'height'], help='Y-axis type: pressure or height (km). Defaults to pressure.')
+
     return (parser)
 
 
@@ -41,5 +42,5 @@ def cmd_plt_lev_lat():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot = plt_lev_lat(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, longitude=args.longitude, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum)
+    plot = plt_lev_lat(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, longitude=args.longitude, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum, y_axis=args.y_axis)
     save_output(args.output_directory,args.filename,args.output_format,plot)

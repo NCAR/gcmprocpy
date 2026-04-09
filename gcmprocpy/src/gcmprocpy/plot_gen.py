@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, calc_avg_ht, min_max, get_time
+from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height
 
 logger = logging.getLogger(__name__)
 from .data_emissions import arr_mkeno53, arr_mkeco215, arr_mkeoh83
@@ -75,6 +75,17 @@ def local_time_to_longitude(local_time):
             longitude = longitude - 360
 
     return longitude
+
+def _level_label(level, avg_ht=None, original_height=None):
+    """Return a subtitle string for the level, respecting height mode."""
+    if level == 'mean':
+        return 'ZP= Mean'
+    if original_height is not None:
+        return 'HT=' + str(original_height) + 'KM'
+    if avg_ht is not None:
+        return 'ZP=' + str(level) + ' AVG HT=' + str(avg_ht) + 'KM'
+    return 'ZP=' + str(level)
+
 
 def color_scheme(variable_name, model=None):
     """
@@ -164,7 +175,7 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
     return cf
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, wind = False, wind_density = 15, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, level_type = 'pressure', variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, wind = False, wind_density = 15, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -225,6 +236,12 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     '''
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
+
+    # Convert height to pressure level if needed
+    _original_height = None
+    if level_type == 'height' and level is not None and level != 'mean':
+        _original_height = float(level)
+        level = height_to_pres_level(datasets, time, _original_height)
 
     if variable_name == 'NO53':
         result = arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
@@ -354,10 +371,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
 
         if clean_plot == False:
             title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
-            if level == 'mean':
-                title_str += '\nZP=' + str(level)
-            elif level is not None:
-                title_str += '\nZP=' + str(level) + ' AVG HT=' + str(avg_ht) + 'KM'
+            if level is not None:
+                title_str += '\n' + _level_label(level, avg_ht, _original_height)
             plot.suptitle(title_str, fontsize=16, y=0.94)
             minmax_str = "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val))
             ci_str = "Contour Interval = " + str("{:.2e}".format(interval_value))
@@ -416,10 +431,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
 
         if clean_plot == False:
             title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
-            if level == 'mean':
-                title_str += '\nZP=' + str(level)
-            elif level is not None:
-                title_str += '\nZP=' + str(level) + ' AVG HT=' + str(avg_ht) + 'KM'
+            if level is not None:
+                title_str += '\n' + _level_label(level, avg_ht, _original_height)
             ax.set_title(title_str, fontsize=16, pad=20)
             minmax_str = "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val))
             ci_str = "Contour Interval = " + str("{:.2e}".format(interval_value))
@@ -477,10 +490,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
 
         if clean_plot == False:
             title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
-            if level == 'mean':
-                title_str += '\nZP=' + str(level)
-            elif level is not None:
-                title_str += '\nZP=' + str(level) + ' AVG HT=' + str(avg_ht) + 'KM'
+            if level is not None:
+                title_str += '\n' + _level_label(level, avg_ht, _original_height)
             ax.set_title(title_str, fontsize=16, pad=20)
             minmax_str = "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val))
             ci_str = "Contour Interval = " + str("{:.2e}".format(interval_value))
@@ -563,10 +574,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         # Add plot title
         plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ') ' + '\n\n', fontsize=18)
         # Add plot subtitle
-        if level == 'mean':
-            plt.text(0, subtitle_ht, 'ZP=' + str(level), ha='center', va='center', fontsize=14)
-        elif level != None:
-            plt.text(0, subtitle_ht, 'ZP=' + str(level)+' AVG HT=' + str(avg_ht) + 'KM', ha='center', va='center', fontsize=14)
+        if level is not None:
+            plt.text(0, subtitle_ht, _level_label(level, avg_ht, _original_height), ha='center', va='center', fontsize=14)
         else:
             plt.text(0, subtitle_ht, '', ha='center', va='center', fontsize=14)
 
@@ -625,7 +634,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
 
 
 
-def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, log_level=True, variable_unit = None, level_minimum = None, level_maximum = None, clean_plot = False, verbose = False):
+def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, log_level=True, variable_unit = None, level_minimum = None, level_maximum = None, y_axis = 'pressure', clean_plot = False, verbose = False):
     """
     Generates a Level vs Variable line plot for a given latitude.
 
@@ -664,6 +673,11 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     model = result.model
     filename = result.filename
 
+    # Convert levels to heights if requested
+    if y_axis == 'height':
+        height_levs = np.array([calc_avg_ht(datasets, time, lev) for lev in levs_ilevs])
+        levs_ilevs = height_levs
+
     if level_minimum == None:
         level_minimum = np.nanmin(levs_ilevs)
     if level_maximum == None:
@@ -686,13 +700,16 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     plot = plt.figure(figsize=(figure_width, figure_height))
     plt.plot(variable_values, levs_ilevs)
     plt.xlabel(variable_long_name, fontsize=14, labelpad=15)
-    plt.ylabel('LN(P0/P) (INTERFACES)', fontsize=14)
-    plt.xticks(fontsize=9)  
-    plt.yticks(fontsize=9) 
+    if y_axis == 'height':
+        plt.ylabel('Height (km)', fontsize=14)
+    else:
+        plt.ylabel('LN(P0/P) (INTERFACES)', fontsize=14)
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
 
     plt.ylim(level_minimum, level_maximum)
 
-    if model == 'WACCM-X':
+    if model == 'WACCM-X' and y_axis != 'height':
         plt.gca().invert_yaxis()
     
     if clean_plot == False:
@@ -739,7 +756,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         return plot
 
 
-def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False, verbose = False):
+def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, y_axis = 'pressure', clean_plot = False, verbose = False):
     """
     Generates a Level vs Longitude contour plot for a given latitude.
 
@@ -789,6 +806,11 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     selected_mtime = result.mtime
     model = result.model
     filename = result.filename
+
+    # Interpolate to height surfaces if requested
+    if y_axis == 'height':
+        variable_values, unique_levs = interpolate_to_height(
+            datasets, variable_values, unique_levs, time)
 
     if level_minimum == None:
         level_minimum = np.nanmin(unique_levs)
@@ -856,17 +878,19 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         else:
             plt.text(0.5, 1.10,'LAT='+str(latitude), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         
-    if log_level == True:
+    if y_axis == 'height':
+        plt.ylabel('Height (km)',fontsize=14)
+    elif log_level == True:
         plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
     else:
         plt.ylabel('PRESSURE (HPA)',fontsize=14)
     plt.xlabel('Longitude (Deg)',fontsize=14)
-    plt.xticks([value for value in unique_lons if value % 30 == 0],fontsize=9)  
-    plt.yticks(fontsize=9) 
+    plt.xticks([value for value in unique_lons if value % 30 == 0],fontsize=9)
+    plt.yticks(fontsize=9)
     plt.xlim(longitude_minimum,longitude_maximum)
     plt.ylim(level_minimum, level_maximum)
-    
-    if model == 'WACCM-X':
+
+    if model == 'WACCM-X' and y_axis != 'height':
         plt.gca().invert_yaxis()
 
 
@@ -924,7 +948,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         return plot
 
 
-def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, clean_plot = False, verbose = False):
+def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, y_axis = 'pressure', clean_plot = False, verbose = False):
     """
     Generates a Level vs Latitude contour plot for a specified time and/or longitude.
 
@@ -974,6 +998,11 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     selected_mtime = result.mtime
     model = result.model
     filename = result.filename
+
+    # Interpolate to height surfaces if requested
+    if y_axis == 'height':
+        variable_values, unique_levs = interpolate_to_height(
+            datasets, variable_values, unique_levs, time)
 
     if level_minimum == None:
         level_minimum = np.nanmin(unique_levs)
@@ -1040,18 +1069,20 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         if longitude == 'mean':
             plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
         else:
-            plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
-    if log_level == True:
+            plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+    if y_axis == 'height':
+        plt.ylabel('Height (km)',fontsize=14)
+    elif log_level == True:
         plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
     else:
         plt.ylabel('PRESSURE (HPA)',fontsize=14)
     plt.xlabel('Latitude (Deg)',fontsize=14)
-    plt.xticks(fontsize=9)  
-    plt.yticks(fontsize=9) 
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
     plt.xlim(latitude_minimum,latitude_maximum)
     plt.ylim(level_minimum,level_maximum)
-    
-    if model == 'WACCM-X':
+
+    if model == 'WACCM-X' and y_axis != 'height':
         plt.gca().invert_yaxis()
     if clean_plot == False:
         # Add subtext to the plot
@@ -1102,7 +1133,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
 
 
 
-def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level = True, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level = True, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None, y_axis = 'pressure', clean_plot = False, verbose = False):
     """
     Generates a Level vs Time contour plot for a specified latitude and/or longitude.
 
@@ -1142,7 +1173,13 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
     variable_unit = result.variable_unit
     variable_long_name = result.variable_long_name
     model = result.model
-    
+
+    # Interpolate to height surfaces if requested
+    if y_axis == 'height':
+        first_time = datasets[0]._time_values[0]
+        variable_values_all, levs_ilevs = interpolate_to_height(
+            datasets, variable_values_all, levs_ilevs, first_time)
+
     if level_minimum == None:
         level_minimum = np.nanmin(levs_ilevs)
     if level_maximum == None:
@@ -1235,11 +1272,14 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
     except (ValueError, TypeError):
         plt.xticks(time_indices, unique_times, rotation=45)
         plt.xlabel("Model Time (Day) from "+str(np.nanmin(unique_times))+" to "+str(np.nanmax(unique_times)) ,fontsize=14)
-    plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
-        
+    if y_axis == 'height':
+        plt.ylabel('Height (km)',fontsize=14)
+    else:
+        plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
+
     plt.tight_layout()
-    plt.xticks(fontsize=9)  
-    plt.yticks(fontsize=9) 
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
     plt.ylim(level_minimum,level_maximum)
 
     if clean_plot == False:
@@ -1269,7 +1309,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         return plot
 
 
-def plt_lon_time(datasets, variable_name, latitude, level = None, variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', longitude_minimum = None, longitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = 'pressure', variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', longitude_minimum = None, longitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
     """
     Generates a Longitude vs Time contour plot for a specified latitude and/or level.
 
@@ -1299,6 +1339,12 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, variable_unit 
 
     if contour_intervals == None:
         contour_intervals = 20
+    # Convert height to pressure level if needed
+    _original_height = None
+    if level_type == 'height' and level is not None and level != 'mean':
+        _original_height = float(level)
+        first_time = datasets[0]._time_values[0]
+        level = height_to_pres_level(datasets, first_time, _original_height)
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(level)+"]---------------")
 
@@ -1410,16 +1456,13 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, variable_unit 
 
     if clean_plot == False:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n', fontsize=18)
-        if level == 'mean' and latitude == 'mean':
-            plt.text(0.5, 1.08, '  ZP= Mean LAT= Mean', ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
-        elif latitude == 'mean':
-            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LAT= Mean", ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
-        elif level == 'mean':
-            plt.text(0.5, 1.08, '  ZP= Mean' + " LAT=" + str(latitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
-        elif level is not None:
-            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LAT=" + str(latitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
-        else:
-            plt.text(0.5, 1.08, '  LAT=' + str(latitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        subtitle_parts = []
+        if level is not None:
+            subtitle_parts.append(_level_label(level, original_height=_original_height))
+        if latitude is not None:
+            subtitle_parts.append('LAT= Mean' if latitude == 'mean' else 'LAT=' + str(latitude))
+        if subtitle_parts:
+            plt.text(0.5, 1.08, '  ' + ' '.join(subtitle_parts), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.25, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
     if is_notebook():
@@ -1436,7 +1479,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, variable_unit 
         return plot
 
 
-def plt_var_time(datasets, variable_name, latitude, longitude, level = None, variable_unit = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+def plt_var_time(datasets, variable_name, latitude, longitude, level = None, level_type = 'pressure', variable_unit = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
     """
     Generates a Variable vs Time line plot at a specific lat/lon/level location.
 
@@ -1456,6 +1499,12 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, var
         matplotlib.figure.Figure: Line plot.
     """
 
+    # Convert height to pressure level if needed
+    _original_height = None
+    if level_type == 'height' and level is not None and level != 'mean':
+        _original_height = float(level)
+        first_time = datasets[0]._time_values[0]
+        level = height_to_pres_level(datasets, first_time, _original_height)
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(longitude)+"]---["+str(level)+"]---------------")
 
@@ -1533,10 +1582,8 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, var
             subtitle_parts.append('LAT=' + str(latitude))
         if longitude is not None:
             subtitle_parts.append('LON=' + str(longitude))
-        if level == 'mean':
-            subtitle_parts.append('ZP= Mean')
-        elif level is not None:
-            subtitle_parts.append('ZP=' + str(level))
+        if level is not None:
+            subtitle_parts.append(_level_label(level, original_height=_original_height))
         plt.text(0.5, 1.08, '  ' + ' '.join(subtitle_parts), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
     if is_notebook():
@@ -1554,7 +1601,7 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, var
 
 
 
-def plt_lat_time(datasets, variable_name, level = None, longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure', longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
     """
     Generates a Latitude vs Time contour plot for a specified level and/or longitude.
 
@@ -1584,10 +1631,16 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
 
     if contour_intervals == None:
         contour_intervals = 20
+    # Convert height to pressure level if needed
+    _original_height = None
+    if level_type == 'height' and level is not None and level != 'mean':
+        _original_height = float(level)
+        first_time = datasets[0]._time_values[0]
+        level = height_to_pres_level(datasets, first_time, _original_height)
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(level)+"]---["+str(longitude)+"]---------------")
     '''
-    if level != None: 
+    if level != None:
         try:
             variable_values_all, unique_lats, mtime_values, longitude, variable_unit, variable_long_name, filename = lat_time_lev(datasets, variable_name, level, longitude, variable_unit)
         except:
@@ -1702,14 +1755,13 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
     if clean_plot == False:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         # Add subtext to the plot
-        if level == 'mean' and longitude == 'mean':
-            plt.text(0.5, 1.08, '  ZP= Mean LON= Mean', ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
-        elif longitude == 'mean':
-            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON= Mean", ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
-        elif level == 'mean':
-            plt.text(0.5, 1.08, '  ZP= Mean' + " LON=" + str(longitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
-        else:
-            plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON=" + str(longitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        subtitle_parts = []
+        if level is not None:
+            subtitle_parts.append(_level_label(level, original_height=_original_height))
+        if longitude is not None:
+            subtitle_parts.append('LON= Mean' if longitude == 'mean' else 'LON=' + str(longitude))
+        if subtitle_parts:
+            plt.text(0.5, 1.08, '  ' + ' '.join(subtitle_parts), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.2, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.25, "Contour Interval = " + str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
     if is_notebook():

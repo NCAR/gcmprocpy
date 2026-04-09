@@ -41,6 +41,7 @@ def cmd_parser():
     parser.add_argument('-wd','--wind_density', type=int, default=15, help='Density of wind vectors (stride). Defaults to 15.')
     parser.add_argument('-ws','--wind_scale', type=float, default=None, help='Scale factor for wind arrows. Defaults to None (auto).')
     parser.add_argument('-wc','--wind_color', type=str, default='black', help='Color of wind arrows. Defaults to black.')
+    parser.add_argument('-lt','--level_type', type=str, default='pressure', choices=['pressure', 'height'], help='Whether level is specified as pressure or height (km). Defaults to pressure.')
     parser.add_argument('-clean','--clean_plot', action='store_true', help='Generate a clean plot without title/colorbar. Defaults to False.')
     return (parser)
 
@@ -51,7 +52,7 @@ def cmd_plt_lat_lon():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot =  plt_lat_lon(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, level=args.level, variable_unit=args.variable_unit, center_longitude=args.center_longitude, central_latitude=args.central_latitude, projection=args.projection, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, coastlines=args.coastlines, nightshade=args.nightshade, gm_equator=args.gm_equator, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum, longitude_minimum=args.longitude_minimum, longitude_maximum=args.longitude_maximum, wind=args.wind, wind_density=args.wind_density, wind_scale=args.wind_scale, wind_color=args.wind_color, clean_plot=args.clean_plot)
+    plot =  plt_lat_lon(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, level=args.level, level_type=args.level_type, variable_unit=args.variable_unit, center_longitude=args.center_longitude, central_latitude=args.central_latitude, projection=args.projection, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, coastlines=args.coastlines, nightshade=args.nightshade, gm_equator=args.gm_equator, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum, longitude_minimum=args.longitude_minimum, longitude_maximum=args.longitude_maximum, wind=args.wind, wind_density=args.wind_density, wind_scale=args.wind_scale, wind_color=args.wind_color, clean_plot=args.clean_plot)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 
 

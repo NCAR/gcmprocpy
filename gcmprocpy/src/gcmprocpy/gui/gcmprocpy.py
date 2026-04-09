@@ -37,6 +37,13 @@ def _float_or_none(text):
     except ValueError:
         return None
 
+def _get_level_params(w):
+    """Read level and level_type from the level group widgets."""
+    is_height = w['level_type'].isChecked()
+    if is_height:
+        return w['level_height'].text().strip() or None, 'height'
+    return w['level'].currentText(), 'pressure'
+
 def _int_or_none(text):
     text = text.strip()
     if not text:
@@ -113,6 +120,40 @@ def _add_contour_widgets(layout):
     w['cmap_max'] = _add_line(layout, "Colormap Max:")
     w['line_color'] = _add_line(layout, "Line Color:")
     return w
+
+def _add_level_group(layout):
+    """Add level picker with toggle between pressure (filterable combo) and height (line edit)."""
+    w = {}
+    # Toggle switch: unchecked = pressure, checked = height
+    w['level_type'] = QCheckBox("Height (km)")
+    layout.addRow("Level Mode:", w['level_type'])
+    # Pressure level: filterable combo + summary label
+    w['level'] = QComboBox()
+    w['level'].setEditable(True)
+    w['level'].setInsertPolicy(QComboBox.NoInsert)
+    w['_level_label'] = QLabel("Pressure Level:")
+    layout.addRow(w['_level_label'], w['level'])
+    w['level_avail'] = QLabel("")
+    w['level_avail'].setWordWrap(True)
+    w['level_avail'].setStyleSheet("color: #6c7086; font-size: 11px; padding: 2px 0;")
+    layout.addRow("", w['level_avail'])
+    # Height input: shown when toggle is checked
+    w['level_height'] = QLineEdit()
+    w['level_height'].setPlaceholderText("Height in km")
+    w['_height_label'] = QLabel("Height (km):")
+    layout.addRow(w['_height_label'], w['level_height'])
+    w['level_height'].hide()
+    w['_height_label'].hide()
+    # Wire toggle
+    def _on_toggle(checked):
+        w['level'].setVisible(not checked)
+        w['_level_label'].setVisible(not checked)
+        w['level_avail'].setVisible(not checked)
+        w['level_height'].setVisible(checked)
+        w['_height_label'].setVisible(checked)
+    w['level_type'].toggled.connect(_on_toggle)
+    return w
+
 
 def _add_level_bounds(layout):
     w = {}
@@ -320,7 +361,7 @@ class MainWindow(QMainWindow):
         page = QWidget(); layout = QFormLayout(page); w = {}
         w['variable'] = _add_combo(layout, "Variable Name:")
         w.update(_add_time_group(layout))
-        w['level'] = _add_combo(layout, "Level:")
+        w.update(_add_level_group(layout))
         w['unit'] = _add_line(layout, "Variable Unit:")
         w['projection'] = QComboBox()
         w['projection'].addItems(['mercator', 'orthographic', 'mollweide', 'north_polar', 'south_polar', 'polar'])
@@ -348,6 +389,9 @@ class MainWindow(QMainWindow):
         w['longitude'] = _add_combo(layout, "Longitude:")
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_level_bounds(layout))
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
         w['log_level'] = _add_check(layout, "Log Level:", True)
         w['clean'] = _add_check(layout, "Clean Plot:", True)
         return {'widget': page, 'widgets': w}
@@ -362,6 +406,9 @@ class MainWindow(QMainWindow):
         w.update(_add_contour_widgets(layout))
         w.update(_add_level_bounds(layout))
         w.update(_add_lon_bounds(layout))
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
         w['clean'] = _add_check(layout, "Clean Plot:", True)
         return {'widget': page, 'widgets': w}
 
@@ -375,6 +422,9 @@ class MainWindow(QMainWindow):
         w.update(_add_contour_widgets(layout))
         w.update(_add_level_bounds(layout))
         w.update(_add_lat_bounds(layout))
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
         w['clean'] = _add_check(layout, "Clean Plot:", True)
         return {'widget': page, 'widgets': w}
 
@@ -384,6 +434,9 @@ class MainWindow(QMainWindow):
         w['latitude'] = _add_combo(layout, "Latitude:")
         w['longitude'] = _add_combo(layout, "Longitude:")
         w['log_level'] = _add_check(layout, "Log Level:", True)
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_contour_widgets(layout))
         w.update(_add_level_bounds(layout))
@@ -394,7 +447,7 @@ class MainWindow(QMainWindow):
     def _create_lat_time_page(self):
         page = QWidget(); layout = QFormLayout(page); w = {}
         w['variable'] = _add_combo(layout, "Variable Name:")
-        w['level'] = _add_combo(layout, "Level:")
+        w.update(_add_level_group(layout))
         w['longitude'] = _add_combo(layout, "Longitude:")
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_contour_widgets(layout))
@@ -407,7 +460,7 @@ class MainWindow(QMainWindow):
         page = QWidget(); layout = QFormLayout(page); w = {}
         w['variable'] = _add_combo(layout, "Variable Name:")
         w['latitude'] = _add_combo(layout, "Latitude:")
-        w['level'] = _add_combo(layout, "Level:")
+        w.update(_add_level_group(layout))
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_contour_widgets(layout))
         w.update(_add_lon_bounds(layout))
@@ -420,7 +473,7 @@ class MainWindow(QMainWindow):
         w['variable'] = _add_combo(layout, "Variable Name:")
         w['latitude'] = _add_combo(layout, "Latitude:")
         w['longitude'] = _add_combo(layout, "Longitude:")
-        w['level'] = _add_combo(layout, "Level:")
+        w.update(_add_level_group(layout))
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_mtime_bounds(layout))
         w['clean'] = _add_check(layout, "Clean Plot:", True)
@@ -503,6 +556,12 @@ class MainWindow(QMainWindow):
                 if key in w and isinstance(w[key], QComboBox):
                     w[key].clear()
                     w[key].addItems(items)
+            # Set up filterable level combo and summary label
+            if 'level' in w and isinstance(w['level'], QComboBox):
+                _setup_filterable(w['level'])
+                if 'level_avail' in w and str_levels:
+                    w['level_avail'].setText(
+                        f"{len(str_levels)} levels ({str_levels[0]} \u2013 {str_levels[-1]})")
             # Populate date combos and wire up time combos
             if 'date' in w and isinstance(w['date'], QComboBox):
                 date_combo = w['date']
@@ -603,7 +662,6 @@ class MainWindow(QMainWindow):
             "datasets": self.selected_dataset,
             "variable_name": w['variable'].currentText(),
             "time": self._get_selected_time(w),
-            "level": w['level'].currentText(),
             "variable_unit": _str_or_none(w['unit'].text()),
             "projection": w['projection'].currentText(),
             "center_longitude": _float_or_none(w['center_lon'].text()) or 0,
@@ -621,6 +679,9 @@ class MainWindow(QMainWindow):
             "longitude_maximum": _float_or_none(w['lon_max'].text()),
             "clean_plot": w['clean'].isChecked(),
         }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = level_val
+        params["level_type"] = level_type
         params.update(_get_contour_params(w))
 
         result = plt_lat_lon(**params)
@@ -683,6 +744,7 @@ class MainWindow(QMainWindow):
             "level_minimum": _float_or_none(w['level_min'].text()),
             "level_maximum": _float_or_none(w['level_max'].text()),
             "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
         }
         fig, variable_unit, level_minimum, level_maximum = plt_lev_var(**params)
         w['unit'].setPlaceholderText(str(variable_unit))
@@ -714,6 +776,7 @@ class MainWindow(QMainWindow):
             "longitude_minimum": _float_or_none(w['lon_min'].text()),
             "longitude_maximum": _float_or_none(w['lon_max'].text()),
             "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
         }
         params.update(_get_contour_params(w))
 
@@ -762,6 +825,7 @@ class MainWindow(QMainWindow):
             "latitude_minimum": _float_or_none(w['lat_min'].text()),
             "latitude_maximum": _float_or_none(w['lat_max'].text()),
             "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
         }
         params.update(_get_contour_params(w))
 
@@ -810,6 +874,7 @@ class MainWindow(QMainWindow):
             "mtime_minimum": _str_or_none(w['mtime_min'].text()),
             "mtime_maximum": _str_or_none(w['mtime_max'].text()),
             "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
         }
         params.update(_get_contour_params(w))
         result = plt_lev_time(**params)
@@ -848,7 +913,6 @@ class MainWindow(QMainWindow):
         params = {
             "datasets": self.selected_dataset,
             "variable_name": w['variable'].currentText(),
-            "level": w['level'].currentText(),
             "longitude": _float_or_none(w['longitude'].currentText()),
             "variable_unit": _str_or_none(w['unit'].text()),
             "latitude_minimum": _float_or_none(w['lat_min'].text()),
@@ -857,6 +921,9 @@ class MainWindow(QMainWindow):
             "mtime_maximum": _str_or_none(w['mtime_max'].text()),
             "clean_plot": w['clean'].isChecked(),
         }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = level_val
+        params["level_type"] = level_type
         params.update(_get_contour_params(w))
         result = plt_lat_time(**params)
 
@@ -895,7 +962,6 @@ class MainWindow(QMainWindow):
             "datasets": self.selected_dataset,
             "variable_name": w['variable'].currentText(),
             "latitude": _float_or_none(w['latitude'].currentText()),
-            "level": _float_or_none(w['level'].currentText()),
             "variable_unit": _str_or_none(w['unit'].text()),
             "longitude_minimum": _float_or_none(w['lon_min'].text()),
             "longitude_maximum": _float_or_none(w['lon_max'].text()),
@@ -903,6 +969,9 @@ class MainWindow(QMainWindow):
             "mtime_maximum": _str_or_none(w['mtime_max'].text()),
             "clean_plot": w['clean'].isChecked(),
         }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = _float_or_none(level_val) if level_val else None
+        params["level_type"] = level_type
         params.update(_get_contour_params(w))
         result = plt_lon_time(**params)
 
@@ -942,12 +1011,14 @@ class MainWindow(QMainWindow):
             "variable_name": w['variable'].currentText(),
             "latitude": _float_or_none(w['latitude'].currentText()),
             "longitude": _float_or_none(w['longitude'].currentText()),
-            "level": _float_or_none(w['level'].currentText()),
             "variable_unit": _str_or_none(w['unit'].text()),
             "mtime_minimum": _str_or_none(w['mtime_min'].text()),
             "mtime_maximum": _str_or_none(w['mtime_max'].text()),
             "clean_plot": w['clean'].isChecked(),
         }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = _float_or_none(level_val) if level_val else None
+        params["level_type"] = level_type
         result = plt_var_time(**params)
 
         if not isinstance(result, tuple):
