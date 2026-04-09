@@ -24,6 +24,8 @@ setup(
         'ipympl',
         'mplcursors',
         'PyQt5',
+        'dask',
+        'scipy',
     ],
     package_dir={'': 'src'},  
     packages=find_packages(where='src'), 
@@ -35,6 +37,9 @@ setup(
             'lev_lon= gcmprocpy.cmd.cmd_lev_lon:cmd_plt_lev_lon',
             'lev_time= gcmprocpy.cmd.cmd_lev_time:cmd_plt_lev_time',
             'lat_time= gcmprocpy.cmd.cmd_lat_time:cmd_plt_lat_time',
+            'lon_time= gcmprocpy.cmd.cmd_lon_time:cmd_plt_lon_time',
+            'var_time= gcmprocpy.cmd.cmd_var_time:cmd_plt_var_time',
+            'sat_track= gcmprocpy.cmd.cmd_sat_track:cmd_plt_sat_track',
             'gcmprocpy= gcmprocpy.gui.gcmprocpy:main',     
         ]
     }

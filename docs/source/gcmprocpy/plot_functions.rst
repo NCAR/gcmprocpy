@@ -395,4 +395,28 @@ This command creates a contour plot of a variable against latitude and time.
 .. autoprogram:: gcmprocpy.cmd.cmd_lat_time:cmd_parser()
    :prog: lat_time
 
+Longitude vs Time Contour Plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This command creates a contour plot of a variable against longitude and time.
+
+.. autoprogram:: gcmprocpy.cmd.cmd_lon_time:cmd_parser()
+   :prog: lon_time
+
+Variable vs Time Line Plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This command creates a line plot of a variable against time at a specific latitude, longitude, and optional level.
+
+.. autoprogram:: gcmprocpy.cmd.cmd_var_time:cmd_parser()
+   :prog: var_time
+
+Satellite Track Interpolation Plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This command interpolates model data along a satellite trajectory and plots the result.
+Requires a CSV file with columns: time, lat, lon.
+
+.. autoprogram:: gcmprocpy.cmd.cmd_sat_track:cmd_parser()
+   :prog: sat_track
 

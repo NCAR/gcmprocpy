@@ -34,6 +34,14 @@ def cmd_parser():
     parser.add_argument('-lat_max','--latitude_maximum', type=float, help='Maximum latitude to slice plots. Defaults to 87.5.')
     parser.add_argument('-lon_min','--longitude_minimum', type=float, help='Minimum longitude to slice plots. Defaults to -180.')
     parser.add_argument('-lon_max','--longitude_maximum', type=float, help='Maximum longitude to slice plots. Defaults to 175.')
+    parser.add_argument('-proj','--projection', type=str, default='mercator', help='Map projection: mercator, orthographic, mollweide, north_polar, south_polar, polar. Defaults to mercator.')
+    parser.add_argument('-clon','--center_longitude', type=float, default=0, help='Center longitude for orthographic/mollweide projections. Defaults to 0.')
+    parser.add_argument('-clat','--central_latitude', type=float, default=0, help='Central latitude for orthographic projection. Defaults to 0.')
+    parser.add_argument('-wind','--wind', action='store_true', help='Overlay wind vectors on the plot. Defaults to False.')
+    parser.add_argument('-wd','--wind_density', type=int, default=15, help='Density of wind vectors (stride). Defaults to 15.')
+    parser.add_argument('-ws','--wind_scale', type=float, default=None, help='Scale factor for wind arrows. Defaults to None (auto).')
+    parser.add_argument('-wc','--wind_color', type=str, default='black', help='Color of wind arrows. Defaults to black.')
+    parser.add_argument('-clean','--clean_plot', action='store_true', help='Generate a clean plot without title/colorbar. Defaults to False.')
     return (parser)
 
 
@@ -43,7 +51,7 @@ def cmd_plt_lat_lon():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot =  plt_lat_lon(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, level=args.level, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, coastlines=args.coastlines, nightshade=args.nightshade, gm_equator=args.gm_equator, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum, longitude_minimum=args.longitude_minimum, longitude_maximum=args.longitude_maximum)
+    plot =  plt_lat_lon(datasets, variable_name=args.variable_name, time=args.time, mtime=args.mtime, level=args.level, variable_unit=args.variable_unit, center_longitude=args.center_longitude, central_latitude=args.central_latitude, projection=args.projection, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, coastlines=args.coastlines, nightshade=args.nightshade, gm_equator=args.gm_equator, latitude_minimum=args.latitude_minimum, latitude_maximum=args.latitude_maximum, longitude_minimum=args.longitude_minimum, longitude_maximum=args.longitude_maximum, wind=args.wind, wind_density=args.wind_density, wind_scale=args.wind_scale, wind_color=args.wind_color, clean_plot=args.clean_plot)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 
 
