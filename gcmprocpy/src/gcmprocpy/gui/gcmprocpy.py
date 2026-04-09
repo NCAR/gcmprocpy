@@ -7,11 +7,12 @@ matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
 import mplcursors
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QFormLayout, QGroupBox, QSplitter, QLineEdit, QPushButton, QCheckBox,
     QComboBox, QMessageBox, QFileDialog, QLabel, QSizePolicy, QStackedWidget,
-    QScrollArea
+    QScrollArea, QShortcut, QCompleter
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import xarray as xr
@@ -70,6 +71,32 @@ def _add_check(layout, label, default=False):
     cb.setChecked(default)
     layout.addRow(label, cb)
     return cb
+
+def _add_filterable_combo(layout, label):
+    """Editable combo with type-to-filter dropdown suggestions."""
+    combo = QComboBox()
+    combo.setEditable(True)
+    combo.setInsertPolicy(QComboBox.NoInsert)
+    layout.addRow(label, combo)
+    return combo
+
+def _setup_filterable(combo):
+    """Configure the completer on a filterable combo after items are added."""
+    completer = QCompleter(combo.model(), combo)
+    completer.setFilterMode(Qt.MatchContains)
+    completer.setCompletionMode(QCompleter.PopupCompletion)
+    combo.setCompleter(completer)
+
+def _add_time_group(layout):
+    """Add date combo, filterable time combo, and summary label."""
+    w = {}
+    w['date'] = _add_combo(layout, "Date:")
+    w['time_of_day'] = _add_filterable_combo(layout, "Time:")
+    w['time_avail'] = QLabel("")
+    w['time_avail'].setWordWrap(True)
+    w['time_avail'].setStyleSheet("color: #6c7086; font-size: 11px; padding: 2px 0;")
+    layout.addRow("", w['time_avail'])
+    return w
 
 
 # ---------------------------------------------------------------------------
@@ -178,9 +205,11 @@ class MainWindow(QMainWindow):
         self.directory_input.setPlaceholderText("Enter directory or file path")
         dir_row.addWidget(self.directory_input)
         self.browse_dir_button = QPushButton("Browse Dir")
+        self.browse_dir_button.setObjectName("browse_btn")
         self.browse_dir_button.clicked.connect(self.on_browse_directory)
         dir_row.addWidget(self.browse_dir_button)
         self.browse_file_button = QPushButton("Browse File")
+        self.browse_file_button.setObjectName("browse_btn")
         self.browse_file_button.clicked.connect(self.on_browse_file)
         dir_row.addWidget(self.browse_file_button)
         ds_layout.addRow("Directory:", dir_row)
@@ -227,8 +256,11 @@ class MainWindow(QMainWindow):
 
         # --- Right Panel: Plot Display ---
         self.plot_widget = QWidget()
+        self.plot_widget.setStyleSheet("background-color: #181825; border-radius: 8px;")
         self.plot_layout = QVBoxLayout(self.plot_widget)
+        self.plot_layout.setContentsMargins(8, 8, 8, 8)
         self.fig = plt.figure(figsize=(10, 6))
+        self.fig.patch.set_facecolor('#e6e6e6')
         self.canvas = FigureCanvas(self.fig)
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.plot_layout.addWidget(self.canvas)
@@ -239,9 +271,31 @@ class MainWindow(QMainWindow):
         self.splitter.setSizes([300, 900])
         self.setCentralWidget(self.splitter)
 
+        # Clipboard shortcuts — ensure Ctrl+V/C/X/A work in text fields
+        self._setup_clipboard_shortcuts()
+
         # State
         self.datasets = []
         self.selected_dataset = None
+
+    # ------------------------------------------------------------------
+    # Clipboard shortcuts
+    # ------------------------------------------------------------------
+    def _setup_clipboard_shortcuts(self):
+        """Wire up Ctrl+V/C/X/A so they reach the focused QLineEdit."""
+        def _do_clipboard(action):
+            w = QApplication.focusWidget()
+            if isinstance(w, QLineEdit):
+                getattr(w, action)()
+        for key, action in [
+            (QKeySequence.Paste, 'paste'),
+            (QKeySequence.Copy, 'copy'),
+            (QKeySequence.Cut, 'cut'),
+            (QKeySequence.SelectAll, 'selectAll'),
+        ]:
+            sc = QShortcut(key, self)
+            sc.setContext(Qt.ApplicationShortcut)
+            sc.activated.connect(lambda a=action: _do_clipboard(a))
 
     # ------------------------------------------------------------------
     # Page creation – one method per plot type, using shared helpers
@@ -265,7 +319,7 @@ class MainWindow(QMainWindow):
     def _create_lat_lon_page(self):
         page = QWidget(); layout = QFormLayout(page); w = {}
         w['variable'] = _add_combo(layout, "Variable Name:")
-        w['time'] = _add_combo(layout, "Time (ISO):")
+        w.update(_add_time_group(layout))
         w['level'] = _add_combo(layout, "Level:")
         w['unit'] = _add_line(layout, "Variable Unit:")
         w['projection'] = QComboBox()
@@ -290,7 +344,7 @@ class MainWindow(QMainWindow):
         page = QWidget(); layout = QFormLayout(page); w = {}
         w['variable'] = _add_combo(layout, "Variable Name:")
         w['latitude'] = _add_combo(layout, "Latitude:")
-        w['time'] = _add_combo(layout, "Time (ISO):")
+        w.update(_add_time_group(layout))
         w['longitude'] = _add_combo(layout, "Longitude:")
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_level_bounds(layout))
@@ -302,7 +356,7 @@ class MainWindow(QMainWindow):
         page = QWidget(); layout = QFormLayout(page); w = {}
         w['variable'] = _add_combo(layout, "Variable Name:")
         w['latitude'] = _add_combo(layout, "Latitude:")
-        w['time'] = _add_combo(layout, "Time (ISO):")
+        w.update(_add_time_group(layout))
         w['log_level'] = _add_check(layout, "Log Level:", True)
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_contour_widgets(layout))
@@ -314,7 +368,7 @@ class MainWindow(QMainWindow):
     def _create_lev_lat_page(self):
         page = QWidget(); layout = QFormLayout(page); w = {}
         w['variable'] = _add_combo(layout, "Variable Name:")
-        w['time'] = _add_combo(layout, "Time (ISO):")
+        w.update(_add_time_group(layout))
         w['longitude'] = _add_combo(layout, "Longitude:")
         w['log_level'] = _add_check(layout, "Log Level:", True)
         w['unit'] = _add_line(layout, "Variable Unit:")
@@ -416,20 +470,28 @@ class MainWindow(QMainWindow):
     def _populate_all_combos(self):
         """Populate combo boxes across all pages from loaded datasets."""
         valid_vars = var_list(self.selected_dataset)
-        valid_times = time_list(self.selected_dataset)
+        self._all_times = time_list(self.selected_dataset)
         valid_lats = lat_list(self.selected_dataset)
         valid_lons = lon_list(self.selected_dataset)
         valid_levels = level_list(self.selected_dataset)
 
-        str_vars = [str(v) for v in valid_vars]
-        str_times = [str(t) for t in valid_times]
+        # Only show ALL-CAPS variable names (e.g. TN, UN, not lat, mtime)
+        str_vars = [str(v) for v in valid_vars if str(v).isupper()]
         str_lats = [str(lat) for lat in valid_lats]
         str_lons = [str(lon) for lon in valid_lons]
         str_levels = [str(lev) for lev in valid_levels]
 
+        # Build date → times mapping for the date/time picker
+        self._date_time_map = {}
+        for t in self._all_times:
+            ts = str(t)
+            date_part = ts[:10]   # "YYYY-MM-DD"
+            time_part = ts[11:19] # "HH:MM:SS" — strip nanosecond fractions
+            self._date_time_map.setdefault(date_part, []).append(time_part)
+        str_dates = sorted(self._date_time_map.keys())
+
         combo_map = {
             'variable': str_vars,
-            'time': str_times,
             'latitude': str_lats,
             'longitude': str_lons,
             'level': str_levels,
@@ -441,6 +503,52 @@ class MainWindow(QMainWindow):
                 if key in w and isinstance(w[key], QComboBox):
                     w[key].clear()
                     w[key].addItems(items)
+            # Populate date combos and wire up time combos
+            if 'date' in w and isinstance(w['date'], QComboBox):
+                date_combo = w['date']
+                time_combo = w.get('time_of_day')
+                avail_label = w.get('time_avail')
+                # Block signals while repopulating to avoid premature firing
+                date_combo.blockSignals(True)
+                date_combo.clear()
+                date_combo.addItems(str_dates)
+                date_combo.blockSignals(False)
+                # Disconnect old handler
+                try:
+                    date_combo.currentIndexChanged.disconnect()
+                except TypeError:
+                    pass
+                if time_combo is not None:
+                    date_combo.currentIndexChanged.connect(
+                        lambda _idx, d=date_combo, tc=time_combo, lbl=avail_label:
+                            self._on_date_changed(d.currentText(), tc, lbl))
+                    # Manually trigger for initial date
+                    self._on_date_changed(
+                        date_combo.currentText(), time_combo, avail_label)
+
+    def _on_date_changed(self, date_str, time_combo, avail_label=None):
+        """Populate time combo with available times and update summary label."""
+        times = self._date_time_map.get(date_str, [])
+        time_combo.clear()
+        time_combo.addItems(times)
+        _setup_filterable(time_combo)
+        if avail_label:
+            if times:
+                avail_label.setText(f"{len(times)} times ({times[0]} \u2013 {times[-1]})")
+            else:
+                avail_label.setText("No times available")
+
+    def _get_selected_time(self, w):
+        """Reconstruct ISO timestamp from date + time_of_day combos."""
+        date_str = w['date'].currentText() if 'date' in w else ''
+        if not date_str:
+            return ''
+        time_str = ''
+        if 'time_of_day' in w and isinstance(w['time_of_day'], QComboBox):
+            time_str = w['time_of_day'].currentText().strip()
+        if date_str and time_str:
+            return f"{date_str}T{time_str}"
+        return date_str
 
     # ------------------------------------------------------------------
     # Plot dispatch
@@ -494,7 +602,7 @@ class MainWindow(QMainWindow):
         params = {
             "datasets": self.selected_dataset,
             "variable_name": w['variable'].currentText(),
-            "time": w['time'].currentText(),
+            "time": self._get_selected_time(w),
             "level": w['level'].currentText(),
             "variable_unit": _str_or_none(w['unit'].text()),
             "projection": w['projection'].currentText(),
@@ -568,7 +676,7 @@ class MainWindow(QMainWindow):
             "datasets": self.selected_dataset,
             "variable_name": w['variable'].currentText(),
             "latitude": _float_or_none(w['latitude'].currentText()),
-            "time": w['time'].currentText(),
+            "time": self._get_selected_time(w),
             "longitude": _float_or_none(w['longitude'].currentText()),
             "log_level": w['log_level'].isChecked(),
             "variable_unit": _str_or_none(w['unit'].text()),
@@ -598,7 +706,7 @@ class MainWindow(QMainWindow):
             "datasets": self.selected_dataset,
             "variable_name": w['variable'].currentText(),
             "latitude": _float_or_none(w['latitude'].currentText()),
-            "time": w['time'].currentText(),
+            "time": self._get_selected_time(w),
             "log_level": w['log_level'].isChecked(),
             "variable_unit": _str_or_none(w['unit'].text()),
             "level_minimum": _float_or_none(w['level_min'].text()),
@@ -645,7 +753,7 @@ class MainWindow(QMainWindow):
         params = {
             "datasets": self.selected_dataset,
             "variable_name": w['variable'].currentText(),
-            "time": w['time'].currentText(),
+            "time": self._get_selected_time(w),
             "longitude": _float_or_none(w['longitude'].currentText()),
             "log_level": w['log_level'].isChecked(),
             "variable_unit": _str_or_none(w['unit'].text()),
@@ -869,8 +977,216 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Save Error", f"Could not save plot:\n{e}")
 
 
+MODERN_STYLESHEET = """
+QMainWindow {
+    background-color: #1e1e2e;
+}
+QWidget {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+}
+QGroupBox {
+    background-color: #313244;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    margin-top: 14px;
+    padding: 14px 10px 10px 10px;
+    font-weight: bold;
+    font-size: 13px;
+    color: #cba6f7;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 2px 10px;
+    background-color: #313244;
+    border-radius: 4px;
+}
+QLabel {
+    color: #bac2de;
+    font-size: 12px;
+    padding: 1px 0;
+}
+QLineEdit {
+    background-color: #45475a;
+    border: 1px solid #585b70;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #cdd6f4;
+    selection-background-color: #89b4fa;
+    selection-color: #1e1e2e;
+}
+QLineEdit:focus {
+    border: 1px solid #89b4fa;
+}
+QLineEdit::placeholder {
+    color: #6c7086;
+}
+QComboBox {
+    background-color: #45475a;
+    border: 1px solid #585b70;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #cdd6f4;
+    min-height: 20px;
+}
+QComboBox:hover {
+    border: 1px solid #89b4fa;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #585b70;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+QComboBox::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #cdd6f4;
+    margin-right: 5px;
+}
+QComboBox QAbstractItemView {
+    background-color: #313244;
+    border: 1px solid #585b70;
+    border-radius: 4px;
+    color: #cdd6f4;
+    selection-background-color: #89b4fa;
+    selection-color: #1e1e2e;
+    padding: 4px;
+}
+QPushButton {
+    background-color: #89b4fa;
+    color: #1e1e2e;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-weight: bold;
+    font-size: 12px;
+    min-height: 20px;
+}
+QPushButton:hover {
+    background-color: #74c7ec;
+}
+QPushButton:pressed {
+    background-color: #b4befe;
+}
+QPushButton#browse_btn {
+    background-color: #585b70;
+    color: #cdd6f4;
+    padding: 7px 10px;
+    font-weight: normal;
+}
+QPushButton#browse_btn:hover {
+    background-color: #6c7086;
+}
+QCheckBox {
+    spacing: 8px;
+    color: #bac2de;
+}
+QCheckBox::indicator {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    border: none;
+    background-color: #585b70;
+}
+QCheckBox::indicator:checked {
+    background-color: #89b4fa;
+}
+QCheckBox::indicator:hover {
+    background-color: #6c7086;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #74c7ec;
+}
+QTimeEdit {
+    background-color: #45475a;
+    border: 1px solid #585b70;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #cdd6f4;
+    min-height: 20px;
+}
+QTimeEdit:focus {
+    border: 1px solid #89b4fa;
+}
+QTimeEdit::up-button, QTimeEdit::down-button {
+    background-color: #585b70;
+    border-radius: 3px;
+    width: 16px;
+    margin: 1px;
+}
+QTimeEdit::up-button:hover, QTimeEdit::down-button:hover {
+    background-color: #6c7086;
+}
+QTimeEdit::up-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid #cdd6f4;
+}
+QTimeEdit::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #cdd6f4;
+}
+QScrollArea {
+    border: none;
+    background-color: #1e1e2e;
+}
+QScrollBar:vertical {
+    background-color: #1e1e2e;
+    width: 10px;
+    margin: 0;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical {
+    background-color: #585b70;
+    min-height: 30px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #6c7086;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QScrollBar:horizontal {
+    background-color: #1e1e2e;
+    height: 10px;
+    border-radius: 5px;
+}
+QScrollBar::handle:horizontal {
+    background-color: #585b70;
+    min-width: 30px;
+    border-radius: 5px;
+}
+QSplitter::handle {
+    background-color: #45475a;
+    width: 2px;
+}
+QSplitter::handle:hover {
+    background-color: #89b4fa;
+}
+QMessageBox {
+    background-color: #313244;
+}
+QMessageBox QLabel {
+    color: #cdd6f4;
+    font-size: 13px;
+}
+"""
+
+
 def main():
     app = QApplication(sys.argv)
+    app.setStyleSheet(MODERN_STYLESHEET)
     win = MainWindow()
     win.show()
     sys.exit(app.exec_())

@@ -366,6 +366,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
             plot.text(0.5, 0.06, minmax_str + "   " + ci_str + "\n" + time_str + "   " + mtime_str + "   " + str(filename),
                       ha='center', va='center', fontsize=10, transform=plot.transFigure)
 
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, cf, unique_lons, unique_lats, variable_values
         return plot
 
     # ---- Orthographic (satellite view) projection branch ----
@@ -425,6 +428,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
             plot.text(0.5, 0.06, minmax_str + "   " + ci_str + "\n" + time_str + "   " + mtime_str + "   " + str(filename),
                       ha='center', va='center', fontsize=10, transform=plot.transFigure)
 
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, cf, unique_lons, unique_lats, variable_values
         return plot
 
     # ---- Mollweide projection branch ----
@@ -483,6 +489,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
             plot.text(0.5, 0.06, minmax_str + "   " + ci_str + "\n" + time_str + "   " + mtime_str + "   " + str(filename),
                       ha='center', va='center', fontsize=10, transform=plot.transFigure)
 
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, cf, unique_lons, unique_lats, variable_values
         return plot
 
     # ---- Mercator (default) projection branch ----
