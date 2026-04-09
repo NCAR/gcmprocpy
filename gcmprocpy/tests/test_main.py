@@ -54,6 +54,49 @@ class TestPlotRoutine:
             plot_routine(args)
 
 
+class TestWindOverlay:
+    def test_mercator_with_wind(self, tiegcm_datasets):
+        from gcmprocpy.plot_gen import plt_lat_lon
+        fig = plt_lat_lon(tiegcm_datasets, 'TN', time='2003-03-20T00:00:00', level=5.0,
+                          wind=True, wind_density=1)
+        assert fig is not None
+        plt.close(fig)
+
+    def test_orthographic_with_wind(self, tiegcm_datasets):
+        from gcmprocpy.plot_gen import plt_lat_lon
+        fig = plt_lat_lon(tiegcm_datasets, 'TN', time='2003-03-20T00:00:00', level=5.0,
+                          projection='orthographic', wind=True, wind_density=1)
+        assert fig is not None
+        plt.close(fig)
+
+    def test_mollweide_with_wind(self, tiegcm_datasets):
+        from gcmprocpy.plot_gen import plt_lat_lon
+        fig = plt_lat_lon(tiegcm_datasets, 'TN', time='2003-03-20T00:00:00', level=5.0,
+                          projection='mollweide', wind=True, wind_density=1)
+        assert fig is not None
+        plt.close(fig)
+
+    def test_north_polar_with_wind(self, tiegcm_datasets):
+        from gcmprocpy.plot_gen import plt_lat_lon
+        fig = plt_lat_lon(tiegcm_datasets, 'TN', time='2003-03-20T00:00:00', level=5.0,
+                          projection='north_polar', wind=True, wind_density=1)
+        assert fig is not None
+        plt.close(fig)
+
+    def test_no_wind_no_arrows(self, tiegcm_datasets):
+        from gcmprocpy.plot_gen import plt_lat_lon
+        fig = plt_lat_lon(tiegcm_datasets, 'TN', time='2003-03-20T00:00:00', level=5.0)
+        assert fig is not None
+        plt.close(fig)
+
+    def test_wind_color_and_scale(self, tiegcm_datasets):
+        from gcmprocpy.plot_gen import plt_lat_lon
+        fig = plt_lat_lon(tiegcm_datasets, 'TN', time='2003-03-20T00:00:00', level=5.0,
+                          wind=True, wind_density=1, wind_color='red', wind_scale=500)
+        assert fig is not None
+        plt.close(fig)
+
+
 class TestPltLonTime:
     def test_creates_figure(self, tiegcm_datasets):
         from gcmprocpy.plot_gen import plt_lon_time
@@ -77,18 +120,18 @@ class TestPltLonTime:
 class TestPltVarTime:
     def test_creates_figure(self, tiegcm_datasets):
         from gcmprocpy.plot_gen import plt_var_time
-        fig = plt_var_time(tiegcm_datasets, 'TN', latitude=2.5, longitude=0.0, level=5.0)
+        fig = plt_var_time(tiegcm_datasets, 'TN', latitude=2.5, longitude=30.0, level=5.0)
         assert fig is not None
         plt.close(fig)
 
     def test_without_level(self, tiegcm_datasets):
         from gcmprocpy.plot_gen import plt_var_time
-        fig = plt_var_time(tiegcm_datasets, 'TN', latitude=2.5, longitude=0.0)
+        fig = plt_var_time(tiegcm_datasets, 'TN', latitude=2.5, longitude=30.0)
         assert fig is not None
         plt.close(fig)
 
     def test_clean_plot(self, tiegcm_datasets):
         from gcmprocpy.plot_gen import plt_var_time
-        fig = plt_var_time(tiegcm_datasets, 'TN', latitude=2.5, longitude=0.0, level=5.0, clean_plot=True)
+        fig = plt_var_time(tiegcm_datasets, 'TN', latitude=2.5, longitude=30.0, level=5.0, clean_plot=True)
         assert fig is not None
         plt.close(fig)

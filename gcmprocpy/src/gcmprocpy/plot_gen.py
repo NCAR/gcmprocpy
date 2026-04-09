@@ -76,50 +76,34 @@ def local_time_to_longitude(local_time):
 
     return longitude
 
-def color_scheme(variable_name):
+def color_scheme(variable_name, model=None):
     """
-    Sets color scheme for plots.
+    Sets color scheme for plots based on variable name and model type.
 
     Args:
-        variable_name (str): The name of the variable with latitude, longitude, ilev dimensions.
+        variable_name (str): The name of the variable.
+        model (str, optional): The model type ('TIE-GCM' or 'WACCM-X'). If provided, uses model-specific mappings.
 
     Returns:
         tuple:
             str: Color scheme of the contour map.
             str: Color scheme of contour lines.
     """
+    from .containers import MODEL_DEFAULTS
 
-    #
-    # Setting type of variable 
-    #
-    density_type = ['NE', 'DEN', 'O2', 'O1', 'N2', 'NO', 'N4S', 'HE']
-    temp_type = ['TN', 'TE', 'TI', 'QJOULE']
-    wind_type = ['WN', 'UI_ExB', 'VI_ExB', 'WI_ExB', 'UN', 'VN']
-    #
-    # Color scheme for density type variables
-    #
-    if variable_name in density_type:
-        cmap_color = 'viridis'
-        line_color = 'white'
-    #
-    # Color scheme for temprature type variables
-    #
-    elif variable_name in temp_type:
-        cmap_color = 'inferno'
-        line_color = 'white'
-    #
-    # Color scheme for wind type variables
-    #
-    elif variable_name in wind_type:
-        cmap_color = 'bwr'
-        line_color = 'black'
-    #
-    # Color scheme for all other types of variables
-    #
+    if model and model in MODEL_DEFAULTS:
+        defaults = MODEL_DEFAULTS[model]
+        for category in ('density', 'temperature_type', 'wind', 'electric', 'radiation'):
+            if category in defaults and variable_name in defaults[category]['vars']:
+                return defaults[category]['cmap'], defaults[category]['line_color']
     else:
-        cmap_color = 'viridis'
-        line_color = 'white'
-    return cmap_color, line_color
+        # Check all models for a match
+        for m in MODEL_DEFAULTS.values():
+            for category in ('density', 'temperature_type', 'wind', 'electric', 'radiation'):
+                if category in m and variable_name in m[category]['vars']:
+                    return m[category]['cmap'], m[category]['line_color']
+
+    return 'viridis', 'white'
 
 
 
@@ -133,7 +117,9 @@ def _polar_boundary():
 
 def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
                  cmap_color, cmap_lim_min, cmap_lim_max, line_color, coastlines,
-                 nightshade, time, gm_equator, hemisphere):
+                 nightshade, time, gm_equator, hemisphere,
+                 wind_u_values=None, wind_v_values=None, wind_density=15,
+                 wind_scale=None, wind_color='black'):
     """Draws a single polar contour panel on the given axes."""
     ax.set_boundary(_polar_boundary(), transform=ax.transAxes)
     if coastlines:
@@ -158,6 +144,13 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
                     linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
     ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
 
+    if wind_u_values is not None and wind_v_values is not None:
+        d = wind_density
+        ax.quiver(unique_lons[::d], unique_lats[::d],
+                  wind_u_values[::d, ::d], wind_v_values[::d, ::d],
+                  color=wind_color, transform=ccrs.PlateCarree(),
+                  scale=wind_scale, zorder=5)
+
     gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5,
                       linestyle='--')
     gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 30))
@@ -171,7 +164,7 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
     return cf
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, clean_plot = False, verbose = False ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, wind = False, wind_density = 15, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -200,6 +193,10 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         latitude_maximum (float, optional): Maximum latitude to slice plots. Defaults to 87.5.
         longitude_minimum (float, optional): Minimum longitude to slice plots. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude to slice plots. Defaults to 175.
+        wind (bool, optional): Overlay wind vectors on the plot. Uses model-specific defaults (TIE-GCM: UN/VN, WACCM-X: U/V). Defaults to False.
+        wind_density (int, optional): Stride for thinning wind vectors (every Nth point). Defaults to 15.
+        wind_scale (float, optional): Scale factor for quiver arrows. Larger values make arrows shorter. Defaults to None (auto-scaled).
+        wind_color (str, optional): Color of the wind vectors. Defaults to 'black'.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -254,7 +251,22 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     unique_lons = unique_lons[sorted_indices]
     variable_values = variable_values[:, sorted_indices]
 
+    # Extract wind vector data if wind overlay is enabled
+    wind_u_values = None
+    wind_v_values = None
+    if wind:
+        from .containers import MODEL_DEFAULTS
+        wind_u = MODEL_DEFAULTS[model]['wind_u']
+        wind_v = MODEL_DEFAULTS[model]['wind_v']
+        u_result = arr_lat_lon(datasets, wind_u, time, selected_lev_ilev=level, plot_mode=True)
+        v_result = arr_lat_lon(datasets, wind_v, time, selected_lev_ilev=level, plot_mode=True)
+        wind_u_values = u_result.values[:, sorted_indices]
+        wind_v_values = v_result.values[:, sorted_indices]
+
     # Adjust cyclic point handling for central_longitude=180
+    if wind_u_values is not None:
+        wind_u_values, _ = add_cyclic_point(wind_u_values, coord=unique_lons, axis=1)
+        wind_v_values, _ = add_cyclic_point(wind_v_values, coord=unique_lons, axis=1)
     variable_values, unique_lons = add_cyclic_point(variable_values, coord=unique_lons, axis=1)
 
     if level != 'mean' and level != None:
@@ -283,7 +295,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         max_val = cmap_lim_max
         
     if cmap_color == None:
-        cmap_color, line_color = color_scheme(variable_name)
+        cmap_color, line_color = color_scheme(variable_name, model)
     # Extract values, latitudes, and longitudes from the array
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
@@ -310,7 +322,10 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
                           cmap_color=cmap_color, cmap_lim_min=cmap_lim_min,
                           cmap_lim_max=cmap_lim_max, line_color=line_color,
                           coastlines=coastlines, nightshade=nightshade, time=time,
-                          gm_equator=gm_equator)
+                          gm_equator=gm_equator,
+                          wind_u_values=wind_u_values, wind_v_values=wind_v_values,
+                          wind_density=wind_density, wind_scale=wind_scale,
+                          wind_color=wind_color)
 
         if projection == 'polar':
             plot = plt.figure(figsize=(18, 10))
@@ -384,6 +399,13 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
                         linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
         ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
 
+        if wind_u_values is not None and wind_v_values is not None:
+            d = wind_density
+            ax.quiver(unique_lons[::d], unique_lats[::d],
+                      wind_u_values[::d, ::d], wind_v_values[::d, ::d],
+                      color=wind_color, transform=ccrs.PlateCarree(),
+                      scale=wind_scale, zorder=5)
+
         cbar = plot.colorbar(cf, label=variable_name + " [" + variable_unit + "]",
                              fraction=0.046, pad=0.04, shrink=0.65)
         cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
@@ -434,6 +456,13 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
         cl = ax.contour(unique_lons, unique_lats, variable_values, colors=line_color,
                         linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
         ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
+
+        if wind_u_values is not None and wind_v_values is not None:
+            d = wind_density
+            ax.quiver(unique_lons[::d], unique_lats[::d],
+                      wind_u_values[::d, ::d], wind_v_values[::d, ::d],
+                      color=wind_color, transform=ccrs.PlateCarree(),
+                      scale=wind_scale, zorder=5)
 
         cbar = plot.colorbar(cf, label=variable_name + " [" + variable_unit + "]",
                              fraction=0.046, pad=0.04, shrink=0.65)
@@ -490,6 +519,14 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None,  
     contour_filled = plt.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lons, unique_lats, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
+
+    if wind_u_values is not None and wind_v_values is not None:
+        d = wind_density
+        ax.quiver(unique_lons[::d], unique_lats[::d],
+                  wind_u_values[::d, ::d], wind_v_values[::d, ::d],
+                  color=wind_color, transform=ccrs.PlateCarree(),
+                  scale=wind_scale, zorder=5)
+
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]",fraction=0.046, pad=0.04, shrink=0.65)
     cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
@@ -769,7 +806,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         max_val = cmap_lim_max
 
     if cmap_color == None:
-        cmap_color, line_color = color_scheme(variable_name)
+        cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
@@ -954,7 +991,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         max_val = cmap_lim_max
 
     if cmap_color == None:
-        cmap_color, line_color = color_scheme(variable_name)
+        cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
@@ -1138,7 +1175,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         max_val = cmap_lim_max
 
     if cmap_color == None:
-        cmap_color, line_color = color_scheme(variable_name)
+        cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
@@ -1302,7 +1339,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, variable_unit 
         max_val = cmap_lim_max
 
     if cmap_color == None:
-        cmap_color, line_color = color_scheme(variable_name)
+        cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
@@ -1585,7 +1622,7 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
         max_val = cmap_lim_max
 
     if cmap_color == None:
-        cmap_color, line_color = color_scheme(variable_name)
+        cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)

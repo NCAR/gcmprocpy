@@ -10,7 +10,7 @@ def tiegcm_dataset():
     """Create a minimal TIE-GCM-like xarray dataset for testing."""
     times = np.array(['2003-03-20T00:00:00', '2003-03-20T01:00:00'], dtype='datetime64[ns]')
     lats = np.array([-87.5, -82.5, -2.5, 2.5, 82.5, 87.5])
-    lons = np.array([-180.0, -90.0, 0.0, 90.0, 175.0])
+    lons = np.array([-150.0, -90.0, -30.0, 30.0, 90.0, 150.0])
     levs = np.array([-7.0, -5.0, -3.0, -1.0, 1.0, 3.0, 5.0, 7.0])
     ilevs = np.array([-7.0, -5.0, -3.0, -1.0, 1.0, 3.0, 5.0, 7.0, 7.25])
     mtime = np.array([[80, 0, 0, 0], [80, 1, 0, 0]])
@@ -18,11 +18,15 @@ def tiegcm_dataset():
     np.random.seed(42)
     tn_data = np.random.uniform(200, 1500, size=(2, len(levs), len(lats), len(lons)))
     ne_data = np.random.uniform(1e8, 1e12, size=(2, len(ilevs), len(lats), len(lons)))
+    un_data = np.random.uniform(-100, 100, size=(2, len(levs), len(lats), len(lons)))
+    vn_data = np.random.uniform(-50, 50, size=(2, len(levs), len(lats), len(lons)))
 
     ds = xr.Dataset(
         {
             'TN': (['time', 'lev', 'lat', 'lon'], tn_data, {'units': 'K', 'long_name': 'NEUTRAL TEMPERATURE'}),
             'NE': (['time', 'ilev', 'lat', 'lon'], ne_data, {'units': 'cm-3', 'long_name': 'ELECTRON DENSITY'}),
+            'UN': (['time', 'lev', 'lat', 'lon'], un_data, {'units': 'cm/s', 'long_name': 'NEUTRAL ZONAL WIND'}),
+            'VN': (['time', 'lev', 'lat', 'lon'], vn_data, {'units': 'cm/s', 'long_name': 'NEUTRAL MERIDIONAL WIND'}),
             'mtime': (['time', 'mtimedim'], mtime),
         },
         coords={
