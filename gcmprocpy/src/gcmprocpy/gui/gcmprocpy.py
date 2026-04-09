@@ -1,47 +1,259 @@
 import os
 import sys
+import logging
 import numpy as np
 import matplotlib
-matplotlib.use("Qt5Agg")  # Use the Qt5Agg backend for PyQt5
+matplotlib.use("Qt5Agg")
 import matplotlib.pyplot as plt
-import mplcursors  # For interactive annotations
+import mplcursors
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QKeySequence
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QFormLayout, QGroupBox, QSplitter, QLineEdit, QPushButton, QCheckBox,
-    QComboBox, QMessageBox, QFileDialog, QLabel, QSizePolicy, QStackedWidget
+    QComboBox, QMessageBox, QFileDialog, QLabel, QSizePolicy, QStackedWidget,
+    QScrollArea, QShortcut, QCompleter
 )
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import xarray as xr
 from datetime import datetime
-from ..plot_gen import plt_lev_var, plt_lat_lon, plt_lev_lat, plt_lev_lon, plt_lev_time, plt_lat_time
-from ..io import load_datasets, save_output
+from ..plot_gen import (plt_lev_var, plt_lat_lon, plt_lev_lat, plt_lev_lon,
+                        plt_lev_time, plt_lat_time, plt_lon_time, plt_var_time)
+from ..io import load_datasets, close_datasets, save_output
 from ..data_parse import time_list, var_list, level_list, lon_list, lat_list
 
+logger = logging.getLogger(__name__)
 
 
-# ----------------------------------------------------------------------------
-# Main GUI – organized into Dataset, Plot Type, and Plot Parameters sections.
-# ----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Helper: safe type conversion from QLineEdit / QComboBox text
+# ---------------------------------------------------------------------------
+def _float_or_none(text):
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+def _get_level_params(w):
+    """Read level and level_type from the level group widgets."""
+    is_height = w['level_type'].isChecked()
+    if is_height:
+        return w['level_height'].text().strip() or None, 'height'
+    return w['level'].currentText(), 'pressure'
+
+def _int_or_none(text):
+    text = text.strip()
+    if not text:
+        return None
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+def _str_or_none(text):
+    text = text.strip()
+    return text if text else None
+
+
+# ---------------------------------------------------------------------------
+# Widget builder helpers – eliminates duplication across parameter pages
+# ---------------------------------------------------------------------------
+def _add_combo(layout, label):
+    combo = QComboBox()
+    layout.addRow(label, combo)
+    return combo
+
+def _add_line(layout, label, placeholder=""):
+    line = QLineEdit()
+    if placeholder:
+        line.setPlaceholderText(placeholder)
+    layout.addRow(label, line)
+    return line
+
+def _add_check(layout, label, default=False):
+    cb = QCheckBox()
+    cb.setChecked(default)
+    layout.addRow(label, cb)
+    return cb
+
+def _add_filterable_combo(layout, label):
+    """Editable combo with type-to-filter dropdown suggestions."""
+    combo = QComboBox()
+    combo.setEditable(True)
+    combo.setInsertPolicy(QComboBox.NoInsert)
+    layout.addRow(label, combo)
+    return combo
+
+def _setup_filterable(combo):
+    """Configure the completer on a filterable combo after items are added."""
+    completer = QCompleter(combo.model(), combo)
+    completer.setFilterMode(Qt.MatchContains)
+    completer.setCompletionMode(QCompleter.PopupCompletion)
+    combo.setCompleter(completer)
+
+def _add_time_group(layout):
+    """Add date combo, filterable time combo, and summary label."""
+    w = {}
+    w['date'] = _add_combo(layout, "Date:")
+    w['time_of_day'] = _add_filterable_combo(layout, "Time:")
+    w['time_avail'] = QLabel("")
+    w['time_avail'].setWordWrap(True)
+    w['time_avail'].setStyleSheet("color: #6c7086; font-size: 11px; padding: 2px 0;")
+    layout.addRow("", w['time_avail'])
+    return w
+
+
+# ---------------------------------------------------------------------------
+# Reusable widget groups – common parameter sets shared across pages
+# ---------------------------------------------------------------------------
+def _add_contour_widgets(layout):
+    """Add contour interval, value, symmetric, colormap, cmap limits, line color."""
+    w = {}
+    w['contour_intervals'] = _add_line(layout, "Contour Intervals:")
+    w['contour_value'] = _add_line(layout, "Contour Value:")
+    w['symmetric'] = _add_check(layout, "Symmetric Interval:")
+    w['cmap'] = _add_line(layout, "Colormap:")
+    w['cmap_min'] = _add_line(layout, "Colormap Min:")
+    w['cmap_max'] = _add_line(layout, "Colormap Max:")
+    w['line_color'] = _add_line(layout, "Line Color:")
+    return w
+
+def _add_level_group(layout):
+    """Add level picker with toggle between pressure (filterable combo) and height (line edit)."""
+    w = {}
+    # Toggle switch: unchecked = pressure, checked = height
+    w['level_type'] = QCheckBox("Height (km)")
+    layout.addRow("Level Mode:", w['level_type'])
+    # Pressure level: filterable combo + summary label
+    w['level'] = QComboBox()
+    w['level'].setEditable(True)
+    w['level'].setInsertPolicy(QComboBox.NoInsert)
+    w['_level_label'] = QLabel("Pressure Level:")
+    layout.addRow(w['_level_label'], w['level'])
+    w['level_avail'] = QLabel("")
+    w['level_avail'].setWordWrap(True)
+    w['level_avail'].setStyleSheet("color: #6c7086; font-size: 11px; padding: 2px 0;")
+    layout.addRow("", w['level_avail'])
+    # Height input: shown when toggle is checked
+    w['level_height'] = QLineEdit()
+    w['level_height'].setPlaceholderText("Height in km")
+    w['_height_label'] = QLabel("Height (km):")
+    layout.addRow(w['_height_label'], w['level_height'])
+    w['level_height'].hide()
+    w['_height_label'].hide()
+    # Wire toggle
+    def _on_toggle(checked):
+        w['level'].setVisible(not checked)
+        w['_level_label'].setVisible(not checked)
+        w['level_avail'].setVisible(not checked)
+        w['level_height'].setVisible(checked)
+        w['_height_label'].setVisible(checked)
+    w['level_type'].toggled.connect(_on_toggle)
+    return w
+
+
+def _add_level_bounds(layout):
+    w = {}
+    w['level_min'] = _add_line(layout, "Level Min:")
+    w['level_max'] = _add_line(layout, "Level Max:")
+    return w
+
+def _add_lat_bounds(layout):
+    w = {}
+    w['lat_min'] = _add_line(layout, "Latitude Min:")
+    w['lat_max'] = _add_line(layout, "Latitude Max:")
+    return w
+
+def _add_lon_bounds(layout):
+    w = {}
+    w['lon_min'] = _add_line(layout, "Longitude Min:")
+    w['lon_max'] = _add_line(layout, "Longitude Max:")
+    return w
+
+def _add_mtime_bounds(layout):
+    w = {}
+    w['mtime_min'] = _add_line(layout, "mtime Min:")
+    w['mtime_max'] = _add_line(layout, "mtime Max:")
+    return w
+
+
+def _get_contour_params(w):
+    """Extract contour parameter dict from widget group."""
+    return {
+        'contour_intervals': _int_or_none(w['contour_intervals'].text()),
+        'contour_value': _int_or_none(w['contour_value'].text()),
+        'symmetric_interval': w['symmetric'].isChecked(),
+        'cmap_color': _str_or_none(w['cmap'].text()),
+        'cmap_lim_min': _float_or_none(w['cmap_min'].text()),
+        'cmap_lim_max': _float_or_none(w['cmap_max'].text()),
+        'line_color': _str_or_none(w['line_color'].text()),
+    }
+
+def _update_contour_placeholders(w, returned):
+    """Update placeholder text from values returned by plot functions."""
+    mapping = {
+        'contour_intervals': 'contour_intervals',
+        'contour_value': 'contour_value',
+        'cmap': 'cmap_color',
+        'cmap_min': 'cmap_lim_min',
+        'cmap_max': 'cmap_lim_max',
+        'line_color': 'line_color',
+    }
+    for widget_key, param_key in mapping.items():
+        if param_key in returned and returned[param_key] is not None:
+            w[widget_key].setPlaceholderText(str(returned[param_key]))
+    if 'symmetric_interval' in returned:
+        w['symmetric'].setChecked(returned['symmetric_interval'])
+
+
+# ---------------------------------------------------------------------------
+# Main GUI
+# ---------------------------------------------------------------------------
 class MainWindow(QMainWindow):
+    """GCMProcPy main application window."""
+
+    PLOT_TYPES = [
+        "Lat vs Lon",
+        "Lev vs Var",
+        "Lev vs Lon",
+        "Lev vs Lat",
+        "Lev vs Time",
+        "Lat vs Time",
+        "Lon vs Time",
+        "Var vs Time",
+    ]
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle("GCMProcPy")
         self.resize(1600, 600)
-        
-        # Main splitter divides window into left (controls) and right (plot)
+
+        # Main splitter: left (controls) | right (plot)
         self.splitter = QSplitter(Qt.Horizontal)
-        
-        # --- Left Panel: Controls ---
+
+        # --- Left Panel: Controls (scrollable) ---
         self.controls_widget = QWidget()
         self.controls_layout = QVBoxLayout(self.controls_widget)
-        
+
         # Dataset Group
         self.dataset_group = QGroupBox("Dataset")
         ds_layout = QFormLayout()
+        dir_row = QHBoxLayout()
         self.directory_input = QLineEdit()
         self.directory_input.setPlaceholderText("Enter directory or file path")
-        ds_layout.addRow("Directory:", self.directory_input)
+        dir_row.addWidget(self.directory_input)
+        self.browse_dir_button = QPushButton("Browse Dir")
+        self.browse_dir_button.setObjectName("browse_btn")
+        self.browse_dir_button.clicked.connect(self.on_browse_directory)
+        dir_row.addWidget(self.browse_dir_button)
+        self.browse_file_button = QPushButton("Browse File")
+        self.browse_file_button.setObjectName("browse_btn")
+        self.browse_file_button.clicked.connect(self.on_browse_file)
+        dir_row.addWidget(self.browse_file_button)
+        ds_layout.addRow("Directory:", dir_row)
         self.dataset_filter_input = QLineEdit()
         self.dataset_filter_input.setPlaceholderText("Optional filter (e.g., 'sech')")
         ds_layout.addRow("Dataset Filter:", self.dataset_filter_input)
@@ -50,46 +262,24 @@ class MainWindow(QMainWindow):
         ds_layout.addRow(self.load_button)
         self.dataset_group.setLayout(ds_layout)
         self.controls_layout.addWidget(self.dataset_group)
-        
+
         # Plot Type Group
         self.plot_type_group = QGroupBox("Plot Type")
         pt_layout = QHBoxLayout()
         self.plot_type_combo = QComboBox()
-        self.plot_type_combo.addItems([
-            "Lat vs Lon", 
-            "Lev vs Var", 
-            "Lev vs Lon", 
-            "Lev vs Lat", 
-            "Lev vs Time", 
-            "Lat vs Time"
-        ])
+        self.plot_type_combo.addItems(self.PLOT_TYPES)
         self.plot_type_combo.currentIndexChanged.connect(self.on_plot_type_changed)
         pt_layout.addWidget(self.plot_type_combo)
         self.plot_type_group.setLayout(pt_layout)
         self.controls_layout.addWidget(self.plot_type_group)
-        
-        # Plot Parameters Group – use a QStackedWidget so parameters change with plot type
+
+        # Parameter pages via QStackedWidget
         self.param_stack = QStackedWidget()
-        # Page for "Lat vs Lon" (using plt_lat_lon)
-        self.page_lat_lon = self.create_lat_lon_page()
-        # Page for "Lev vs Var" (using plt_lev_var)
-        self.page_lev_var = self.create_lev_var_page()
-        # For other plot types, add placeholder pages
-        self.page_lev_lon = self.create_lev_lon_page()
-        self.page_lev_lat = self.create_lev_lat_page()
-        self.page_lev_time = self.create_lev_time_page()
-        self.page_lat_time = self.create_lat_time_page()
-        
-        self.param_stack.addWidget(self.page_lat_lon)   # index 0
-        self.param_stack.addWidget(self.page_lev_var)     # index 1
-        self.param_stack.addWidget(self.page_lev_lon)     # index 2
-        self.param_stack.addWidget(self.page_lev_lat)     # index 3
-        self.param_stack.addWidget(self.page_lev_time)    # index 4
-        self.param_stack.addWidget(self.page_lat_time)    # index 5
-        
+        self._pages = {}
+        self._create_all_pages()
         self.controls_layout.addWidget(self.param_stack)
-        
-        # Buttons for Plot and Save as Image
+
+        # Buttons
         button_layout = QHBoxLayout()
         self.plot_button = QPushButton("Plot")
         self.plot_button.clicked.connect(self.on_plot)
@@ -98,279 +288,215 @@ class MainWindow(QMainWindow):
         self.save_button.clicked.connect(self.on_save_image)
         button_layout.addWidget(self.save_button)
         self.controls_layout.addLayout(button_layout)
-
         self.controls_layout.addStretch()
-        
+
+        # Wrap controls in a scroll area
+        scroll = QScrollArea()
+        scroll.setWidget(self.controls_widget)
+        scroll.setWidgetResizable(True)
+
         # --- Right Panel: Plot Display ---
         self.plot_widget = QWidget()
+        self.plot_widget.setStyleSheet("background-color: #181825; border-radius: 8px;")
         self.plot_layout = QVBoxLayout(self.plot_widget)
-        self.canvas = FigureCanvas(plt.figure(figsize=(10,6)))
+        self.plot_layout.setContentsMargins(8, 8, 8, 8)
+        self.fig = plt.figure(figsize=(10, 6))
+        self.fig.patch.set_facecolor('#e6e6e6')
+        self.canvas = FigureCanvas(self.fig)
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.plot_layout.addWidget(self.canvas)
-        
-        # Add panels to splitter
-        self.splitter.addWidget(self.controls_widget)
+
+        # Assemble splitter
+        self.splitter.addWidget(scroll)
         self.splitter.addWidget(self.plot_widget)
         self.splitter.setSizes([300, 900])
         self.setCentralWidget(self.splitter)
-        
-        # Dataset storage
-        self.datasets = []  # list of dataset tuples
-        self.selected_dataset = None  # will store the entire list
-        
-    # --- Parameter Pages ---
-    def create_lat_lon_page(self):
-        """Create parameters for plt_lat_lon."""
-        page = QWidget()
-        layout = QFormLayout(page)
-        self.lat_lon_variable_combo = QComboBox()
-        layout.addRow("Variable Name:", self.lat_lon_variable_combo)
-        self.lat_lon_time_combo = QComboBox()
-        layout.addRow("Time (ISO):", self.lat_lon_time_combo)
-        self.lat_lon_level_combo = QComboBox()
-        layout.addRow("Level:", self.lat_lon_level_combo)
-        self.lat_lon_unit_input = QLineEdit()
-        layout.addRow("Variable Unit:", self.lat_lon_unit_input)
-        self.lat_lon_center_lon_input = QLineEdit()
-        layout.addRow("Center Longitude:", self.lat_lon_center_lon_input)
-        self.lat_lon_contour_intervals_input = QLineEdit()
-        layout.addRow("Contour Intervals:", self.lat_lon_contour_intervals_input)
-        self.lat_lon_contour_value_input = QLineEdit()
-        layout.addRow("Contour Value:", self.lat_lon_contour_value_input)
-        self.lat_lon_symmetric_checkbox = QCheckBox()
-        layout.addRow("Symmetric Interval:", self.lat_lon_symmetric_checkbox)
-        self.lat_lon_cmap_input = QLineEdit()
-        layout.addRow("Colormap:", self.lat_lon_cmap_input)
-        self.lat_lon_cmap_lim_min_input = QLineEdit()
-        layout.addRow("Colormap Min:", self.lat_lon_cmap_lim_min_input)
-        self.lat_lon_cmap_lim_max_input = QLineEdit()
-        layout.addRow("Colormap Max:", self.lat_lon_cmap_lim_max_input)
-        self.lat_lon_line_color_input = QLineEdit()
-        layout.addRow("Line Color:", self.lat_lon_line_color_input)
-        self.lat_lon_coastlines_checkbox = QCheckBox()
-        layout.addRow("Coastlines:", self.lat_lon_coastlines_checkbox)
-        self.lat_lon_nightshade_checkbox = QCheckBox()
-        layout.addRow("Nightshade:", self.lat_lon_nightshade_checkbox)
-        self.lat_lon_gm_equator_checkbox = QCheckBox()
-        layout.addRow("GM Equator:", self.lat_lon_gm_equator_checkbox)
-        self.lat_lon_lat_min_input = QLineEdit()
-        layout.addRow("Latitude Min:", self.lat_lon_lat_min_input)
-        self.lat_lon_lat_max_input = QLineEdit()
-        layout.addRow("Latitude Max:", self.lat_lon_lat_max_input)
-        self.lat_lon_lon_min_input = QLineEdit()
-        layout.addRow("Longitude Min:", self.lat_lon_lon_min_input)
-        self.lat_lon_lon_max_input = QLineEdit()
-        layout.addRow("Longitude Max:", self.lat_lon_lon_max_input)
-        self.lat_lon_clean_checkbox = QCheckBox()
-        self.lat_lon_clean_checkbox.setChecked(True)
-        layout.addRow("Clean Plot:", self.lat_lon_clean_checkbox)
-        return page
-        
-    def create_lev_var_page(self):
-        """Create parameters for plt_lev_var."""
-        page = QWidget()
-        layout = QFormLayout(page)
-        self.lev_var_variable_combo = QComboBox()
-        layout.addRow("Variable Name:", self.lev_var_variable_combo)
-        self.lev_var_lat_combo = QComboBox()
-        layout.addRow("Latitude:", self.lev_var_lat_combo)
-        self.lev_var_time_combo = QComboBox()
-        layout.addRow("Time (ISO):", self.lev_var_time_combo)
-        self.lev_var_lon_combo = QComboBox()
-        layout.addRow("Longitude:", self.lev_var_lon_combo)
-        self.lev_var_unit_input = QLineEdit()
-        layout.addRow("Variable Unit:", self.lev_var_unit_input)
-        self.lev_var_level_min_input = QLineEdit()
-        layout.addRow("Level Min:", self.lev_var_level_min_input)
-        self.lev_var_level_max_input = QLineEdit()
-        layout.addRow("Level Max:", self.lev_var_level_max_input)
-        self.lev_var_log_checkbox = QCheckBox()
-        self.lev_var_log_checkbox.setChecked(True)
-        layout.addRow("Log Level:", self.lev_var_log_checkbox)
-        self.lev_var_clean_checkbox = QCheckBox()
-        self.lev_var_clean_checkbox.setChecked(True)
-        layout.addRow("Clean Plot:", self.lev_var_clean_checkbox)
-        return page
 
-    def create_lev_lon_page(self):
-        """Create parameters for plt_lev_lon."""
-        page = QWidget()
-        layout = QFormLayout(page)
-        self.lev_lon_variable_combo = QComboBox()
-        layout.addRow("Variable Name:", self.lev_lon_variable_combo)
-        self.lev_lon_lat_combo = QComboBox()
-        layout.addRow("Latitude:", self.lev_lon_lat_combo)
-        self.lev_lon_time_combo = QComboBox()
-        layout.addRow("Time (ISO):", self.lev_lon_time_combo)
-        self.lev_lon_log_checkbox = QCheckBox()
-        self.lev_lon_log_checkbox.setChecked(True)
-        layout.addRow("Log Level:", self.lev_lon_log_checkbox)
-        self.lev_lon_unit_input = QLineEdit()
-        layout.addRow("Variable Unit:", self.lev_lon_unit_input)
-        self.lev_lon_contour_intervals_input = QLineEdit()
-        layout.addRow("Contour Intervals:", self.lev_lon_contour_intervals_input)
-        self.lev_lon_contour_value_input = QLineEdit()
-        layout.addRow("Contour Value:", self.lev_lon_contour_value_input)
-        self.lev_lon_symmetric_checkbox = QCheckBox()
-        layout.addRow("Symmetric Interval:", self.lev_lon_symmetric_checkbox)
-        self.lev_lon_cmap_input = QLineEdit()
-        layout.addRow("Colormap:", self.lev_lon_cmap_input)
-        self.lev_lon_cmap_lim_min_input = QLineEdit()
-        layout.addRow("Colormap Min:", self.lev_lon_cmap_lim_min_input)
-        self.lev_lon_cmap_lim_max_input = QLineEdit()
-        layout.addRow("Colormap Max:", self.lev_lon_cmap_lim_max_input)
-        self.lev_lon_line_color_input = QLineEdit()
-        layout.addRow("Line Color:", self.lev_lon_line_color_input)
-        self.lev_lon_level_min_input = QLineEdit()
-        layout.addRow("Level Min:", self.lev_lon_level_min_input)
-        self.lev_lon_level_max_input = QLineEdit()
-        layout.addRow("Level Max:", self.lev_lon_level_max_input)
-        self.lev_lon_lon_min_input = QLineEdit()
-        layout.addRow("Longitude Min:", self.lev_lon_lon_min_input)
-        self.lev_lon_lon_max_input = QLineEdit()
-        layout.addRow("Longitude Max:", self.lev_lon_lon_max_input)
-        self.lev_lon_clean_checkbox = QCheckBox()
-        self.lev_lon_clean_checkbox.setChecked(True)
-        layout.addRow("Clean Plot:", self.lev_lon_clean_checkbox)
-        return page
-    
+        # Clipboard shortcuts — ensure Ctrl+V/C/X/A work in text fields
+        self._setup_clipboard_shortcuts()
 
-    def create_lev_lat_page(self):
-        """Create parameters for plt_lev_lat."""
-        page = QWidget()
-        layout = QFormLayout(page)
-        self.lev_lat_variable_combo = QComboBox()
-        layout.addRow("Variable Name:", self.lev_lat_variable_combo)
-        self.lev_lat_time_combo = QComboBox()
-        layout.addRow("Time (ISO):", self.lev_lat_time_combo)
-        self.lev_lat_lon_combo = QComboBox()
-        layout.addRow("Longitude:", self.lev_lat_lon_combo)
-        self.lev_lat_log_checkbox = QCheckBox()
-        self.lev_lat_log_checkbox.setChecked(True)
-        layout.addRow("Log Level:", self.lev_lat_log_checkbox)
-        self.lev_lat_unit_input = QLineEdit()
-        layout.addRow("Variable Unit:", self.lev_lat_unit_input)
-        self.lev_lat_contour_intervals_input = QLineEdit()
-        layout.addRow("Contour Intervals:", self.lev_lat_contour_intervals_input)
-        self.lev_lat_contour_value_input = QLineEdit()
-        layout.addRow("Contour Value:", self.lev_lat_contour_value_input)
-        self.lev_lat_symmetric_checkbox = QCheckBox()
-        layout.addRow("Symmetric Interval:", self.lev_lat_symmetric_checkbox)
-        self.lev_lat_cmap_input = QLineEdit()
-        layout.addRow("Colormap:", self.lev_lat_cmap_input)
-        self.lev_lat_cmap_lim_min_input = QLineEdit()
-        layout.addRow("Colormap Min:", self.lev_lat_cmap_lim_min_input)
-        self.lev_lat_cmap_lim_max_input = QLineEdit()
-        layout.addRow("Colormap Max:", self.lev_lat_cmap_lim_max_input)
-        self.lev_lat_line_color_input = QLineEdit()
-        layout.addRow("Line Color:", self.lev_lat_line_color_input)
-        self.lev_lat_level_min_input = QLineEdit()
-        layout.addRow("Level Min:", self.lev_lat_level_min_input)
-        self.lev_lat_level_max_input = QLineEdit()
-        layout.addRow("Level Max:", self.lev_lat_level_max_input)
-        self.lev_lat_lat_min_input = QLineEdit()
-        layout.addRow("Latitude Min:", self.lev_lat_lat_min_input)
-        self.lev_lat_lat_max_input = QLineEdit()
-        layout.addRow("Latitude Max:", self.lev_lat_lat_max_input)
-        self.lev_lat_clean_checkbox = QCheckBox()
-        self.lev_lat_clean_checkbox.setChecked(True)
-        layout.addRow("Clean Plot:", self.lev_lat_clean_checkbox)
-        return page
+        # State
+        self.datasets = []
+        self.selected_dataset = None
 
+    # ------------------------------------------------------------------
+    # Clipboard shortcuts
+    # ------------------------------------------------------------------
+    def _setup_clipboard_shortcuts(self):
+        """Wire up Ctrl+V/C/X/A so they reach the focused QLineEdit."""
+        def _do_clipboard(action):
+            w = QApplication.focusWidget()
+            if isinstance(w, QLineEdit):
+                getattr(w, action)()
+        for key, action in [
+            (QKeySequence.Paste, 'paste'),
+            (QKeySequence.Copy, 'copy'),
+            (QKeySequence.Cut, 'cut'),
+            (QKeySequence.SelectAll, 'selectAll'),
+        ]:
+            sc = QShortcut(key, self)
+            sc.setContext(Qt.ApplicationShortcut)
+            sc.activated.connect(lambda a=action: _do_clipboard(a))
 
-    def create_lev_time_page(self):
-        """Create parameters for plt_lev_time."""
-        page = QWidget()
-        layout = QFormLayout(page)
-        self.lev_time_variable_combo = QComboBox()
-        layout.addRow("Variable Name:", self.lev_time_variable_combo)
-        self.lev_time_lat_combo = QComboBox()
-        layout.addRow("Latitude:", self.lev_time_lat_combo)
-        self.lev_time_lon_combo = QComboBox()
-        layout.addRow("Longitude:", self.lev_time_lon_combo)
-        self.lev_time_log_checkbox = QCheckBox()
-        self.lev_time_log_checkbox.setChecked(True)
-        layout.addRow("Log Level:", self.lev_time_log_checkbox)
-        self.lev_time_unit_input = QLineEdit()
-        layout.addRow("Variable Unit:", self.lev_time_unit_input)
-        self.lev_time_contour_intervals_input = QLineEdit()
-        layout.addRow("Contour Intervals:", self.lev_time_contour_intervals_input)
-        self.lev_time_contour_value_input = QLineEdit()
-        layout.addRow("Contour Value:", self.lev_time_contour_value_input)
-        self.lev_time_symmetric_checkbox = QCheckBox()
-        layout.addRow("Symmetric Interval:", self.lev_time_symmetric_checkbox)
-        self.lev_time_cmap_input = QLineEdit()
-        layout.addRow("Colormap:", self.lev_time_cmap_input)
-        self.lev_time_cmap_lim_min_input = QLineEdit()
-        layout.addRow("Colormap Min:", self.lev_time_cmap_lim_min_input)
-        self.lev_time_cmap_lim_max_input = QLineEdit()
-        layout.addRow("Colormap Max:", self.lev_time_cmap_lim_max_input)
-        self.lev_time_line_color_input = QLineEdit()
-        layout.addRow("Line Color:", self.lev_time_line_color_input)
-        self.lev_time_level_min_input = QLineEdit()
-        layout.addRow("Level Min:", self.lev_time_level_min_input)
-        self.lev_time_level_max_input = QLineEdit()
-        layout.addRow("Level Max:", self.lev_time_level_max_input)
-        self.lev_time_mtime_min_input = QLineEdit()
-        layout.addRow("mtime Min:", self.lev_time_mtime_min_input)
-        self.lev_time_mtime_max_input = QLineEdit()
-        layout.addRow("mtime Max:", self.lev_time_mtime_max_input)
-        self.lev_time_clean_checkbox = QCheckBox()
-        self.lev_time_clean_checkbox.setChecked(True)
-        layout.addRow("Clean Plot:", self.lev_time_clean_checkbox)
-        return page
-    
-    def create_lat_time_page(self):
-        """Create parameters for plt_lat_time."""
-        page = QWidget()
-        layout = QFormLayout(page)
-        self.lat_time_variable_combo = QComboBox()
-        layout.addRow("Variable Name:", self.lat_time_variable_combo)
-        self.lat_time_level_combo = QComboBox()
-        layout.addRow("Level:", self.lat_time_level_combo)
-        self.lat_time_lon_combo = QComboBox()
-        layout.addRow("Longitude:", self.lat_time_lon_combo)
-        self.lat_time_unit_input = QLineEdit()
-        layout.addRow("Variable Unit:", self.lat_time_unit_input)
-        self.lat_time_contour_intervals_input = QLineEdit()
-        layout.addRow("Contour Intervals:", self.lat_time_contour_intervals_input)
-        self.lat_time_contour_value_input = QLineEdit()
-        layout.addRow("Contour Value:", self.lat_time_contour_value_input)
-        self.lat_time_symmetric_checkbox = QCheckBox()
-        layout.addRow("Symmetric Interval:", self.lat_time_symmetric_checkbox)
-        self.lat_time_cmap_input = QLineEdit()
-        layout.addRow("Colormap:", self.lat_time_cmap_input)
-        self.lat_time_cmap_lim_min_input = QLineEdit()
-        layout.addRow("Colormap Min:", self.lat_time_cmap_lim_min_input)
-        self.lat_time_cmap_lim_max_input = QLineEdit()
-        layout.addRow("Colormap Max:", self.lat_time_cmap_lim_max_input)
-        self.lat_time_line_color_input = QLineEdit()
-        layout.addRow("Line Color:", self.lat_time_line_color_input)
-        self.lat_time_lat_min_input = QLineEdit()
-        layout.addRow("Latitude Min:", self.lat_time_lat_min_input)
-        self.lat_time_lat_max_input = QLineEdit()
-        layout.addRow("Latitude Max:", self.lat_time_lat_max_input)
-        self.lat_time_mtime_min_input = QLineEdit()
-        layout.addRow("mtime Min:", self.lat_time_mtime_min_input)
-        self.lat_time_mtime_max_input = QLineEdit()
-        layout.addRow("mtime Max:", self.lat_time_mtime_max_input)
-        self.lat_time_clean_checkbox = QCheckBox()
-        self.lat_time_clean_checkbox.setChecked(True)
-        layout.addRow("Clean Plot:", self.lat_time_clean_checkbox)
-        return page
-    def create_placeholder_page(self, text):
-        """Create a placeholder page for unimplemented plot types."""
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        label = QLabel(text)
-        layout.addWidget(label)
-        layout.addStretch()
-        return page
-        
-    # --- Slots ---
+    # ------------------------------------------------------------------
+    # Page creation – one method per plot type, using shared helpers
+    # ------------------------------------------------------------------
+    def _create_all_pages(self):
+        creators = [
+            ("Lat vs Lon",  self._create_lat_lon_page),
+            ("Lev vs Var",  self._create_lev_var_page),
+            ("Lev vs Lon",  self._create_lev_lon_page),
+            ("Lev vs Lat",  self._create_lev_lat_page),
+            ("Lev vs Time", self._create_lev_time_page),
+            ("Lat vs Time", self._create_lat_time_page),
+            ("Lon vs Time", self._create_lon_time_page),
+            ("Var vs Time", self._create_var_time_page),
+        ]
+        for name, creator in creators:
+            page = creator()
+            self._pages[name] = page
+            self.param_stack.addWidget(page['widget'])
+
+    def _create_lat_lon_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w.update(_add_time_group(layout))
+        w.update(_add_level_group(layout))
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w['projection'] = QComboBox()
+        w['projection'].addItems(['mercator', 'orthographic', 'mollweide', 'north_polar', 'south_polar', 'polar'])
+        layout.addRow("Projection:", w['projection'])
+        w['center_lon'] = _add_line(layout, "Center Longitude:")
+        w['central_lat'] = _add_line(layout, "Central Latitude:")
+        w.update(_add_contour_widgets(layout))
+        w['coastlines'] = _add_check(layout, "Coastlines:")
+        w['nightshade'] = _add_check(layout, "Nightshade:")
+        w['gm_equator'] = _add_check(layout, "GM Equator:")
+        w['wind'] = _add_check(layout, "Wind Vectors:")
+        w['wind_density'] = _add_line(layout, "Wind Density:", "15")
+        w['wind_scale'] = _add_line(layout, "Wind Scale:")
+        w['wind_color'] = _add_line(layout, "Wind Color:", "black")
+        w.update(_add_lat_bounds(layout))
+        w.update(_add_lon_bounds(layout))
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_lev_var_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w['latitude'] = _add_combo(layout, "Latitude:")
+        w.update(_add_time_group(layout))
+        w['longitude'] = _add_combo(layout, "Longitude:")
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_level_bounds(layout))
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
+        w['log_level'] = _add_check(layout, "Log Level:", True)
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_lev_lon_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w['latitude'] = _add_combo(layout, "Latitude:")
+        w.update(_add_time_group(layout))
+        w['log_level'] = _add_check(layout, "Log Level:", True)
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_contour_widgets(layout))
+        w.update(_add_level_bounds(layout))
+        w.update(_add_lon_bounds(layout))
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_lev_lat_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w.update(_add_time_group(layout))
+        w['longitude'] = _add_combo(layout, "Longitude:")
+        w['log_level'] = _add_check(layout, "Log Level:", True)
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_contour_widgets(layout))
+        w.update(_add_level_bounds(layout))
+        w.update(_add_lat_bounds(layout))
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_lev_time_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w['latitude'] = _add_combo(layout, "Latitude:")
+        w['longitude'] = _add_combo(layout, "Longitude:")
+        w['log_level'] = _add_check(layout, "Log Level:", True)
+        w['y_axis'] = QComboBox()
+        w['y_axis'].addItems(['pressure', 'height'])
+        layout.addRow("Y-Axis:", w['y_axis'])
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_contour_widgets(layout))
+        w.update(_add_level_bounds(layout))
+        w.update(_add_mtime_bounds(layout))
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_lat_time_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w.update(_add_level_group(layout))
+        w['longitude'] = _add_combo(layout, "Longitude:")
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_contour_widgets(layout))
+        w.update(_add_lat_bounds(layout))
+        w.update(_add_mtime_bounds(layout))
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_lon_time_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w['latitude'] = _add_combo(layout, "Latitude:")
+        w.update(_add_level_group(layout))
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_contour_widgets(layout))
+        w.update(_add_lon_bounds(layout))
+        w.update(_add_mtime_bounds(layout))
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_var_time_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w['latitude'] = _add_combo(layout, "Latitude:")
+        w['longitude'] = _add_combo(layout, "Longitude:")
+        w.update(_add_level_group(layout))
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_mtime_bounds(layout))
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    # ------------------------------------------------------------------
+    # Slots
+    # ------------------------------------------------------------------
+    def on_browse_directory(self):
+        directory = QFileDialog.getExistingDirectory(self, "Select Dataset Directory")
+        if directory:
+            self.directory_input.setText(directory)
+
+    def on_browse_file(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Select NetCDF File", "",
+            "NetCDF Files (*.nc *.nc4 *.h5);;All Files (*)")
+        if file_path:
+            self.directory_input.setText(file_path)
+
     def on_plot_type_changed(self, index):
         self.param_stack.setCurrentIndex(index)
-        
+
     def on_load_datasets(self):
         directory = self.directory_input.text().strip()
         dataset_filter = self.dataset_filter_input.text().strip() or None
@@ -378,367 +504,542 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Input Error", "Please enter a valid directory or file path.")
             return
         try:
+            # Close previously loaded datasets
+            if self.datasets:
+                try:
+                    close_datasets(self.datasets)
+                except Exception:
+                    pass
             self.datasets = load_datasets(directory, dataset_filter=dataset_filter)
             if not self.datasets:
                 QMessageBox.warning(self, "No Datasets", "No valid NetCDF datasets were found.")
                 return
-            # Assign the entire list
             self.selected_dataset = self.datasets
             QMessageBox.information(self, "Datasets Loaded", f"Loaded {len(self.datasets)} dataset(s).")
-            self.populate_common_lists()
+            self._populate_all_combos()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Could not load datasets:\n{e}")
-            
-    def populate_common_lists(self):
-        # Use the list functions with self.selected_dataset
+
+    def _populate_all_combos(self):
+        """Populate combo boxes across all pages from loaded datasets."""
         valid_vars = var_list(self.selected_dataset)
-        valid_times = time_list(self.selected_dataset)
+        self._all_times = time_list(self.selected_dataset)
         valid_lats = lat_list(self.selected_dataset)
         valid_lons = lon_list(self.selected_dataset)
         valid_levels = level_list(self.selected_dataset)
-        
-        # Populate fields in Lat vs Lon page
-        self.lat_lon_variable_combo.clear()
-        self.lat_lon_variable_combo.addItems([str(v) for v in valid_vars])
-        self.lat_lon_time_combo.clear()
-        self.lat_lon_time_combo.addItems([str(t) for t in valid_times])
-        self.lat_lon_level_combo.clear()
-        self.lat_lon_level_combo.addItems([str(lev) for lev in valid_levels])
 
-        # Populate fields in Lev vs Var page
-        self.lev_var_variable_combo.clear()
-        self.lev_var_variable_combo.addItems([str(v) for v in valid_vars])
-        self.lev_var_lat_combo.clear()
-        self.lev_var_lat_combo.addItems([str(lat) for lat in valid_lats])
-        self.lev_var_time_combo.clear()
-        self.lev_var_time_combo.addItems([str(t) for t in valid_times])
-        self.lev_var_lon_combo.clear()
-        self.lev_var_lon_combo.addItems([str(lon) for lon in valid_lons])
-        
-        # Populate fields in Lev vs Lon page
-        self.lev_lon_variable_combo.clear()
-        self.lev_lon_variable_combo.addItems([str(v) for v in valid_vars])
-        self.lev_lon_lat_combo.clear()
-        self.lev_lon_lat_combo.addItems([str(lat) for lat in valid_lats])
-        self.lev_lon_time_combo.clear()
-        self.lev_lon_time_combo.addItems([str(t) for t in valid_times])
+        # Only show ALL-CAPS variable names (e.g. TN, UN, not lat, mtime)
+        str_vars = [str(v) for v in valid_vars if str(v).isupper()]
+        str_lats = [str(lat) for lat in valid_lats]
+        str_lons = [str(lon) for lon in valid_lons]
+        str_levels = [str(lev) for lev in valid_levels]
 
-        # Populate fields in Lev vs Lat page
-        self.lev_lat_variable_combo.clear()
-        self.lev_lat_variable_combo.addItems([str(v) for v in valid_vars])
-        self.lev_lat_time_combo.clear()
-        self.lev_lat_time_combo.addItems([str(t) for t in valid_times])
-        self.lev_lat_lon_combo.clear()
-        self.lev_lat_lon_combo.addItems([str(lon) for lon in valid_lons])
+        # Build date → times mapping for the date/time picker
+        self._date_time_map = {}
+        for t in self._all_times:
+            ts = str(t)
+            date_part = ts[:10]   # "YYYY-MM-DD"
+            time_part = ts[11:19] # "HH:MM:SS" — strip nanosecond fractions
+            self._date_time_map.setdefault(date_part, []).append(time_part)
+        str_dates = sorted(self._date_time_map.keys())
 
-        # Populate fields in Lev vs Time page
-        self.lev_time_variable_combo.clear()
-        self.lev_time_variable_combo.addItems([str(v) for v in valid_vars])
-        self.lev_time_lat_combo.clear()
-        self.lev_time_lat_combo.addItems([str(lat) for lat in valid_lats])
-        self.lev_time_lon_combo.clear()
-        self.lev_time_lon_combo.addItems([str(lon) for lon in valid_lons])
+        combo_map = {
+            'variable': str_vars,
+            'latitude': str_lats,
+            'longitude': str_lons,
+            'level': str_levels,
+        }
 
-        # Populate fields in Lat vs Time page
-        self.lat_time_variable_combo.clear()
-        self.lat_time_variable_combo.addItems([str(v) for v in valid_vars])
-        self.lat_time_level_combo.clear()
-        self.lat_time_level_combo.addItems([str(lev) for lev in valid_levels])
-        self.lat_time_lon_combo.clear()
-        self.lat_time_lon_combo.addItems([str(lon) for lon in valid_lons])
+        for page_data in self._pages.values():
+            w = page_data['widgets']
+            for key, items in combo_map.items():
+                if key in w and isinstance(w[key], QComboBox):
+                    w[key].clear()
+                    w[key].addItems(items)
+            # Set up filterable level combo and summary label
+            if 'level' in w and isinstance(w['level'], QComboBox):
+                _setup_filterable(w['level'])
+                if 'level_avail' in w and str_levels:
+                    w['level_avail'].setText(
+                        f"{len(str_levels)} levels ({str_levels[0]} \u2013 {str_levels[-1]})")
+            # Populate date combos and wire up time combos
+            if 'date' in w and isinstance(w['date'], QComboBox):
+                date_combo = w['date']
+                time_combo = w.get('time_of_day')
+                avail_label = w.get('time_avail')
+                # Block signals while repopulating to avoid premature firing
+                date_combo.blockSignals(True)
+                date_combo.clear()
+                date_combo.addItems(str_dates)
+                date_combo.blockSignals(False)
+                # Disconnect old handler
+                try:
+                    date_combo.currentIndexChanged.disconnect()
+                except TypeError:
+                    pass
+                if time_combo is not None:
+                    date_combo.currentIndexChanged.connect(
+                        lambda _idx, d=date_combo, tc=time_combo, lbl=avail_label:
+                            self._on_date_changed(d.currentText(), tc, lbl))
+                    # Manually trigger for initial date
+                    self._on_date_changed(
+                        date_combo.currentText(), time_combo, avail_label)
 
-        
+    def _on_date_changed(self, date_str, time_combo, avail_label=None):
+        """Populate time combo with available times and update summary label."""
+        times = self._date_time_map.get(date_str, [])
+        time_combo.clear()
+        time_combo.addItems(times)
+        _setup_filterable(time_combo)
+        if avail_label:
+            if times:
+                avail_label.setText(f"{len(times)} times ({times[0]} \u2013 {times[-1]})")
+            else:
+                avail_label.setText("No times available")
+
+    def _get_selected_time(self, w):
+        """Reconstruct ISO timestamp from date + time_of_day combos."""
+        date_str = w['date'].currentText() if 'date' in w else ''
+        if not date_str:
+            return ''
+        time_str = ''
+        if 'time_of_day' in w and isinstance(w['time_of_day'], QComboBox):
+            time_str = w['time_of_day'].currentText().strip()
+        if date_str and time_str:
+            return f"{date_str}T{time_str}"
+        return date_str
+
+    # ------------------------------------------------------------------
+    # Plot dispatch
+    # ------------------------------------------------------------------
     def on_plot(self):
+        if not self.selected_dataset:
+            QMessageBox.warning(self, "No Data", "Please load datasets first.")
+            return
+
         plot_type = self.plot_type_combo.currentText()
-        fig = None
-        if plot_type == "Lat vs Lon":
-            params = {
-                "datasets": self.selected_dataset,
-                "variable_name": self.lat_lon_variable_combo.currentText(),
-                "time": self.lat_lon_time_combo.currentText(),
-                "level": self.lat_lon_level_combo.currentText(),
-                "variable_unit": self.lat_lon_unit_input.text() or None,
-                "center_longitude": float(self.lat_lon_center_lon_input.text()) if self.lat_lon_center_lon_input.text() else 0,
-                "contour_intervals": int(self.lat_lon_contour_intervals_input.text()) if self.lat_lon_contour_intervals_input.text() else None,
-                "contour_value": int(self.lat_lon_contour_value_input.text()) if self.lat_lon_contour_value_input.text() else None,
-                "symmetric_interval": self.lat_lon_symmetric_checkbox.isChecked(),
-                "cmap_color": self.lat_lon_cmap_input.text() or None,
-                "cmap_lim_min": float(self.lat_lon_cmap_lim_min_input.text()) if self.lat_lon_cmap_lim_min_input.text() else None,
-                "cmap_lim_max": float(self.lat_lon_cmap_lim_max_input.text()) if self.lat_lon_cmap_lim_max_input.text() else None,
-                "line_color": self.lat_lon_line_color_input.text() or None,
-                "coastlines": self.lat_lon_coastlines_checkbox.isChecked(),
-                "nightshade": self.lat_lon_nightshade_checkbox.isChecked(),
-                "gm_equator": self.lat_lon_gm_equator_checkbox.isChecked(),
-                "latitude_minimum": float(self.lat_lon_lat_min_input.text()) if self.lat_lon_lat_min_input.text() else None,
-                "latitude_maximum": float(self.lat_lon_lat_max_input.text()) if self.lat_lon_lat_max_input.text() else None,
-                "longitude_minimum": float(self.lat_lon_lon_min_input.text()) if self.lat_lon_lon_min_input.text() else None,
-                "longitude_maximum": float(self.lat_lon_lon_max_input.text()) if self.lat_lon_lon_max_input.text() else None,
-                "clean_plot": self.lat_lon_clean_checkbox.isChecked()
-            }
-            fig, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, contour_filled, unique_lons, unique_lats, variable_values  = plt_lat_lon(**params)
+        dispatch = {
+            "Lat vs Lon":  self._plot_lat_lon,
+            "Lev vs Var":  self._plot_lev_var,
+            "Lev vs Lon":  self._plot_lev_lon,
+            "Lev vs Lat":  self._plot_lev_lat,
+            "Lev vs Time": self._plot_lev_time,
+            "Lat vs Time": self._plot_lat_time,
+            "Lon vs Time": self._plot_lon_time,
+            "Var vs Time": self._plot_var_time,
+        }
 
-            self.lat_lon_unit_input.setPlaceholderText(str(variable_unit))
-            self.lat_lon_center_lon_input.setPlaceholderText(str(center_longitude))
-            self.lat_lon_contour_intervals_input.setPlaceholderText(str(contour_intervals))
-            self.lat_lon_contour_value_input.setPlaceholderText(str(contour_value))
-            self.lat_lon_symmetric_checkbox.setChecked(symmetric_interval)
-            self.lat_lon_cmap_input.setPlaceholderText(cmap_color)
-            self.lat_lon_cmap_lim_min_input.setPlaceholderText(str(cmap_lim_min))
-            self.lat_lon_cmap_lim_max_input.setPlaceholderText(str(cmap_lim_max))
-            self.lat_lon_line_color_input.setPlaceholderText(line_color)
-            self.lat_lon_lat_min_input.setPlaceholderText(str(latitude_minimum))
-            self.lat_lon_lat_max_input.setPlaceholderText(str(latitude_maximum))
-            self.lat_lon_lon_min_input.setPlaceholderText(str(longitude_minimum))
-            self.lat_lon_lon_max_input.setPlaceholderText(str(longitude_maximum))
-
-            # Attach the mplcursors cursor to the filled contour collections:
-            cursor = mplcursors.cursor(contour_filled.collections, hover=True)
-            @cursor.connect("add")
-            def on_add(sel):
-                # sel.target gives the coordinates where the cursor is
-                x, y = sel.target
-                # Adjust longitude using center_longitude
-                if (x + params["center_longitude"]) > 180:
-                    adjusted_lon = - (360 - x - params["center_longitude"])
-                elif (x + params["center_longitude"]) < -180:
-                    adjusted_lon = x + 360 + params["center_longitude"]
-                else:
-                    adjusted_lon = x + params["center_longitude"]
-                # Find nearest indices in unique_lons and unique_lats
-                lon_idx = (np.abs(unique_lons - adjusted_lon)).argmin()
-                lat_idx = (np.abs(unique_lats - y)).argmin()
-                # Retrieve corresponding value from variable_values array
-                value = variable_values[lat_idx, lon_idx]
-                # Set annotation text with details
-                sel.annotation.set(
-                    text=f"Lon: {unique_lons[lon_idx]:.2f}°\nLat: {unique_lats[lat_idx]:.2f}°\n{params['variable_name']}: {value:.2e} {variable_unit}"
-                )
-                sel.annotation.get_bbox_patch().set(alpha=0.9)
-                
-        elif plot_type == "Lev vs Var":
-            params = {
-                "datasets": self.selected_dataset,
-                "variable_name": self.lev_var_variable_combo.currentText(),
-                "latitude": float(self.lev_var_lat_combo.currentText()) if self.lev_var_lat_combo.currentText() else None,
-                "time": self.lev_var_time_combo.currentText(),
-                "longitude": float(self.lev_var_lon_combo.currentText()) if self.lev_var_lon_combo.currentText() else None,
-                "log_level": self.lev_var_log_checkbox.isChecked(),
-                "variable_unit": self.lev_var_unit_input.text() or None,
-                "level_minimum": float(self.lev_var_level_min_input.text()) if self.lev_var_level_min_input.text() else None,
-                "level_maximum": float(self.lev_var_level_max_input.text()) if self.lev_var_level_max_input.text() else None,
-                "clean_plot": self.lev_var_clean_checkbox.isChecked()
-            }
-            fig, variable_unit, level_minimum, level_maximum = plt_lev_var(**params)
-            self.lev_var_unit_input.setPlaceholderText(str(variable_unit))
-            self.lev_var_level_min_input.setPlaceholderText(str(level_minimum))
-            self.lev_var_level_max_input.setPlaceholderText(str(level_maximum))
-
-            cursor = mplcursors.cursor(fig, hover=True)
-            @cursor.connect("add")
-            def on_add(sel):
-                # Get the x (variable value) and y (level) from the cursor's target
-                x, y = sel.target
-                
-                # Set annotation text to show level and variable value
-                sel.annotation.set(
-                    text=f"Level: {y:.2f} \n{params['variable_name']}: {x:.2e} {variable_unit}")
-                
-                # Customize the appearance of the annotation box
-                sel.annotation.get_bbox_patch().set(alpha=0.9)
-
-        elif plot_type == "Lev vs Lon":
-            params = {
-                "datasets": self.selected_dataset,
-                "variable_name": self.lev_lon_variable_combo.currentText(),
-                "latitude": float(self.lev_lon_lat_combo.currentText()) if self.lev_lon_lat_combo.currentText() else None,
-                "time": self.lev_lon_time_combo.currentText(),
-                "log_level": self.lev_lon_log_checkbox.isChecked(),
-                "variable_unit": self.lev_lon_unit_input.text() or None,
-                "contour_intervals": int(self.lev_lon_contour_intervals_input.text()) if self.lev_lon_contour_intervals_input.text() else None,
-                "contour_value": int(self.lev_lon_contour_value_input.text()) if self.lev_lon_contour_value_input.text() else None,
-                "symmetric_interval": self.lev_lon_symmetric_checkbox.isChecked(),
-                "cmap_color": self.lev_lon_cmap_input.text() or None,
-                "cmap_lim_min": float(self.lev_lon_cmap_lim_min_input.text()) if self.lev_lon_cmap_lim_min_input.text() else None,
-                "cmap_lim_max": float(self.lev_lon_cmap_lim_max_input.text()) if self.lev_lon_cmap_lim_max_input.text() else None,
-                "line_color": self.lev_lon_line_color_input.text() or None,
-                "level_minimum": float(self.lev_lon_level_min_input.text()) if self.lev_lon_level_min_input.text() else None,
-                "level_maximum": float(self.lev_lon_level_max_input.text()) if self.lev_lon_level_max_input.text() else None,
-                "longitude_minimum": float(self.lev_lon_lon_min_input.text()) if self.lev_lon_lon_min_input.text() else None,
-                "longitude_maximum": float(self.lev_lon_lon_max_input.text()) if self.lev_lon_lon_max_input.text() else None,
-                "clean_plot": self.lev_lon_clean_checkbox.isChecked()
-            }
-            fig, variable_unit, latitude, time, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, longitude_minimum, longitude_maximum, contour_filled, unique_lons, unique_levs, variable_values = plt_lev_lon(**params)
-
-            self.lev_lon_unit_input.setPlaceholderText(str(variable_unit))
-            self.lev_lon_contour_intervals_input.setPlaceholderText(str(contour_intervals))
-            self.lev_lon_contour_value_input.setPlaceholderText(str(contour_value))
-            self.lev_lon_symmetric_checkbox.setChecked(symmetric_interval)
-            self.lev_lon_cmap_input.setPlaceholderText(cmap_color)
-            self.lev_lon_cmap_lim_min_input.setPlaceholderText(str(cmap_lim_min))
-            self.lev_lon_cmap_lim_max_input.setPlaceholderText(str(cmap_lim_max))
-            self.lev_lon_line_color_input.setPlaceholderText(line_color)
-            self.lev_lon_level_min_input.setPlaceholderText(str(level_minimum))
-            self.lev_lon_level_max_input.setPlaceholderText(str(level_maximum))
-            self.lev_lon_lon_min_input.setPlaceholderText(str(longitude_minimum))
-            self.lev_lon_lon_max_input.setPlaceholderText(str(longitude_maximum))
-            center_longitude = 0
-            cursor = mplcursors.cursor(contour_filled.collections, hover=True)
-            @cursor.connect("add")
-            def on_add(sel):
-                # sel.target gives the coordinates where the cursor is
-                x, y = sel.target
-                # Find the nearest longitude index
-                if (x + center_longitude) > 180:
-                    adjusted_lon =  - (360 -x -center_longitude)
-                elif (x + center_longitude) < -180:
-                    adjusted_lon = x + 360 + center_longitude #180 + (x + center_longitude) 
-                else:
-                    adjusted_lon = x + center_longitude
-                
-                lon_idx = (np.abs(unique_lons - adjusted_lon)).argmin() 
-                
-                # Find the nearest latitude index
-                level_idx = (np.abs(unique_levs - y)).argmin()
-                
-                # Retrieve the corresponding value
-                value = variable_values[level_idx, lon_idx]
-                
-                # Set annotation text
-                sel.annotation.set(
-                    text=f"Lon: {unique_lons[lon_idx]:.2f}°\nLev: {unique_levs[level_idx]:.2f}°\n{params['variable_name']}: {value:.2e} {variable_unit}"
-                )
-                
-                # Customize annotation appearance
-                sel.annotation.get_bbox_patch().set(alpha=0.9)
-
-        elif plot_type == "Lev vs Lat":
-            params = {
-                "datasets": self.selected_dataset,
-                "variable_name": self.lev_lat_variable_combo.currentText(),
-                "time": self.lev_lat_time_combo.currentText(),
-                "longitude": float(self.lev_lat_lon_combo.currentText()) if self.lev_lat_lon_combo.currentText() else None,
-                "log_level": self.lev_lat_log_checkbox.isChecked(),
-                "variable_unit": self.lev_lat_unit_input.text() or None,
-                "contour_intervals": int(self.lev_lat_contour_intervals_input.text()) if self.lev_lat_contour_intervals_input.text() else None,
-                "contour_value": int(self.lev_lat_contour_value_input.text()) if self.lev_lat_contour_value_input.text() else None,
-                "symmetric_interval": self.lev_lat_symmetric_checkbox.isChecked(),
-                "cmap_color": self.lev_lat_cmap_input.text() or None,
-                "cmap_lim_min": float(self.lev_lat_cmap_lim_min_input.text()) if self.lev_lat_cmap_lim_min_input.text() else None,
-                "cmap_lim_max": float(self.lev_lat_cmap_lim_max_input.text()) if self.lev_lat_cmap_lim_max_input.text() else None,
-                "line_color": self.lev_lat_line_color_input.text() or None,
-                "level_minimum": float(self.lev_lat_level_min_input.text()) if self.lev_lat_level_min_input.text() else None,
-                "level_maximum": float(self.lev_lat_level_max_input.text()) if self.lev_lat_level_max_input.text() else None,
-                "latitude_minimum": float(self.lev_lat_lat_min_input.text()) if self.lev_lat_lat_min_input.text() else None,
-                "latitude_maximum": float(self.lev_lat_lat_max_input.text()) if self.lev_lat_lat_max_input.text() else None,
-                "clean_plot": self.lev_lat_clean_checkbox.isChecked()
-            }
-            fig,  variable_unit, time, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, latitude_minimum, latitude_maximum, contour_filled, unique_lats, unique_levs, variable_values = plt_lev_lat(**params)
-
-            self.lev_lat_unit_input.setPlaceholderText(str(variable_unit))
-            self.lev_lat_contour_intervals_input.setPlaceholderText(str(contour_intervals))
-            self.lev_lat_contour_value_input.setPlaceholderText(str(contour_value))
-            self.lev_lat_symmetric_checkbox.setChecked(symmetric_interval)
-            self.lev_lat_cmap_input.setPlaceholderText(cmap_color)
-            self.lev_lat_cmap_lim_min_input.setPlaceholderText(str(cmap_lim_min))
-            self.lev_lat_cmap_lim_max_input.setPlaceholderText(str(cmap_lim_max))
-            self.lev_lat_line_color_input.setPlaceholderText(line_color)
-            self.lev_lat_level_min_input.setPlaceholderText(str(level_minimum))
-            self.lev_lat_level_max_input.setPlaceholderText(str(level_maximum))
-            self.lev_lat_lat_min_input.setPlaceholderText(str(latitude_minimum))
-            self.lev_lat_lat_max_input.setPlaceholderText(str(latitude_maximum))
-
-            cursor = mplcursors.cursor(contour_filled.collections, hover=True)
-            @cursor.connect("add")
-            def on_add(sel):
-                # sel.target gives the coordinates where the cursor is
-                x, y = sel.target
-                
-                lat_idx = (np.abs(unique_lats - x)).argmin() 
-                
-                # Find the nearest latitude index
-                level_idx = (np.abs(unique_levs - y)).argmin()
-                
-                # Retrieve the corresponding value
-                value = variable_values[level_idx, lat_idx]
-                
-                # Set annotation text
-                sel.annotation.set(
-                    text=f"Lat: {unique_lats[lat_idx]:.2f}°\nLev: {unique_levs[level_idx]:.2f}°\n{params['variable_name']}: {value:.2e} {variable_unit}"
-                )
-                
-                # Customize annotation appearance
-                sel.annotation.get_bbox_patch().set(alpha=0.9)
-
-        elif plot_type == "Lev vs Time":
-            params = {
-                "datasets": self.selected_dataset,
-                "variable_name": self.lev_time_variable_combo.currentText(),
-                "latitude": float(self.lev_time_lat_combo.currentText()) if self.lev_time_lat_combo.currentText() else None,
-                "longitude": float(self.lev_time_lon_combo.currentText()) if self.lev_time_lon_combo.currentText() else None,
-                "log_level": self.lev_time_log_checkbox.isChecked(),
-                "variable_unit": self.lev_time_unit_input.text() or None,
-                "contour_intervals": int(self.lev_time_contour_intervals_input.text()) if self.lev_time_contour_intervals_input.text() else None,
-                "contour_value": int(self.lev_time_contour_value_input.text()) if self.lev_time_contour_value_input.text() else None,
-                "symmetric_interval": self.lev_time_symmetric_checkbox.isChecked(),
-                "cmap_color": self.lev_time_cmap_input.text() or None,
-                "cmap_lim_min": float(self.lev_time_cmap_lim_min_input.text()) if self.lev_time_cmap_lim_min_input.text() else None,
-                "cmap_lim_max": float(self.lev_time_cmap_lim_max_input.text()) if self.lev_time_cmap_lim_max_input.text() else None,
-                "line_color": self.lev_time_line_color_input.text() or None,
-                "level_minimum": float(self.lev_time_level_min_input.text()) if self.lev_time_level_min_input.text() else None,
-                "level_maximum": float(self.lev_time_level_max_input.text()) if self.lev_time_level_max_input.text() else None,
-                "mtime_minimum": self.lev_time_mtime_min_input.text() or None,
-                "mtime_maximum": self.lev_time_mtime_max_input.text() or None,
-                "clean_plot": self.lev_time_clean_checkbox.isChecked()
-            }
-            fig = plt_lev_time(**params)
-        elif plot_type == "Lat vs Time":
-            params = {
-                "datasets": self.selected_dataset,
-                "variable_name": self.lat_time_variable_combo.currentText(),
-                "level": self.lat_time_level_combo.currentText(),
-                "longitude": float(self.lat_time_lon_combo.currentText()) if self.lat_time_lon_combo.currentText() else None,
-                "variable_unit": self.lat_time_unit_input.text() or None,
-                "contour_intervals": int(self.lat_time_contour_intervals_input.text()) if self.lat_time_contour_intervals_input.text() else None,
-                "contour_value": int(self.lat_time_contour_value_input.text()) if self.lat_time_contour_value_input.text() else None,
-                "symmetric_interval": self.lat_time_symmetric_checkbox.isChecked(),
-                "cmap_color": self.lat_time_cmap_input.text() or None,
-                "cmap_lim_min": float(self.lat_time_cmap_lim_min_input.text()) if self.lat_time_cmap_lim_min_input.text() else None,
-                "cmap_lim_max": float(self.lat_time_cmap_lim_max_input.text()) if self.lat_time_cmap_lim_max_input.text() else None,
-                "line_color": self.lat_time_line_color_input.text() or None,
-                "latitude_minimum": float(self.lat_time_lat_min_input.text()) if self.lat_time_lat_min_input.text() else None,
-                "latitude_maximum": float(self.lat_time_lat_max_input.text()) if self.lat_time_lat_max_input.text() else None,
-                "mtime_minimum": self.lat_time_mtime_min_input.text() or None,
-                "mtime_maximum": self.lat_time_mtime_max_input.text() or None,
-                "clean_plot": self.lat_time_clean_checkbox.isChecked()
-            }
-            fig = plt_lat_time(**params)
-        else:
+        handler = dispatch.get(plot_type)
+        if handler is None:
             QMessageBox.warning(self, "Plot Type Error", "Unknown plot type selected.")
             return
-        
-        # Update the canvas with the new figure.
+
+        try:
+            fig = handler()
+        except Exception as e:
+            logger.exception("Plot generation failed")
+            QMessageBox.critical(self, "Plot Error", f"Could not generate plot:\n{e}")
+            return
+
+        if fig is not None:
+            self._update_canvas(fig)
+
+    def _update_canvas(self, fig):
+        """Replace the canvas figure and redraw (reuse canvas widget)."""
         self.plot_layout.removeWidget(self.canvas)
         self.canvas.deleteLater()
         self.canvas = FigureCanvas(fig)
         self.canvas.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.plot_layout.addWidget(self.canvas)
         self.canvas.draw()
-    
+
+    # ------------------------------------------------------------------
+    # Per-type plot handlers
+    # ------------------------------------------------------------------
+    def _plot_lat_lon(self):
+        w = self._pages["Lat vs Lon"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "time": self._get_selected_time(w),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "projection": w['projection'].currentText(),
+            "center_longitude": _float_or_none(w['center_lon'].text()) or 0,
+            "central_latitude": _float_or_none(w['central_lat'].text()) or 0,
+            "coastlines": w['coastlines'].isChecked(),
+            "nightshade": w['nightshade'].isChecked(),
+            "gm_equator": w['gm_equator'].isChecked(),
+            "wind": w['wind'].isChecked(),
+            "wind_density": _int_or_none(w['wind_density'].text()) or 15,
+            "wind_scale": _float_or_none(w['wind_scale'].text()),
+            "wind_color": _str_or_none(w['wind_color'].text()) or 'black',
+            "latitude_minimum": _float_or_none(w['lat_min'].text()),
+            "latitude_maximum": _float_or_none(w['lat_max'].text()),
+            "longitude_minimum": _float_or_none(w['lon_min'].text()),
+            "longitude_maximum": _float_or_none(w['lon_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+        }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = level_val
+        params["level_type"] = level_type
+        params.update(_get_contour_params(w))
+
+        result = plt_lat_lon(**params)
+
+        # Non-mercator projections return just the figure; mercator returns a tuple
+        if not isinstance(result, tuple):
+            return result
+
+        (fig, variable_unit, center_longitude, contour_intervals, contour_value,
+         symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color,
+         latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum,
+         contour_filled, unique_lons, unique_lats, variable_values) = result
+
+        # Update placeholders
+        w['unit'].setPlaceholderText(str(variable_unit))
+        w['center_lon'].setPlaceholderText(str(center_longitude))
+        _update_contour_placeholders(w, {
+            'contour_intervals': contour_intervals, 'contour_value': contour_value,
+            'symmetric_interval': symmetric_interval, 'cmap_color': cmap_color,
+            'cmap_lim_min': cmap_lim_min, 'cmap_lim_max': cmap_lim_max,
+            'line_color': line_color,
+        })
+        w['lat_min'].setPlaceholderText(str(latitude_minimum))
+        w['lat_max'].setPlaceholderText(str(latitude_maximum))
+        w['lon_min'].setPlaceholderText(str(longitude_minimum))
+        w['lon_max'].setPlaceholderText(str(longitude_maximum))
+
+        # Interactive cursor
+        cursor = mplcursors.cursor(contour_filled, hover=True)
+        clon = params["center_longitude"]
+        var_name = params["variable_name"]
+        @cursor.connect("add")
+        def on_add(sel):
+            x, y = sel.target
+            if (x + clon) > 180:
+                adj = -(360 - x - clon)
+            elif (x + clon) < -180:
+                adj = x + 360 + clon
+            else:
+                adj = x + clon
+            lon_idx = (np.abs(unique_lons - adj)).argmin()
+            lat_idx = (np.abs(unique_lats - y)).argmin()
+            value = variable_values[lat_idx, lon_idx]
+            sel.annotation.set(
+                text=f"Lon: {unique_lons[lon_idx]:.2f}\nLat: {unique_lats[lat_idx]:.2f}\n{var_name}: {value:.2e} {variable_unit}")
+            sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+        return fig
+
+    def _plot_lev_var(self):
+        w = self._pages["Lev vs Var"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "latitude": _float_or_none(w['latitude'].currentText()),
+            "time": self._get_selected_time(w),
+            "longitude": _float_or_none(w['longitude'].currentText()),
+            "log_level": w['log_level'].isChecked(),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "level_minimum": _float_or_none(w['level_min'].text()),
+            "level_maximum": _float_or_none(w['level_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
+        }
+        fig, variable_unit, level_minimum, level_maximum = plt_lev_var(**params)
+        w['unit'].setPlaceholderText(str(variable_unit))
+        w['level_min'].setPlaceholderText(str(level_minimum))
+        w['level_max'].setPlaceholderText(str(level_maximum))
+
+        var_name = params["variable_name"]
+        cursor = mplcursors.cursor(fig, hover=True)
+        @cursor.connect("add")
+        def on_add(sel):
+            x, y = sel.target
+            sel.annotation.set(
+                text=f"Level: {y:.2f}\n{var_name}: {x:.2e} {variable_unit}")
+            sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+        return fig
+
+    def _plot_lev_lon(self):
+        w = self._pages["Lev vs Lon"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "latitude": _float_or_none(w['latitude'].currentText()),
+            "time": self._get_selected_time(w),
+            "log_level": w['log_level'].isChecked(),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "level_minimum": _float_or_none(w['level_min'].text()),
+            "level_maximum": _float_or_none(w['level_max'].text()),
+            "longitude_minimum": _float_or_none(w['lon_min'].text()),
+            "longitude_maximum": _float_or_none(w['lon_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
+        }
+        params.update(_get_contour_params(w))
+
+        (fig, variable_unit, latitude, time, contour_intervals, contour_value,
+         symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color,
+         level_minimum, level_maximum, longitude_minimum, longitude_maximum,
+         contour_filled, unique_lons, unique_levs, variable_values) = plt_lev_lon(**params)
+
+        w['unit'].setPlaceholderText(str(variable_unit))
+        _update_contour_placeholders(w, {
+            'contour_intervals': contour_intervals, 'contour_value': contour_value,
+            'symmetric_interval': symmetric_interval, 'cmap_color': cmap_color,
+            'cmap_lim_min': cmap_lim_min, 'cmap_lim_max': cmap_lim_max,
+            'line_color': line_color,
+        })
+        w['level_min'].setPlaceholderText(str(level_minimum))
+        w['level_max'].setPlaceholderText(str(level_maximum))
+        w['lon_min'].setPlaceholderText(str(longitude_minimum))
+        w['lon_max'].setPlaceholderText(str(longitude_maximum))
+
+        var_name = params["variable_name"]
+        cursor = mplcursors.cursor(contour_filled, hover=True)
+        @cursor.connect("add")
+        def on_add(sel):
+            x, y = sel.target
+            lon_idx = (np.abs(unique_lons - x)).argmin()
+            level_idx = (np.abs(unique_levs - y)).argmin()
+            value = variable_values[level_idx, lon_idx]
+            sel.annotation.set(
+                text=f"Lon: {unique_lons[lon_idx]:.2f}\nLev: {unique_levs[level_idx]:.2f}\n{var_name}: {value:.2e} {variable_unit}")
+            sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+        return fig
+
+    def _plot_lev_lat(self):
+        w = self._pages["Lev vs Lat"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "time": self._get_selected_time(w),
+            "longitude": _float_or_none(w['longitude'].currentText()),
+            "log_level": w['log_level'].isChecked(),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "level_minimum": _float_or_none(w['level_min'].text()),
+            "level_maximum": _float_or_none(w['level_max'].text()),
+            "latitude_minimum": _float_or_none(w['lat_min'].text()),
+            "latitude_maximum": _float_or_none(w['lat_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
+        }
+        params.update(_get_contour_params(w))
+
+        (fig, variable_unit, time, contour_intervals, contour_value,
+         symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color,
+         level_minimum, level_maximum, latitude_minimum, latitude_maximum,
+         contour_filled, unique_lats, unique_levs, variable_values) = plt_lev_lat(**params)
+
+        w['unit'].setPlaceholderText(str(variable_unit))
+        _update_contour_placeholders(w, {
+            'contour_intervals': contour_intervals, 'contour_value': contour_value,
+            'symmetric_interval': symmetric_interval, 'cmap_color': cmap_color,
+            'cmap_lim_min': cmap_lim_min, 'cmap_lim_max': cmap_lim_max,
+            'line_color': line_color,
+        })
+        w['level_min'].setPlaceholderText(str(level_minimum))
+        w['level_max'].setPlaceholderText(str(level_maximum))
+        w['lat_min'].setPlaceholderText(str(latitude_minimum))
+        w['lat_max'].setPlaceholderText(str(latitude_maximum))
+
+        var_name = params["variable_name"]
+        cursor = mplcursors.cursor(contour_filled, hover=True)
+        @cursor.connect("add")
+        def on_add(sel):
+            x, y = sel.target
+            lat_idx = (np.abs(unique_lats - x)).argmin()
+            level_idx = (np.abs(unique_levs - y)).argmin()
+            value = variable_values[level_idx, lat_idx]
+            sel.annotation.set(
+                text=f"Lat: {unique_lats[lat_idx]:.2f}\nLev: {unique_levs[level_idx]:.2f}\n{var_name}: {value:.2e} {variable_unit}")
+            sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+        return fig
+
+    def _plot_lev_time(self):
+        w = self._pages["Lev vs Time"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "latitude": _float_or_none(w['latitude'].currentText()),
+            "longitude": _float_or_none(w['longitude'].currentText()),
+            "log_level": w['log_level'].isChecked(),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "level_minimum": _float_or_none(w['level_min'].text()),
+            "level_maximum": _float_or_none(w['level_max'].text()),
+            "mtime_minimum": _str_or_none(w['mtime_min'].text()),
+            "mtime_maximum": _str_or_none(w['mtime_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+            "y_axis": w['y_axis'].currentText(),
+        }
+        params.update(_get_contour_params(w))
+        result = plt_lev_time(**params)
+
+        if not isinstance(result, tuple):
+            return result
+
+        (fig, variable_unit, contour_intervals, contour_value,
+         symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color,
+         level_minimum, level_maximum, contour_filled, unique_levs, variable_values) = result
+
+        w['unit'].setPlaceholderText(str(variable_unit))
+        _update_contour_placeholders(w, {
+            'contour_intervals': contour_intervals, 'contour_value': contour_value,
+            'symmetric_interval': symmetric_interval, 'cmap_color': cmap_color,
+            'cmap_lim_min': cmap_lim_min, 'cmap_lim_max': cmap_lim_max,
+            'line_color': line_color,
+        })
+        w['level_min'].setPlaceholderText(str(level_minimum))
+        w['level_max'].setPlaceholderText(str(level_maximum))
+
+        var_name = params["variable_name"]
+        cursor = mplcursors.cursor(contour_filled, hover=True)
+        @cursor.connect("add")
+        def on_add(sel):
+            x, y = sel.target
+            level_idx = (np.abs(unique_levs - y)).argmin()
+            sel.annotation.set(
+                text=f"Lev: {unique_levs[level_idx]:.2f}\n{var_name}: {variable_values[level_idx, int(round(x))]:.2e} {variable_unit}")
+            sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+        return fig
+
+    def _plot_lat_time(self):
+        w = self._pages["Lat vs Time"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "longitude": _float_or_none(w['longitude'].currentText()),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "latitude_minimum": _float_or_none(w['lat_min'].text()),
+            "latitude_maximum": _float_or_none(w['lat_max'].text()),
+            "mtime_minimum": _str_or_none(w['mtime_min'].text()),
+            "mtime_maximum": _str_or_none(w['mtime_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+        }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = level_val
+        params["level_type"] = level_type
+        params.update(_get_contour_params(w))
+        result = plt_lat_time(**params)
+
+        if not isinstance(result, tuple):
+            return result
+
+        (fig, variable_unit, contour_intervals, contour_value,
+         symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color,
+         latitude_minimum, latitude_maximum, contour_filled, unique_lats, variable_values) = result
+
+        w['unit'].setPlaceholderText(str(variable_unit))
+        _update_contour_placeholders(w, {
+            'contour_intervals': contour_intervals, 'contour_value': contour_value,
+            'symmetric_interval': symmetric_interval, 'cmap_color': cmap_color,
+            'cmap_lim_min': cmap_lim_min, 'cmap_lim_max': cmap_lim_max,
+            'line_color': line_color,
+        })
+        w['lat_min'].setPlaceholderText(str(latitude_minimum))
+        w['lat_max'].setPlaceholderText(str(latitude_maximum))
+
+        var_name = params["variable_name"]
+        cursor = mplcursors.cursor(contour_filled, hover=True)
+        @cursor.connect("add")
+        def on_add(sel):
+            x, y = sel.target
+            lat_idx = (np.abs(unique_lats - y)).argmin()
+            sel.annotation.set(
+                text=f"Lat: {unique_lats[lat_idx]:.2f}\n{var_name}: {variable_values[lat_idx, int(round(x))]:.2e} {variable_unit}")
+            sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+        return fig
+
+    def _plot_lon_time(self):
+        w = self._pages["Lon vs Time"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "latitude": _float_or_none(w['latitude'].currentText()),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "longitude_minimum": _float_or_none(w['lon_min'].text()),
+            "longitude_maximum": _float_or_none(w['lon_max'].text()),
+            "mtime_minimum": _str_or_none(w['mtime_min'].text()),
+            "mtime_maximum": _str_or_none(w['mtime_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+        }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = _float_or_none(level_val) if level_val else None
+        params["level_type"] = level_type
+        params.update(_get_contour_params(w))
+        result = plt_lon_time(**params)
+
+        if not isinstance(result, tuple):
+            return result
+
+        (fig, variable_unit, contour_intervals, contour_value,
+         symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color,
+         longitude_minimum, longitude_maximum, contour_filled, unique_lons, variable_values) = result
+
+        w['unit'].setPlaceholderText(str(variable_unit))
+        _update_contour_placeholders(w, {
+            'contour_intervals': contour_intervals, 'contour_value': contour_value,
+            'symmetric_interval': symmetric_interval, 'cmap_color': cmap_color,
+            'cmap_lim_min': cmap_lim_min, 'cmap_lim_max': cmap_lim_max,
+            'line_color': line_color,
+        })
+        w['lon_min'].setPlaceholderText(str(longitude_minimum))
+        w['lon_max'].setPlaceholderText(str(longitude_maximum))
+
+        var_name = params["variable_name"]
+        cursor = mplcursors.cursor(contour_filled, hover=True)
+        @cursor.connect("add")
+        def on_add(sel):
+            x, y = sel.target
+            lon_idx = (np.abs(unique_lons - y)).argmin()
+            sel.annotation.set(
+                text=f"Lon: {unique_lons[lon_idx]:.2f}\n{var_name}: {variable_values[lon_idx, int(round(x))]:.2e} {variable_unit}")
+            sel.annotation.get_bbox_patch().set(alpha=0.9)
+
+        return fig
+
+    def _plot_var_time(self):
+        w = self._pages["Var vs Time"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "latitude": _float_or_none(w['latitude'].currentText()),
+            "longitude": _float_or_none(w['longitude'].currentText()),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "mtime_minimum": _str_or_none(w['mtime_min'].text()),
+            "mtime_maximum": _str_or_none(w['mtime_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+        }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = _float_or_none(level_val) if level_val else None
+        params["level_type"] = level_type
+        result = plt_var_time(**params)
+
+        if not isinstance(result, tuple):
+            return result
+
+        fig, variable_unit = result
+        w['unit'].setPlaceholderText(str(variable_unit))
+        return fig
+
+    # ------------------------------------------------------------------
+    # Save
+    # ------------------------------------------------------------------
     def on_save_image(self):
-        """Opens a file dialog to save the current figure as an image."""
         if self.canvas is None or self.canvas.figure is None:
             QMessageBox.warning(self, "Save Error", "No plot available to save.")
             return
-        
-        # Open file dialog for save location
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Plot As Image",
-            "",
-            "PNG Image (*.png);;JPEG Image (*.jpg);;All Files (*)",
-            options=options
-        )
+            self, "Save Plot As Image", "",
+            "PNG Image (*.png);;JPEG Image (*.jpg);;PDF (*.pdf);;All Files (*)",
+            options=options)
         if file_path:
             try:
                 self.canvas.figure.savefig(file_path)
@@ -746,12 +1047,221 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Save Error", f"Could not save plot:\n{e}")
 
+
+MODERN_STYLESHEET = """
+QMainWindow {
+    background-color: #1e1e2e;
+}
+QWidget {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-size: 13px;
+}
+QGroupBox {
+    background-color: #313244;
+    border: 1px solid #45475a;
+    border-radius: 8px;
+    margin-top: 14px;
+    padding: 14px 10px 10px 10px;
+    font-weight: bold;
+    font-size: 13px;
+    color: #cba6f7;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 2px 10px;
+    background-color: #313244;
+    border-radius: 4px;
+}
+QLabel {
+    color: #bac2de;
+    font-size: 12px;
+    padding: 1px 0;
+}
+QLineEdit {
+    background-color: #45475a;
+    border: 1px solid #585b70;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #cdd6f4;
+    selection-background-color: #89b4fa;
+    selection-color: #1e1e2e;
+}
+QLineEdit:focus {
+    border: 1px solid #89b4fa;
+}
+QLineEdit::placeholder {
+    color: #6c7086;
+}
+QComboBox {
+    background-color: #45475a;
+    border: 1px solid #585b70;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #cdd6f4;
+    min-height: 20px;
+}
+QComboBox:hover {
+    border: 1px solid #89b4fa;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #585b70;
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+QComboBox::down-arrow {
+    image: none;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #cdd6f4;
+    margin-right: 5px;
+}
+QComboBox QAbstractItemView {
+    background-color: #313244;
+    border: 1px solid #585b70;
+    border-radius: 4px;
+    color: #cdd6f4;
+    selection-background-color: #89b4fa;
+    selection-color: #1e1e2e;
+    padding: 4px;
+}
+QPushButton {
+    background-color: #89b4fa;
+    color: #1e1e2e;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 16px;
+    font-weight: bold;
+    font-size: 12px;
+    min-height: 20px;
+}
+QPushButton:hover {
+    background-color: #74c7ec;
+}
+QPushButton:pressed {
+    background-color: #b4befe;
+}
+QPushButton#browse_btn {
+    background-color: #585b70;
+    color: #cdd6f4;
+    padding: 7px 10px;
+    font-weight: normal;
+}
+QPushButton#browse_btn:hover {
+    background-color: #6c7086;
+}
+QCheckBox {
+    spacing: 8px;
+    color: #bac2de;
+}
+QCheckBox::indicator {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    border: none;
+    background-color: #585b70;
+}
+QCheckBox::indicator:checked {
+    background-color: #89b4fa;
+}
+QCheckBox::indicator:hover {
+    background-color: #6c7086;
+}
+QCheckBox::indicator:checked:hover {
+    background-color: #74c7ec;
+}
+QTimeEdit {
+    background-color: #45475a;
+    border: 1px solid #585b70;
+    border-radius: 6px;
+    padding: 5px 8px;
+    color: #cdd6f4;
+    min-height: 20px;
+}
+QTimeEdit:focus {
+    border: 1px solid #89b4fa;
+}
+QTimeEdit::up-button, QTimeEdit::down-button {
+    background-color: #585b70;
+    border-radius: 3px;
+    width: 16px;
+    margin: 1px;
+}
+QTimeEdit::up-button:hover, QTimeEdit::down-button:hover {
+    background-color: #6c7086;
+}
+QTimeEdit::up-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid #cdd6f4;
+}
+QTimeEdit::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #cdd6f4;
+}
+QScrollArea {
+    border: none;
+    background-color: #1e1e2e;
+}
+QScrollBar:vertical {
+    background-color: #1e1e2e;
+    width: 10px;
+    margin: 0;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical {
+    background-color: #585b70;
+    min-height: 30px;
+    border-radius: 5px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #6c7086;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0;
+}
+QScrollBar:horizontal {
+    background-color: #1e1e2e;
+    height: 10px;
+    border-radius: 5px;
+}
+QScrollBar::handle:horizontal {
+    background-color: #585b70;
+    min-width: 30px;
+    border-radius: 5px;
+}
+QSplitter::handle {
+    background-color: #45475a;
+    width: 2px;
+}
+QSplitter::handle:hover {
+    background-color: #89b4fa;
+}
+QMessageBox {
+    background-color: #313244;
+}
+QMessageBox QLabel {
+    color: #cdd6f4;
+    font-size: 13px;
+}
+"""
+
+
 def main():
     app = QApplication(sys.argv)
+    app.setStyleSheet(MODERN_STYLESHEET)
     win = MainWindow()
     win.show()
     sys.exit(app.exec_())
 
-# --- Main entry point ---
+
 if __name__ == '__main__':
     main()

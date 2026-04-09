@@ -1000,6 +1000,179 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
         return variable_values_all
 
 
+def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
+    """
+    Extracts and processes data from the dataset based on the specified variable name, latitude, and level/ilev.
+    Returns a 2D array of longitudes x time.
+
+    Args:
+        datasets (list[ModelDataset]): List of ModelDataset objects.
+        variable_name (str): The name of the variable to extract.
+        selected_lat (Union[float, str]): Latitude value or 'mean' to average over all latitudes.
+        selected_lev_ilev (Union[float, str, None]): Level or intermediate level value, 'mean' for averaging, or None if not applicable.
+        selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        plot_mode (bool, optional): If True, returns a PlotData object.
+
+    Returns:
+        Union[numpy.ndarray, PlotData]:
+            If plot_mode is False, returns a numpy array of variable values concatenated across datasets.
+            If plot_mode is True, returns a PlotData object.
+    """
+
+    if selected_lev_ilev != 'mean' and selected_lev_ilev is not None:
+        selected_lev_ilev = float(selected_lev_ilev)
+    if selected_lat != 'mean':
+        selected_lat = float(selected_lat)
+
+    data_arrays = []
+    combined_mtime = []
+    avg_info_print = 0
+    lev_ilev = None
+
+    for mds in datasets:
+        ds = mds.ds
+        if lev_ilev is None:
+            lev_ilev = check_var_dims(ds, variable_name)
+
+        coord = lev_ilev
+
+        if coord is not None and coord not in ds[variable_name].dims:
+            raise ValueError(f"The variable {variable_name} doesn't use the dimensions 'lat', 'lon', '{coord}'")
+
+        variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+        try:
+            mtime_values = ds['mtime'].values
+        except KeyError:
+            mtime_values = [get_mtime(ds, ts) for ts in mds._time_values]
+        combined_mtime.extend(mtime_values)
+
+        # Level selection
+        if coord is not None and selected_lev_ilev == 'mean':
+            data = ds[variable_name].mean(dim=coord)
+        elif coord is not None and selected_lev_ilev is not None:
+            coord_vals = ds[coord].values
+            if selected_lev_ilev in coord_vals:
+                data = ds[variable_name].sel(**{coord: selected_lev_ilev}, method='nearest')
+            else:
+                sorted_levs = sorted(coord_vals, key=lambda x: abs(x - selected_lev_ilev))
+                closest_lev1, closest_lev2 = sorted_levs[0], sorted_levs[1]
+                if avg_info_print == 0:
+                    logger.warning(f"The {coord} {selected_lev_ilev} isn't in the listed valid values.")
+                    logger.warning(f"Averaging from the closest valid {coord}s: {closest_lev1} and {closest_lev2}")
+                    avg_info_print = 1
+                data = (ds[variable_name].sel(**{coord: closest_lev1}, method='nearest') +
+                        ds[variable_name].sel(**{coord: closest_lev2}, method='nearest')) / 2
+        else:
+            data = ds[variable_name]
+
+        # Latitude selection
+        if selected_lat == 'mean':
+            data = data.mean(dim='lat')
+        else:
+            data = data.sel(lat=selected_lat, method='nearest')
+
+        data_arrays.append(data)
+
+    computed = dask.compute(*data_arrays)
+    variable_values_all = np.concatenate([c.values.T for c in computed], axis=1)
+    lons = computed[0].lon.values
+
+    if selected_unit is not None:
+        variable_values_all, variable_unit = convert_units(variable_values_all, variable_unit, selected_unit)
+
+    if plot_mode:
+        return PlotData(values=variable_values_all, lons=lons, mtime_values=combined_mtime,
+                        selected_lat=selected_lat, variable_unit=variable_unit,
+                        variable_long_name=variable_long_name, model=mds.model, filename=mds.filename)
+    else:
+        return variable_values_all
+
+
+def arr_var_time(datasets, variable_name, selected_lat, selected_lon, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
+    """
+    Extracts a 1D time series of a variable at a specific lat/lon/level location.
+
+    Args:
+        datasets (list[ModelDataset]): List of ModelDataset objects.
+        variable_name (str): The name of the variable to extract.
+        selected_lat (float): Latitude value.
+        selected_lon (float): Longitude value.
+        selected_lev_ilev (Union[float, str, None]): Level or intermediate level value, 'mean' for averaging, or None if not applicable.
+        selected_unit (str, optional): The desired unit for the variable. If None, the original unit is used.
+        plot_mode (bool, optional): If True, returns a PlotData object.
+
+    Returns:
+        Union[numpy.ndarray, PlotData]:
+            If plot_mode is False, returns a 1D numpy array of variable values over time.
+            If plot_mode is True, returns a PlotData object.
+    """
+
+    if selected_lev_ilev != 'mean' and selected_lev_ilev is not None:
+        selected_lev_ilev = float(selected_lev_ilev)
+    selected_lat = float(selected_lat)
+    selected_lon = float(selected_lon)
+
+    data_arrays = []
+    combined_mtime = []
+    avg_info_print = 0
+    lev_ilev = None
+
+    for mds in datasets:
+        ds = mds.ds
+        if lev_ilev is None:
+            lev_ilev = check_var_dims(ds, variable_name)
+
+        coord = lev_ilev
+
+        if coord is not None and coord not in ds[variable_name].dims:
+            raise ValueError(f"The variable {variable_name} doesn't use the dimensions 'lat', 'lon', '{coord}'")
+
+        variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
+        try:
+            mtime_values = ds['mtime'].values
+        except KeyError:
+            mtime_values = [get_mtime(ds, ts) for ts in mds._time_values]
+        combined_mtime.extend(mtime_values)
+
+        # Level selection
+        if coord is not None and selected_lev_ilev == 'mean':
+            data = ds[variable_name].mean(dim=coord)
+        elif coord is not None and selected_lev_ilev is not None:
+            coord_vals = ds[coord].values
+            if selected_lev_ilev in coord_vals:
+                data = ds[variable_name].sel(**{coord: selected_lev_ilev}, method='nearest')
+            else:
+                sorted_levs = sorted(coord_vals, key=lambda x: abs(x - selected_lev_ilev))
+                closest_lev1, closest_lev2 = sorted_levs[0], sorted_levs[1]
+                if avg_info_print == 0:
+                    logger.warning(f"The {coord} {selected_lev_ilev} isn't in the listed valid values.")
+                    logger.warning(f"Averaging from the closest valid {coord}s: {closest_lev1} and {closest_lev2}")
+                    avg_info_print = 1
+                data = (ds[variable_name].sel(**{coord: closest_lev1}, method='nearest') +
+                        ds[variable_name].sel(**{coord: closest_lev2}, method='nearest')) / 2
+        else:
+            data = ds[variable_name]
+
+        # Lat/Lon selection
+        data = data.sel(lat=selected_lat, method='nearest')
+        data = data.sel(lon=selected_lon, method='nearest')
+
+        data_arrays.append(data)
+
+    computed = dask.compute(*data_arrays)
+    variable_values_all = np.concatenate([c.values for c in computed])
+
+    if selected_unit is not None:
+        variable_values_all, variable_unit = convert_units(variable_values_all, variable_unit, selected_unit)
+
+    if plot_mode:
+        return PlotData(values=variable_values_all, mtime_values=combined_mtime,
+                        selected_lat=selected_lat, selected_lon=selected_lon,
+                        variable_unit=variable_unit, variable_long_name=variable_long_name,
+                        model=mds.model, filename=mds.filename)
+    else:
+        return variable_values_all
+
 
 def calc_avg_ht(datasets, time, selected_lev_ilev):
     """
@@ -1054,6 +1227,172 @@ def calc_avg_ht(datasets, time, selected_lev_ilev):
                 avg_ht= round(heights.mean()/ 1000, 2)
                 return avg_ht
     return 0
+
+
+def _get_height_var(ds):
+    """Return (height_var_name, lev_dim, scale_to_km) for TIE-GCM or WACCM-X."""
+    if 'ZG' in ds.variables:
+        return 'ZG', 'ilev', 1e-5     # ZG is in cm → km
+    elif 'Z3' in ds.variables:
+        return 'Z3', 'lev', 1e-3      # Z3 is in m → km
+    return None, None, None
+
+
+def height_to_pres_level(datasets, time, target_height_km, latitude=None, longitude=None):
+    """
+    Convert a target height (km) to the nearest pressure level.
+
+    Finds the pressure level whose average geometric height is closest
+    to the requested height. Optionally narrows to a specific lat/lon.
+
+    Args:
+        datasets: Loaded datasets.
+        time: Timestamp for height lookup.
+        target_height_km (float): Desired height in km.
+        latitude (float, optional): Latitude to evaluate height at.
+        longitude (float, optional): Longitude to evaluate height at.
+
+    Returns:
+        float: The pressure level (lev or ilev value) closest to target_height_km.
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    for mds in datasets:
+        ds = mds.ds
+        if not mds.has_time(time):
+            continue
+        ht_var, lev_dim, scale = _get_height_var(ds)
+        if ht_var is None:
+            continue
+
+        heights = ds[ht_var].sel(time=time)
+        if latitude is not None and 'lat' in heights.dims:
+            lat_vals = ds['lat'].values
+            closest_lat = lat_vals[np.abs(lat_vals - latitude).argmin()]
+            heights = heights.sel(lat=closest_lat)
+        if longitude is not None and 'lon' in heights.dims:
+            lon_vals = ds['lon'].values
+            closest_lon = lon_vals[np.abs(lon_vals - longitude).argmin()]
+            heights = heights.sel(lon=closest_lon)
+
+        # Average over remaining spatial dims to get height per level
+        avg_dims = [d for d in heights.dims if d != lev_dim]
+        if avg_dims:
+            avg_heights = heights.mean(dim=avg_dims).values * scale
+        else:
+            avg_heights = heights.values * scale
+
+        lev_values = ds[lev_dim].values
+        closest_idx = np.abs(avg_heights - target_height_km).argmin()
+        return float(lev_values[closest_idx])
+
+    raise ValueError(f"Could not find height variable in datasets for time {time}")
+
+
+def interpolate_to_height(datasets, variable_values, levs, time,
+                          target_heights=None, n_heights=50, log_interp=False):
+    """
+    Interpolate a field from pressure levels to constant height surfaces.
+
+    Args:
+        datasets: Loaded datasets (to access ZG/Z3).
+        variable_values (np.ndarray): 2D array (nlev, nlat) or (nlev, nlon) on pressure levels.
+        levs (np.ndarray): Pressure level coordinate values matching axis 0 of variable_values.
+        time: Timestamp for height field lookup.
+        target_heights (np.ndarray, optional): Desired height levels in km.
+            If None, auto-generates n_heights levels spanning the data range.
+        n_heights (int): Number of height levels if target_heights is None.
+        log_interp (bool): If True, use exponential interpolation (for densities).
+
+    Returns:
+        tuple: (interpolated_values, target_heights_km)
+            interpolated_values: 2D array (n_heights, n_spatial)
+            target_heights_km: 1D array of height levels in km
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    # Get height field from datasets
+    for mds in datasets:
+        ds = mds.ds
+        if not mds.has_time(time):
+            continue
+        ht_var, lev_dim, scale = _get_height_var(ds)
+        if ht_var is None:
+            continue
+
+        height_field = ds[ht_var].sel(time=time).values * scale  # (nlev, nlat, nlon) in km
+
+        # Average over all spatial dims to get a 1D height profile (nlev,)
+        if height_field.ndim == 3:
+            height_1d = height_field.mean(axis=(1, 2))
+        elif height_field.ndim == 2:
+            height_1d = height_field.mean(axis=1)
+        elif height_field.ndim == 1:
+            height_1d = height_field
+        else:
+            raise ValueError(f"Unexpected height field shape: {height_field.shape}")
+
+        # Match pressure levels: height field may be on ilev while data is on lev
+        ht_levs = ds[lev_dim].values
+        if len(height_1d) != len(levs):
+            from scipy.interpolate import interp1d
+            f = interp1d(ht_levs, height_1d, fill_value='extrapolate')
+            height_1d = f(levs)
+
+        # Auto-generate target heights if not provided
+        if target_heights is None:
+            ht_min = np.nanmin(height_1d)
+            ht_max = np.nanmax(height_1d)
+            target_heights = np.linspace(ht_min, ht_max, n_heights)
+
+        # Interpolate variable_values from pressure to height at each spatial point
+        n_spatial = variable_values.shape[1]
+        result = np.full((len(target_heights), n_spatial), np.nan)
+
+        # Use the same 1D height profile for all spatial columns
+        for j in range(n_spatial):
+            col_heights = height_1d.copy()
+            col_values = variable_values[:, j]
+
+            # Sort by height (ascending)
+            sort_idx = np.argsort(col_heights)
+            col_heights = col_heights[sort_idx]
+            col_values = col_values[sort_idx]
+
+            # Remove NaN entries
+            valid = ~np.isnan(col_heights) & ~np.isnan(col_values)
+            col_heights = col_heights[valid]
+            col_values = col_values[valid]
+
+            if len(col_heights) < 2:
+                continue
+
+            for k, ht in enumerate(target_heights):
+                if ht < col_heights[0] or ht > col_heights[-1]:
+                    continue  # out of range
+
+                # Find bracketing levels
+                idx = np.searchsorted(col_heights, ht) - 1
+                idx = max(0, min(idx, len(col_heights) - 2))
+
+                h0, h1 = col_heights[idx], col_heights[idx + 1]
+                v0, v1 = col_values[idx], col_values[idx + 1]
+
+                if log_interp and v0 > 0 and v1 > 0:
+                    # Exponential interpolation
+                    exparg = (np.log(v1 / v0) / (h1 - h0)) * (ht - h0)
+                    result[k, j] = v0 * np.exp(exparg)
+                else:
+                    # Linear interpolation
+                    frac = (ht - h0) / (h1 - h0) if h1 != h0 else 0
+                    result[k, j] = v0 + frac * (v1 - v0)
+
+        return result, target_heights
+
+    raise ValueError("Could not find height variable in datasets")
+
 
 def min_max(variable_values):
     """
@@ -1121,4 +1460,113 @@ def get_mtime(ds, time):
     second = date_dt.second
     mtime = [day_of_year, hour, minute, second]
     return mtime
+
+
+def arr_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
+                  selected_lev_ilev=None, selected_unit=None, plot_mode=False):
+    """
+    Interpolates model data along a satellite trajectory.
+
+    Takes arrays of satellite time/lat/lon points and interpolates the model
+    field to those locations using xarray's built-in interpolation.
+
+    Args:
+        datasets (list[ModelDataset]): Loaded model datasets.
+        variable_name (str): The name of the variable to extract.
+        sat_time (array-like): Satellite timestamps as numpy datetime64 values.
+        sat_lat (array-like): Satellite latitudes in degrees.
+        sat_lon (array-like): Satellite longitudes in degrees.
+        selected_lev_ilev (Union[float, str, None]): Level value to extract at,
+            'mean' to average over all levels, or None to return all levels.
+        selected_unit (str, optional): Desired unit for the variable.
+        plot_mode (bool, optional): If True, returns a PlotData object.
+
+    Returns:
+        Union[numpy.ndarray, PlotData]:
+            If selected_lev_ilev is given: 1D array of shape (n_points,).
+            If selected_lev_ilev is None: 2D array of shape (n_levels, n_points).
+            If plot_mode is True, returns a PlotData object.
+    """
+    sat_time = np.asarray(sat_time, dtype='datetime64[ns]')
+    sat_lat = np.asarray(sat_lat, dtype=float)
+    sat_lon = np.asarray(sat_lon, dtype=float)
+
+    if len(sat_time) != len(sat_lat) or len(sat_time) != len(sat_lon):
+        raise ValueError("sat_time, sat_lat, and sat_lon must have the same length")
+
+    lev_ilev = None
+    variable_unit = None
+    variable_long_name = None
+
+    # Collect interpolated results per dataset
+    results = []
+
+    for mds in datasets:
+        ds = mds.ds
+
+        if lev_ilev is None:
+            lev_ilev = check_var_dims(ds, variable_name)
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(
+                ds, variable_name, selected_unit)
+
+        # Find which satellite points fall within this dataset's time range
+        ds_times = mds._time_values
+        t_min, t_max = ds_times.min(), ds_times.max()
+        mask = (sat_time >= t_min) & (sat_time <= t_max)
+
+        if not np.any(mask):
+            continue
+
+        idx = np.where(mask)[0]
+        t_pts = sat_time[idx]
+        lat_pts = sat_lat[idx]
+        lon_pts = sat_lon[idx]
+
+        coord = lev_ilev if lev_ilev in ('lev', 'ilev') else None
+
+        # Level selection
+        if coord is not None and selected_lev_ilev == 'mean':
+            data = ds[variable_name].mean(dim=coord)
+        elif coord is not None and selected_lev_ilev is not None:
+            data = ds[variable_name].sel(**{coord: float(selected_lev_ilev)}, method='nearest')
+        else:
+            data = ds[variable_name]
+
+        # Compute from dask before interpolation
+        data = data.compute()
+
+        # Interpolate each point along the track
+        for i, (t, lat, lon) in enumerate(zip(t_pts, lat_pts, lon_pts)):
+            interp_kwargs = {'time': t, 'lat': lat, 'lon': lon}
+            val = data.interp(**interp_kwargs, method='linear')
+            results.append((idx[i], val.values))
+
+    if not results:
+        raise ValueError("No satellite points fall within the dataset time range")
+
+    # Sort by original index and assemble
+    results.sort(key=lambda x: x[0])
+    values = np.array([r[1] for r in results])
+
+    # values shape: (n_points,) if level selected, (n_points, n_levels) if not
+    if values.ndim == 2:
+        values = values.T  # -> (n_levels, n_points)
+
+    if selected_unit is not None:
+        values, variable_unit = convert_units(values, variable_unit, selected_unit)
+
+    if plot_mode:
+        levs = None
+        if values.ndim == 2 and lev_ilev in ('lev', 'ilev'):
+            levs = datasets[0].ds[lev_ilev].values
+        # Build mtime for each satellite point
+        sorted_idx = [r[0] for r in sorted(results, key=lambda x: x[0])]
+        mtime_values = [get_mtime(None, sat_time[i]) for i in sorted_idx]
+        return PlotData(
+            values=values, levs=levs, variable_unit=variable_unit,
+            variable_long_name=variable_long_name, model=mds.model,
+            filename=mds.filename, mtime_values=mtime_values,
+            lats=sat_lat[sorted_idx], lons=sat_lon[sorted_idx])
+    else:
+        return values
 

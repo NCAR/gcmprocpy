@@ -25,6 +25,7 @@ def cmd_parser():
     parser.add_argument('-unit','--variable_unit', type=str, help='The desired unit of the variable', default=None)
     parser.add_argument('-lvl_min','--level_minimum', type=float, help='Minimum level value for the plot', default=None)
     parser.add_argument('-lvl_max','--level_maximum', type=float, help='Maximum level value for the plot', default=None)
+    parser.add_argument('-ya','--y_axis', type=str, default='pressure', choices=['pressure', 'height'], help='Y-axis type: pressure or height (km). Defaults to pressure.')
     return (parser)
 
 
@@ -34,6 +35,6 @@ def cmd_plt_lev_var():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot = plt_lev_var(datasets,args.variable_name,args.latitude,args.time,args.mtime,args.longitude,args.variable_unit,args.level_minimum,args.level_maximum)
+    plot = plt_lev_var(datasets,args.variable_name,args.latitude,args.time,args.mtime,args.longitude,variable_unit=args.variable_unit,level_minimum=args.level_minimum,level_maximum=args.level_maximum,y_axis=args.y_axis)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 

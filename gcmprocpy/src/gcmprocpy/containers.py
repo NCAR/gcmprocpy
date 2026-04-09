@@ -4,6 +4,76 @@ import numpy as np
 import xarray as xr
 
 
+# Model-specific default variable names and configurations.
+MODEL_DEFAULTS = {
+    'TIE-GCM': {
+        'wind_u': 'UN',
+        'wind_v': 'VN',
+        'wind_w': 'WN',
+        'temperature': 'TN',
+        'electron_density': 'NE',
+        'density': {
+            'vars': ['NE', 'DEN', 'O2', 'O1', 'N2', 'NO', 'N4S', 'HE', 'OP',
+                     'NMF2', 'TEC'],
+            'cmap': 'viridis',
+            'line_color': 'white',
+        },
+        'temperature_type': {
+            'vars': ['TN', 'TE', 'TI', 'QJOULE'],
+            'cmap': 'inferno',
+            'line_color': 'white',
+        },
+        'wind': {
+            'vars': ['UN', 'VN', 'WN', 'UI_ExB', 'VI_ExB', 'WI_ExB'],
+            'cmap': 'bwr',
+            'line_color': 'black',
+        },
+        'electric': {
+            'vars': ['POTEN'],
+            'cmap': 'bwr',
+            'line_color': 'black',
+        },
+    },
+    'WACCM-X': {
+        'wind_u': 'U',
+        'wind_v': 'V',
+        'wind_w': 'OMEGA',
+        'temperature': 'T',
+        'electron_density': 'EDens',
+        'density': {
+            'vars': ['EDens', 'OpDens', 'O2p', 'NOp', 'N2p', 'Op',
+                     'ElecColDens', 'O3', 'NO', 'NO2', 'N2O', 'CO', 'CO2',
+                     'CH4', 'H2O', 'HE', 'O', 'O2', 'N2', 'HNO3', 'NOY',
+                     'CLOY', 'BROY'],
+            'cmap': 'viridis',
+            'line_color': 'white',
+        },
+        'temperature_type': {
+            'vars': ['T', 'TREFHT', 'THETA'],
+            'cmap': 'inferno',
+            'line_color': 'white',
+        },
+        'wind': {
+            'vars': ['U', 'V', 'OMEGA', 'UTGW_TOTAL', 'VTGW_TOTAL'],
+            'cmap': 'bwr',
+            'line_color': 'black',
+        },
+        'electric': {
+            'vars': ['ED1', 'ED2', 'POTEN'],
+            'cmap': 'bwr',
+            'line_color': 'black',
+        },
+        'radiation': {
+            'vars': ['FSDS', 'FSNS', 'FSNT', 'FLDS', 'FLNS', 'FLNT', 'FLUT',
+                     'QRL_TOT', 'QRS_TOT', 'QRS_EUV', 'QRS_AUR', 'QTHERMAL',
+                     'SWCF', 'LWCF'],
+            'cmap': 'plasma',
+            'line_color': 'white',
+        },
+    },
+}
+
+
 @dataclass
 class ModelDataset:
     """A loaded NetCDF dataset with its metadata.

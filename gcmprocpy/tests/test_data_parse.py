@@ -5,7 +5,9 @@ from gcmprocpy.data_parse import (
     time_list, var_list, level_list, lon_list, lat_list,
     dim_list, var_info, dim_info, check_var_dims,
     level_log_transform, get_mtime, get_time,
+    arr_lon_time, arr_var_time, arr_sat_track,
 )
+from gcmprocpy.containers import PlotData
 
 
 class TestTimeList:
@@ -45,8 +47,8 @@ class TestLonList:
     def test_returns_sorted_longitudes(self, tiegcm_datasets):
         lons = lon_list(tiegcm_datasets)
         assert lons == sorted(lons)
-        assert -180.0 in lons
-        assert 175.0 in lons
+        assert -150.0 in lons
+        assert 150.0 in lons
 
 
 class TestLatList:
@@ -143,3 +145,81 @@ class TestGetTime:
         mtime = [80, 0, 0, 0]
         time = get_time(tiegcm_datasets, mtime)
         assert time == np.datetime64('2003-03-20T00:00:00', 'ns')
+
+
+class TestArrLonTime:
+    def test_returns_array(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lev_ilev=5.0)
+        assert isinstance(result, np.ndarray)
+        # shape should be (num_lons, num_times)
+        assert result.shape == (6, 2)
+
+    def test_plot_mode_returns_plotdata(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lev_ilev=5.0, plot_mode=True)
+        assert isinstance(result, PlotData)
+        assert result.lons is not None
+        assert len(result.mtime_values) == 2
+        assert result.variable_unit == 'K'
+
+    def test_lat_mean(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat='mean', selected_lev_ilev=5.0, plot_mode=True)
+        assert result.values.shape == (6, 2)
+
+    def test_lev_mean(self, tiegcm_datasets):
+        result = arr_lon_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lev_ilev='mean', plot_mode=True)
+        assert result.values.shape == (6, 2)
+
+
+class TestArrVarTime:
+    def test_returns_array(self, tiegcm_datasets):
+        result = arr_var_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lon=30.0, selected_lev_ilev=5.0)
+        assert isinstance(result, np.ndarray)
+        # shape should be (num_times,)
+        assert result.shape == (2,)
+
+    def test_plot_mode_returns_plotdata(self, tiegcm_datasets):
+        result = arr_var_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lon=30.0, selected_lev_ilev=5.0, plot_mode=True)
+        assert isinstance(result, PlotData)
+        assert len(result.mtime_values) == 2
+        assert result.variable_unit == 'K'
+        assert result.selected_lat == 2.5
+        assert result.selected_lon == 30.0
+
+    def test_lev_mean(self, tiegcm_datasets):
+        result = arr_var_time(tiegcm_datasets, 'TN', selected_lat=2.5, selected_lon=30.0, selected_lev_ilev='mean')
+        assert result.shape == (2,)
+
+
+class TestArrSatTrack:
+    def test_returns_array_with_level(self, tiegcm_datasets):
+        sat_time = np.array(['2003-03-20T00:00:00', '2003-03-20T00:30:00', '2003-03-20T01:00:00'], dtype='datetime64[ns]')
+        sat_lat = np.array([2.5, 0.0, -2.5])
+        sat_lon = np.array([30.0, 90.0, 150.0])
+        result = arr_sat_track(tiegcm_datasets, 'TN', sat_time, sat_lat, sat_lon, selected_lev_ilev=5.0)
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (3,)
+
+    def test_returns_2d_without_level(self, tiegcm_datasets):
+        sat_time = np.array(['2003-03-20T00:00:00', '2003-03-20T01:00:00'], dtype='datetime64[ns]')
+        sat_lat = np.array([2.5, -2.5])
+        sat_lon = np.array([30.0, 90.0])
+        result = arr_sat_track(tiegcm_datasets, 'TN', sat_time, sat_lat, sat_lon)
+        assert isinstance(result, np.ndarray)
+        assert result.ndim == 2
+        assert result.shape[1] == 2  # 2 track points
+
+    def test_plot_mode_returns_plotdata(self, tiegcm_datasets):
+        sat_time = np.array(['2003-03-20T00:00:00', '2003-03-20T01:00:00'], dtype='datetime64[ns]')
+        sat_lat = np.array([2.5, -2.5])
+        sat_lon = np.array([30.0, 90.0])
+        result = arr_sat_track(tiegcm_datasets, 'TN', sat_time, sat_lat, sat_lon, selected_lev_ilev=5.0, plot_mode=True)
+        assert isinstance(result, PlotData)
+        assert result.variable_unit == 'K'
+        assert len(result.mtime_values) == 2
+
+    def test_lev_mean(self, tiegcm_datasets):
+        sat_time = np.array(['2003-03-20T00:00:00', '2003-03-20T01:00:00'], dtype='datetime64[ns]')
+        sat_lat = np.array([2.5, -2.5])
+        sat_lon = np.array([30.0, 90.0])
+        result = arr_sat_track(tiegcm_datasets, 'TN', sat_time, sat_lat, sat_lon, selected_lev_ilev='mean')
+        assert result.shape == (2,)
