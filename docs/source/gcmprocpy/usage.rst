@@ -57,11 +57,19 @@ Plot Generation
 The following plots can be made with gcmprocpy:
 
 - Latitude vs Longitude plots
-- Pressure level vs Variable Value plots
-- Pressure level vs Longitude plots
-- Pressure level vs Latitude plots
-- Pressure level vs Time plots
+- Pressure level / Height vs Variable Value plots
+- Pressure level / Height vs Longitude plots
+- Pressure level / Height vs Latitude plots
+- Pressure level / Height vs Time plots
 - Latitude vs Time plots
+- Longitude vs Time plots
+- Variable vs Time plots
+- Satellite Track Interpolation plots
+
+All level-axis plots support ``y_axis='height'`` to display the vertical axis in km.
+All level-selection plots support ``level_type='height'`` to specify the level as a height in km
+instead of a pressure level. Height conversion uses the model's geometric height field
+(``ZG`` for TIE-GCM, ``Z3`` for WACCM-X).
 
 Examples and detailed usage can be found in the Functionality section.
 
@@ -71,10 +79,15 @@ Mode: CLI
 GCMprocpy can also be used directly from the command line. The following plots can be made on the command line:
 
 - Latitude vs Longitude plots
-- Pressure level vs Variable Value plots
-- Pressure level vs Longitude plots
-- Pressure level vs Latitude plots
-- Pressure level vs Time plots
+- Pressure level / Height vs Variable Value plots
+- Pressure level / Height vs Longitude plots
+- Pressure level / Height vs Latitude plots
+- Pressure level / Height vs Time plots
 - Latitude vs Time plots
+- Longitude vs Time plots
+- Variable vs Time plots
+- Satellite Track Interpolation plots
+
+Use ``-lt height`` to specify the level as height (km) or ``-ya height`` for height y-axis.
 
 Examples and detailed usage can be found in the plotting routines section.

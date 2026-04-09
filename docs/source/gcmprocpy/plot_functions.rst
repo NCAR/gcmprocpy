@@ -126,6 +126,64 @@ Polar Projections:
         # Polar with coastlines
         plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar', coastlines=True)
 
+Height Interpolation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All plot functions that accept a ``level`` parameter also accept ``level_type`` to specify
+whether the level value is a pressure level (default) or a height in km. When ``level_type='height'``,
+the height is automatically converted to the nearest pressure level using the model's geometric
+height field (``ZG`` for TIE-GCM, ``Z3`` for WACCM-X).
+
+All level-axis plots (``plt_lev_var``, ``plt_lev_lon``, ``plt_lev_lat``, ``plt_lev_time``) also
+accept ``y_axis='height'`` to display the vertical axis in km instead of pressure coordinates.
+
+Example:
+    Specify a level as height instead of pressure.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # Lat-lon plot at 300 km altitude (automatically finds nearest pressure level)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2022-01-01T12:00:00',
+                              level=300.0, level_type='height')
+
+        # Latitude vs time at 400 km altitude
+        plot = gy.plt_lat_time(datasets, 'TN', level=400.0, level_type='height',
+                               longitude=0.0)
+
+        # Longitude vs time at 250 km altitude
+        plot = gy.plt_lon_time(datasets, 'TN', latitude=0.0, level=250.0,
+                               level_type='height')
+
+        # Variable vs time at 300 km altitude
+        plot = gy.plt_var_time(datasets, 'TN', latitude=0.0, longitude=0.0,
+                               level=300.0, level_type='height')
+
+Example:
+    Plot vertical axis in km instead of pressure.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # Vertical profile with height axis
+        plot = gy.plt_lev_var(datasets, 'TN', latitude=0.0,
+                              time='2022-01-01T12:00:00', longitude=0.0,
+                              y_axis='height')
+
+        # Longitude cross-section with height axis
+        plot = gy.plt_lev_lon(datasets, 'TN', latitude=0.0,
+                              time='2022-01-01T12:00:00', y_axis='height')
+
+        # Latitude cross-section with height axis
+        plot = gy.plt_lev_lat(datasets, 'TN', time='2022-01-01T12:00:00',
+                              longitude=0.0, y_axis='height')
+
+        # Level vs time with height axis
+        plot = gy.plt_lev_time(datasets, 'TN', latitude=0.0, longitude=0.0,
+                               y_axis='height')
+
 Pressure Level vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
