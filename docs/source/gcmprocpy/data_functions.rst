@@ -210,7 +210,55 @@ This function extracts and processes data from the dataset based on the specifie
 
 .. autofunction:: arr_lat_time
    :noindex:
-        
+
+Selected Level, Latitude Over Time-range
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function extracts and processes data from the dataset based on the specified variable name, latitude, and level/ilev.
+Returns a 2D array of longitudes x time.
+
+.. autofunction:: arr_lon_time
+   :noindex:
+
+Selected Level, Latitude, Longitude Over Time-range
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function extracts a 1D time series of a variable at a specific latitude, longitude, and level/ilev.
+
+.. autofunction:: arr_var_time
+   :noindex:
+
+Satellite Track Interpolation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function interpolates model data along a satellite trajectory using trilinear interpolation
+(time, latitude, longitude). Input is three arrays of equal length representing the satellite's
+position at each point along its orbit.
+
+.. autofunction:: arr_sat_track
+   :noindex:
+
+Example:
+    Interpolate temperature along a satellite track.
+
+    .. code-block:: python
+
+        import numpy as np
+        datasets = gy.load_datasets(directory, dataset_filter)
+        times = gy.time_list(datasets)
+
+        sat_time = np.array([times[0] + np.timedelta64(i * 6, 'm') for i in range(20)])
+        sat_lat = np.linspace(-60, 60, 20)
+        sat_lon = np.linspace(-120, 120, 20)
+
+        # 1D array at a specific level
+        values = gy.arr_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon, selected_lev_ilev=5.0)
+
+        # 2D array (levels x track points)
+        values = gy.arr_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon)
+
+        # PlotData object
+        result = gy.arr_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon, selected_lev_ilev=5.0, plot_mode=True)
 
 Data Utilities
 ---------------------------------------------------------------------------------------------------------------------

@@ -1295,3 +1295,112 @@ def get_mtime(ds, time):
     mtime = [day_of_year, hour, minute, second]
     return mtime
 
+
+def arr_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
+                  selected_lev_ilev=None, selected_unit=None, plot_mode=False):
+    """
+    Interpolates model data along a satellite trajectory.
+
+    Takes arrays of satellite time/lat/lon points and interpolates the model
+    field to those locations using xarray's built-in interpolation.
+
+    Args:
+        datasets (list[ModelDataset]): Loaded model datasets.
+        variable_name (str): The name of the variable to extract.
+        sat_time (array-like): Satellite timestamps as numpy datetime64 values.
+        sat_lat (array-like): Satellite latitudes in degrees.
+        sat_lon (array-like): Satellite longitudes in degrees.
+        selected_lev_ilev (Union[float, str, None]): Level value to extract at,
+            'mean' to average over all levels, or None to return all levels.
+        selected_unit (str, optional): Desired unit for the variable.
+        plot_mode (bool, optional): If True, returns a PlotData object.
+
+    Returns:
+        Union[numpy.ndarray, PlotData]:
+            If selected_lev_ilev is given: 1D array of shape (n_points,).
+            If selected_lev_ilev is None: 2D array of shape (n_levels, n_points).
+            If plot_mode is True, returns a PlotData object.
+    """
+    sat_time = np.asarray(sat_time, dtype='datetime64[ns]')
+    sat_lat = np.asarray(sat_lat, dtype=float)
+    sat_lon = np.asarray(sat_lon, dtype=float)
+
+    if len(sat_time) != len(sat_lat) or len(sat_time) != len(sat_lon):
+        raise ValueError("sat_time, sat_lat, and sat_lon must have the same length")
+
+    lev_ilev = None
+    variable_unit = None
+    variable_long_name = None
+
+    # Collect interpolated results per dataset
+    results = []
+
+    for mds in datasets:
+        ds = mds.ds
+
+        if lev_ilev is None:
+            lev_ilev = check_var_dims(ds, variable_name)
+            variable_unit, variable_long_name, selected_unit = _extract_var_attrs(
+                ds, variable_name, selected_unit)
+
+        # Find which satellite points fall within this dataset's time range
+        ds_times = mds._time_values
+        t_min, t_max = ds_times.min(), ds_times.max()
+        mask = (sat_time >= t_min) & (sat_time <= t_max)
+
+        if not np.any(mask):
+            continue
+
+        idx = np.where(mask)[0]
+        t_pts = sat_time[idx]
+        lat_pts = sat_lat[idx]
+        lon_pts = sat_lon[idx]
+
+        coord = lev_ilev if lev_ilev in ('lev', 'ilev') else None
+
+        # Level selection
+        if coord is not None and selected_lev_ilev == 'mean':
+            data = ds[variable_name].mean(dim=coord)
+        elif coord is not None and selected_lev_ilev is not None:
+            data = ds[variable_name].sel(**{coord: float(selected_lev_ilev)}, method='nearest')
+        else:
+            data = ds[variable_name]
+
+        # Compute from dask before interpolation
+        data = data.compute()
+
+        # Interpolate each point along the track
+        for i, (t, lat, lon) in enumerate(zip(t_pts, lat_pts, lon_pts)):
+            interp_kwargs = {'time': t, 'lat': lat, 'lon': lon}
+            val = data.interp(**interp_kwargs, method='linear')
+            results.append((idx[i], val.values))
+
+    if not results:
+        raise ValueError("No satellite points fall within the dataset time range")
+
+    # Sort by original index and assemble
+    results.sort(key=lambda x: x[0])
+    values = np.array([r[1] for r in results])
+
+    # values shape: (n_points,) if level selected, (n_points, n_levels) if not
+    if values.ndim == 2:
+        values = values.T  # -> (n_levels, n_points)
+
+    if selected_unit is not None:
+        values, variable_unit = convert_units(values, variable_unit, selected_unit)
+
+    if plot_mode:
+        levs = None
+        if values.ndim == 2 and lev_ilev in ('lev', 'ilev'):
+            levs = datasets[0].ds[lev_ilev].values
+        # Build mtime for each satellite point
+        sorted_idx = [r[0] for r in sorted(results, key=lambda x: x[0])]
+        mtime_values = [get_mtime(None, sat_time[i]) for i in sorted_idx]
+        return PlotData(
+            values=values, levs=levs, variable_unit=variable_unit,
+            variable_long_name=variable_long_name, model=mds.model,
+            filename=mds.filename, mtime_values=mtime_values,
+            lats=sat_lat[sorted_idx], lons=sat_lon[sorted_idx])
+    else:
+        return values
+

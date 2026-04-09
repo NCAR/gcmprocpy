@@ -37,6 +37,7 @@ dependencies = [
     "ipympl",
     "mplcursors",
     "PyQt5",
+    "scipy",
 ]
 
 [project.urls]

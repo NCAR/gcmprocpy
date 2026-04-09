@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, calc_avg_ht, min_max, get_time
+from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, calc_avg_ht, min_max, get_time
 
 logger = logging.getLogger(__name__)
 from .data_emissions import arr_mkeno53, arr_mkeco215, arr_mkeoh83
@@ -1694,6 +1694,154 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
             plt.text(0.5, 1.08, '  ZP=' + str(level) + " LON=" + str(longitude), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.2, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " + str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.25, "Contour Interval = " + str("{:.2e}".format(interval_value)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            plt.show(block=False)
+        return plot
+    else:
+        if plot is not None:
+            plt.close(plot)
+        return plot
+
+
+def plt_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
+                  level=None, variable_unit=None, contour_intervals=10,
+                  contour_value=None, symmetric_interval=False,
+                  cmap_color=None, cmap_lim_min=None, cmap_lim_max=None,
+                  line_color='white', clean_plot=False, verbose=False):
+    """
+    Plots model data interpolated along a satellite trajectory.
+
+    If a level is specified, produces a 1D line plot of the variable vs time
+    along the track. If no level is given, produces a 2D contour plot of
+    the variable (levels vs along-track time).
+
+    Args:
+        datasets (list[ModelDataset]): Loaded model datasets.
+        variable_name (str): The variable to plot.
+        sat_time (array-like): Satellite timestamps (numpy datetime64).
+        sat_lat (array-like): Satellite latitudes (degrees).
+        sat_lon (array-like): Satellite longitudes (degrees).
+        level (float, optional): Level/ilev to extract at. If None, plots all levels vs time.
+        variable_unit (str, optional): Desired unit of the variable.
+        contour_intervals (int, optional): Number of contour intervals (2D mode). Defaults to 10.
+        contour_value (float, optional): Value between each contour interval.
+        symmetric_interval (bool, optional): Symmetric contour intervals around zero. Defaults to False.
+        cmap_color (str, optional): Colormap name.
+        cmap_lim_min (float, optional): Minimum colormap limit.
+        cmap_lim_max (float, optional): Maximum colormap limit.
+        line_color (str, optional): Contour line color. Defaults to 'white'.
+        clean_plot (bool, optional): If True, hides subtext. Defaults to False.
+        verbose (bool, optional): Enable debug logging. Defaults to False.
+
+    Returns:
+        matplotlib.figure.Figure: The generated plot.
+    """
+    result = arr_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
+                           selected_lev_ilev=level, selected_unit=variable_unit,
+                           plot_mode=True)
+
+    variable_values = result.values
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    model = result.model
+
+    sat_time = np.asarray(sat_time, dtype='datetime64[ns]')
+    n_points = len(sat_time)
+
+    if cmap_color is None:
+        cmap_color, line_color = color_scheme(variable_name, model)
+
+    # 1D line plot when a specific level is selected
+    if level is not None or variable_values.ndim == 1:
+        if clean_plot:
+            plot = plt.figure(figsize=(10, 4))
+        else:
+            plot = plt.figure(figsize=(10, 5))
+
+        x_vals = np.arange(n_points)
+        plt.plot(x_vals, variable_values)
+        plt.xlabel('Along-Track Point', fontsize=14)
+        plt.ylabel(variable_name + ' [' + variable_unit + ']', fontsize=14)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+
+        if not clean_plot:
+            title = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
+            if level is not None:
+                title += '\nZP=' + str(level)
+            title += ' — Satellite Track'
+            plt.title(title, fontsize=16)
+
+        if is_notebook():
+            backend = get_backend()
+            if "inline" in backend or "nbagg" in backend:
+                plt.show(block=False)
+            return plot
+        else:
+            if plot is not None:
+                plt.close(plot)
+            return plot
+
+    # 2D contour plot: levels vs along-track points
+    levs = result.levs
+    if clean_plot:
+        plot = plt.figure(figsize=(10, 5))
+    else:
+        plot = plt.figure(figsize=(10, 6))
+
+    min_val, max_val = min_max(variable_values)
+
+    if cmap_lim_min is None:
+        cmap_lim_min = min_val
+    else:
+        min_val = cmap_lim_min
+    if cmap_lim_max is None:
+        cmap_lim_max = max_val
+    else:
+        max_val = cmap_lim_max
+
+    if contour_value is not None:
+        contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
+        interval_value = contour_value
+    elif symmetric_interval:
+        range_half = math.ceil(max(abs(min_val), abs(max_val)) / 10) * 10
+        interval_value = range_half / (contour_intervals // 2)
+        positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
+        negative_levels = -np.flip(positive_levels)
+        contour_levels = np.concatenate((negative_levels, [0], positive_levels))
+    else:
+        contour_levels = np.linspace(min_val, max_val, contour_intervals)
+        interval_value = (max_val - min_val) / (contour_intervals - 1)
+
+    X = np.arange(n_points)
+    Y = levs
+
+    contour_filled = plt.contourf(X, Y, variable_values, cmap=cmap_color,
+                                  levels=contour_levels, vmin=cmap_lim_min,
+                                  vmax=cmap_lim_max)
+    contour_lines = plt.contour(X, Y, variable_values, colors=line_color,
+                                linewidths=0.5, levels=contour_levels)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
+
+    cbar = plt.colorbar(contour_filled, fraction=0.046, pad=0.04, shrink=0.65)
+    cbar.set_label(variable_name + ' [' + variable_unit + ']', size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
+
+    plt.xlabel('Along-Track Point', fontsize=14)
+    plt.ylabel('Level', fontsize=14)
+    plt.tight_layout()
+
+    if not clean_plot:
+        title = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
+        title += ' — Satellite Track'
+        plt.title(title + '\n\n', fontsize=16)
+        plt.text(0.5, -0.15, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " +
+                 str("{:.2e}".format(max_val)) + "   Contour Interval = " +
+                 str("{:.2e}".format(interval_value)),
+                 ha='center', va='center', fontsize=10, transform=plt.gca().transAxes)
+
     if is_notebook():
         backend = get_backend()
         if "inline" in backend or "nbagg" in backend:

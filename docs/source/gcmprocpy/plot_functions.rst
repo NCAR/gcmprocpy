@@ -231,8 +231,118 @@ Example:
         unit_of_variable = 'K'
         plot = gy.plt_lat_time(datasets, variable_name, level=pressure_level, time_minimum=time_min, time_maximum=time_max, variable_unit=unit_of_variable)
 
+Longitude vs Time Contour Plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+This function creates a contour plot of a variable against longitude and time.
 
+.. autofunction:: plt_lon_time
+   :noindex:
+
+Example:
+    Load datasets and generate a Longitude vs Time contour plot.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        plot = gy.plt_lon_time(datasets, 'TN', latitude=0.0, level=4.0)
+
+Variable vs Time Line Plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function creates a line plot of a variable against time at a specific latitude, longitude, and optional level.
+
+.. autofunction:: plt_var_time
+   :noindex:
+
+Example:
+    Load datasets and generate a Variable vs Time line plot.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        plot = gy.plt_var_time(datasets, 'TN', latitude=0.0, longitude=45.0, level=4.0)
+
+Satellite Track Interpolation Plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function interpolates model data along a satellite trajectory and plots the result.
+With a level specified, it produces a 1D line plot along the track. Without a level, it produces
+a 2D contour plot of all levels vs along-track points.
+
+.. autofunction:: plt_sat_track
+   :noindex:
+
+Example:
+    Interpolate and plot model temperature along a simulated satellite pass.
+
+    .. code-block:: python
+
+        import numpy as np
+        datasets = gy.load_datasets(directory, dataset_filter)
+        times = gy.time_list(datasets)
+
+        # Satellite trajectory: arrays of time, lat, lon (one entry per point)
+        sat_time = np.array([times[0] + np.timedelta64(i * 6, 'm') for i in range(20)])
+        sat_lat = np.linspace(-60, 60, 20)
+        sat_lon = np.linspace(-120, 120, 20)
+
+        # Line plot at a fixed level
+        plot = gy.plt_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon, level=5.0)
+
+        # Contour plot across all levels
+        plot = gy.plt_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon)
+
+Wind Vector Overlays
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Wind vectors can be overlaid on any ``plt_lat_lon`` plot by setting ``wind=True``.
+The wind variable names are automatically selected based on the model type
+(TIE-GCM: UN/VN, WACCM-X: U/V) using ``MODEL_DEFAULTS``.
+
+Example:
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # Mercator with wind vectors
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, wind=True)
+
+        # Orthographic with wind vectors and coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='orthographic', wind=True, wind_density=3, coastlines=True)
+
+        # Customize wind arrow appearance
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              wind=True, wind_density=5, wind_color='red', wind_scale=500)
+
+.. currentmodule:: gcmprocpy.containers
+
+Model Defaults
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``MODEL_DEFAULTS`` is a dictionary containing model-specific default variable names and
+color scheme configurations for TIE-GCM and WACCM-X.
+
+.. autodata:: MODEL_DEFAULTS
+   :noindex:
+
+Example:
+    Access default wind variable names for a model.
+
+    .. code-block:: python
+
+        from gcmprocpy import MODEL_DEFAULTS
+
+        # TIE-GCM wind variables
+        print(MODEL_DEFAULTS['TIE-GCM']['wind_u'])  # 'UN'
+        print(MODEL_DEFAULTS['TIE-GCM']['wind_v'])  # 'VN'
+
+        # WACCM-X wind variables
+        print(MODEL_DEFAULTS['WACCM-X']['wind_u'])  # 'U'
+        print(MODEL_DEFAULTS['WACCM-X']['wind_v'])  # 'V'
+
+.. currentmodule:: gcmprocpy.plot_gen
 
 Mode: CLI
 --------------------------------------------------------------------------------------------------------------------------------------------
