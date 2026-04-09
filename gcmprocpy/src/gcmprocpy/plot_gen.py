@@ -1252,6 +1252,9 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
             plt.show(block=False)
         return plot
     else:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, contour_filled, levs_ilevs, variable_values_all
         if plot is not None:
             plt.close(plot)
         return plot
@@ -1416,6 +1419,9 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, variable_unit 
             plt.show(block=False)
         return plot
     else:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, longitude_minimum, longitude_maximum, contour_filled, unique_lons, variable_values_all
         if plot is not None:
             plt.close(plot)
         return plot
@@ -1530,6 +1536,9 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, var
             plt.show(block=False)
         return plot
     else:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit
         if plot is not None:
             plt.close(plot)
         return plot
@@ -1700,6 +1709,9 @@ def plt_lat_time(datasets, variable_name, level = None, longitude = None,  varia
             plt.show(block=False)
         return plot
     else:
+        backend = get_backend()
+        if "Qt5Agg" in backend:
+            return plot, variable_unit, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, contour_filled, unique_lats, variable_values_all
         if plot is not None:
             plt.close(plot)
         return plot
