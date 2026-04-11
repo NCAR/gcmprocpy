@@ -114,7 +114,7 @@ Polar Projections:
         # Polar with coastlines
         plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar', coastlines=True)
 
-Pressure Level vs Variable Line Plot
+Pressure Level / Height vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This function generates a line plot of a variable at a specific latitude and optional longitude, time, and local time.
@@ -123,7 +123,7 @@ This function generates a line plot of a variable at a specific latitude and opt
    :noindex:
 
 Example:
-    Load datasets and generate a Pressure Level vs Variable Line plot.
+    Load datasets and generate a Pressure Level / Height vs Variable Line plot.
 
     .. code-block:: python
 
@@ -138,7 +138,7 @@ Example:
 # Extracting the details for "Pressure level vs Longitude Contour Plot" and "Pressure Level vs Latitude Contour Plot" 
 # from the README.md to create corresponding sections in functionality.rst
 
-Pressure level vs Longitude Contour Plot
+Pressure Level / Height vs Longitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This function generates a contour plot of a variable at a specific latitude against longitude, with optional time and local time.
@@ -157,16 +157,16 @@ Example:
         contour_intervals = 20
         plot = gy.plt_lev_lon(datasets, variable_name, latitude, time=time_value, variable_unit=unit_of_variable, contour_intervals=contour_intervals)
 
-Pressure Level vs Latitude Contour Plot
+Pressure Level / Height vs Latitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This function generates a contour plot of a variable against pressure level and latitude.
+This function generates a contour plot of a variable against pressure level / height and latitude.
 
 .. autofunction:: plt_lev_lat
    :noindex:
 
 Example:
-    Load datasets and generate a Pressure Level vs Latitude contour plot.
+    Load datasets and generate a Pressure Level / Height vs Latitude contour plot.
 
     .. code-block:: python
 
@@ -177,16 +177,16 @@ Example:
         unit_of_variable = 'K'
         plot = gy.plt_lev_lat(datasets, variable_name, longitude=longitude_value, time=time_value, variable_unit=unit_of_variable)
 
-Pressure Level vs Time Contour Plot
+Pressure Level / Height vs Time Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This function creates a contour plot of a variable against pressure level and time.
+This function creates a contour plot of a variable against pressure level / height and time.
 
 .. autofunction:: plt_lev_time
    :noindex:
 
 Example:
-    Load datasets and generate a Pressure Level vs Time contour plot.
+    Load datasets and generate a Pressure Level / Height vs Time contour plot.
 
     .. code-block:: python
 
@@ -317,7 +317,7 @@ This command generates a contour plot of a variable against latitude and longitu
 .. autoprogram:: gcmprocpy.cmd.cmd_lat_lon:cmd_parser()
    :prog: lat_lon
 
-Pressure Level vs Variable Line Plot
+Pressure Level / Height vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This command generates a line plot of a variable at a specific latitude and optional longitude, time, and local time.
@@ -325,7 +325,7 @@ This command generates a line plot of a variable at a specific latitude and opti
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_var:cmd_parser()
    :prog: lev_var
 
-Pressure level vs Longitude Contour Plot
+Pressure Level / Height vs Longitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This command generates a contour plot of a variable at a specific latitude against longitude, with optional time and local time.
@@ -333,18 +333,18 @@ This command generates a contour plot of a variable at a specific latitude again
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_lon:cmd_parser()
    :prog: lev_lon
 
-Pressure Level vs Latitude Contour Plot
+Pressure Level / Height vs Latitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This command generates a contour plot of a variable against pressure level and latitude.
+This command generates a contour plot of a variable against pressure level / height and latitude.
 
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_lat:cmd_parser()
    :prog: lev_lat
 
-Pressure Level vs Time Contour Plot
+Pressure Level / Height vs Time Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This command creates a contour plot of a variable against pressure level and time.
+This command creates a contour plot of a variable against pressure level / height and time.
 
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_time:cmd_parser()
    :prog: lev_time
