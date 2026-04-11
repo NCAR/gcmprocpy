@@ -24,8 +24,8 @@ These dataclasses are used throughout gcmprocpy to hold dataset metadata and ext
 Model Defaults
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``MODEL_DEFAULTS`` is a dictionary containing model-specific default variable names and
-color scheme configurations for TIE-GCM and WACCM-X.
+``MODEL_DEFAULTS`` is a dictionary containing model-specific default variable names,
+species mappings, wind scale factors, and color scheme configurations for TIE-GCM and WACCM-X.
 
 .. autodata:: MODEL_DEFAULTS
    :noindex:
@@ -44,6 +44,35 @@ Example:
         # WACCM-X wind variables
         print(MODEL_DEFAULTS['WACCM-X']['wind_u'])  # 'U'
         print(MODEL_DEFAULTS['WACCM-X']['wind_v'])  # 'V'
+
+        # Species name mapping
+        print(MODEL_DEFAULTS['TIE-GCM']['species']['temp'])  # 'TN'
+        print(MODEL_DEFAULTS['WACCM-X']['species']['temp'])  # 'T'
+
+        # Wind unit scale factor (cm/s → m/s for TIE-GCM)
+        print(MODEL_DEFAULTS['TIE-GCM']['wind_scale'])  # 0.01
+
+Species Name Lookup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: get_species_names
+   :noindex:
+
+Example:
+    Get species variable names for a specific model.
+
+    .. code-block:: python
+
+        from gcmprocpy import get_species_names
+
+        sp = get_species_names('TIE-GCM')
+        print(sp['temp'])  # 'TN'
+        print(sp['o'])     # 'O1'
+        print(sp['o2'])    # 'O2'
+
+        sp = get_species_names('WACCM-X')
+        print(sp['temp'])  # 'T'
+        print(sp['o'])     # 'O'
 
 Data Exploration
 --------------------------------------------------------------------------------------------------------------------

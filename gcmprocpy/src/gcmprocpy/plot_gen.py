@@ -4,7 +4,10 @@ import matplotlib.pyplot as plt
 from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height
 
 logger = logging.getLogger(__name__)
-from .data_emissions import arr_mkeno53, arr_mkeco215, arr_mkeoh83
+from .containers import resolve_derived
+import gcmprocpy.data_emissions  
+import gcmprocpy.data_oh         
+import gcmprocpy.data_epflux     
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 from cartopy.feature.nightshade import Nightshade
@@ -243,14 +246,11 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         _original_height = float(level)
         level = height_to_pres_level(datasets, time, _original_height)
 
-    if variable_name == 'NO53':
-        result = arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
-    elif variable_name == 'CO215':
-        result = arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
-    elif variable_name == 'OH83':
-        result = arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+    handler, is_derived = resolve_derived(variable_name)
+    if is_derived:
+        result = handler(datasets, variable_name, time, selected_lev_ilev=level, selected_unit=variable_unit, plot_mode=True)
     else:
-        result = arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = level, selected_unit = variable_unit, plot_mode = True)
+        result = arr_lat_lon(datasets, variable_name, time, selected_lev_ilev=level, selected_unit=variable_unit, plot_mode=True)
 
     variable_values = result.values
     level = result.selected_lev
@@ -988,7 +988,11 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     # Generate 2D arrays, extract variable_unit
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
-    result = arr_lev_lat(datasets, variable_name, time, longitude, variable_unit, plot_mode=True)
+    handler, is_derived = resolve_derived(variable_name)
+    if is_derived:
+        result = handler(datasets, variable_name, time, log_level=log_level)
+    else:
+        result = arr_lev_lat(datasets, variable_name, time, longitude, variable_unit, plot_mode=True)
     variable_values = result.values
     unique_lats = result.lats
     unique_levs = result.levs
@@ -1066,8 +1070,8 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
     
-        if longitude == 'mean':
-            plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
+        if longitude == 'mean' or longitude is None:
+            plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         else:
             plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
     if y_axis == 'height':

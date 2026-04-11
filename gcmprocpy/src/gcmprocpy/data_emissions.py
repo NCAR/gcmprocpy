@@ -1,6 +1,13 @@
 import numpy as np
-from .containers import PlotData
+from .containers import PlotData, get_species_names, register_derived
 from .data_parse import arr_lat_lon, batch_arr_lat_lon, arr_lev_var, arr_lev_lon, arr_lev_lat, arr_lev_time, arr_lat_time, calc_avg_ht, min_max, get_time
+
+# Metadata for derived emission variables: {name: (unit, long_name)}
+_META = {
+    'NO53':  ('photons cm-3 sec-1', '5.3-micron NO'),
+    'CO215': ('photons cm-3 sec-1', '15-micron CO2'),
+    'OH83':  ('photons cm-3 sec-1', 'OH v(8,3)'),
+}
 
 
 def mkeno53(arr_temp, arr_o, arr_no):
@@ -124,33 +131,18 @@ def arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = None, selecte
             - selected_mtime (datetime): Selected time.
             - filename (str): Name of the file processed.
     """
-    TIEGCM = False
-    WACCMX = False
+    sp = get_species_names(datasets[0].model)
+    temp_name, o_name, no_name = sp['temp'], sp['o'], sp['no']
 
-    for mds in datasets:
-        if 'TN' in mds.ds.variables:
-            TIEGCM = True
-            break
-        elif 'T' in mds.ds.variables:
-            WACCMX = True
-            break
-
-    if TIEGCM:
-        temp_name = 'TN'
-        o_name = 'O1'
-        no_name = 'NO'
-    elif WACCMX:
-        temp_name = 'T'
-        o_name = 'O'
-        no_name = 'NO'
     results = batch_arr_lat_lon(datasets, [temp_name, o_name, no_name], time, selected_lev_ilev, selected_unit, plot_mode)
     result_temp, result_o, result_no = results[temp_name], results[o_name], results[no_name]
 
     if plot_mode:
+        unit, long_name = _META['NO53']
         NO_emission = mkeno53(result_temp.values, result_o.values, result_no.values)
         return PlotData(
-            values=NO_emission, variable_unit="photons cm-3 sec-1",
-            variable_long_name="5.3-micron NO", model=result_temp.model,
+            values=NO_emission, variable_unit=unit,
+            variable_long_name=long_name, model=result_temp.model,
             filename=result_temp.filename, lats=result_temp.lats,
             lons=result_temp.lons, selected_lev=result_temp.selected_lev,
             mtime=result_temp.mtime,
@@ -187,34 +179,18 @@ def arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = None, select
             - datetime: Selected time.
             - str: Filename of the dataset.
     """
-    TIEGCM = False
-    WACCMX = False
-
-    for mds in datasets:
-        if 'TN' in mds.ds.variables:
-            TIEGCM = True
-            break
-        elif 'T' in mds.ds.variables:
-            WACCMX = True
-            break
-
-    if TIEGCM:
-        temp_name = 'TN'
-        o_name = 'O1'
-        co2_name = 'CO2'
-    elif WACCMX:
-        temp_name = 'T'
-        o_name = 'O'
-        co2_name = 'CO2'
+    sp = get_species_names(datasets[0].model)
+    temp_name, o_name, co2_name = sp['temp'], sp['o'], sp['co2']
 
     results = batch_arr_lat_lon(datasets, [temp_name, o_name, co2_name], time, selected_lev_ilev, selected_unit, plot_mode)
     result_temp, result_o, result_co2 = results[temp_name], results[o_name], results[co2_name]
 
     if plot_mode:
+        unit, long_name = _META['CO215']
         CO2_emission = mkeco215(result_temp.values, result_o.values, result_co2.values)
         return PlotData(
-            values=CO2_emission, variable_unit="photons cm-3 sec-1",
-            variable_long_name="15-micron CO2", model=result_temp.model,
+            values=CO2_emission, variable_unit=unit,
+            variable_long_name=long_name, model=result_temp.model,
             filename=result_temp.filename, lats=result_temp.lats,
             lons=result_temp.lons, selected_lev=result_temp.selected_lev,
             mtime=result_temp.mtime,
@@ -252,37 +228,20 @@ def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selecte
             - datetime: Selected time.
             - str: Filename of the dataset.
     """
-    TIEGCM = False
-    WACCMX = False
-
-    for mds in datasets:
-        if 'TN' in mds.ds.variables:
-            TIEGCM = True
-            break
-        elif 'T' in mds.ds.variables:
-            WACCMX = True
-            break
-
-    if TIEGCM:
-        temp_name = 'TN'
-        o_name = 'O1'
-        o2_name = 'O2'
-        n2_name = 'N2'
-    elif WACCMX:
-        temp_name = 'T'
-        o_name = 'O'
-        o2_name = 'O2'
-        n2_name = 'N2'
+    sp = get_species_names(datasets[0].model)
+    temp_name, o_name = sp['temp'], sp['o']
+    o2_name, n2_name = sp['o2'], sp['n2']
 
     results = batch_arr_lat_lon(datasets, [temp_name, o_name, o2_name, n2_name], time, selected_lev_ilev, selected_unit, plot_mode)
     result_temp, result_o = results[temp_name], results[o_name]
     result_o2, result_n2 = results[o2_name], results[n2_name]
 
     if plot_mode:
+        unit, long_name = _META['OH83']
         OH_emission = mkeoh83(result_temp.values, result_o.values, result_o2.values, result_n2.values)
         return PlotData(
-            values=OH_emission, variable_unit="photons cm-3 sec-1",
-            variable_long_name="OH v(8,3)", model=result_temp.model,
+            values=OH_emission, variable_unit=unit,
+            variable_long_name=long_name, model=result_temp.model,
             filename=result_temp.filename, lats=result_temp.lats,
             lons=result_temp.lons, selected_lev=result_temp.selected_lev,
             mtime=result_temp.mtime,
@@ -291,6 +250,6 @@ def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selecte
         return mkeoh83(result_temp, result_o, result_o2, result_n2)
 
 
-    
-
-    # Function for OH v(8,3) emission
+register_derived('NO53', arr_mkeno53)
+register_derived('CO215', arr_mkeco215)
+register_derived('OH83', arr_mkeoh83)

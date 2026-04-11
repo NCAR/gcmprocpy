@@ -33,6 +33,11 @@ MODEL_DEFAULTS = {
             'cmap': 'bwr',
             'line_color': 'black',
         },
+        'wind_scale': 0.01,   # cm/s → m/s
+        'species': {
+            'temp': 'TN', 'o': 'O1', 'o2': 'O2', 'n2': 'N2',
+            'no': 'NO', 'co2': 'CO2', 'h': 'H', 'o3': 'O3', 'ho2': 'HO2',
+        },
     },
     'WACCM-X': {
         'wind_u': 'U',
@@ -69,6 +74,11 @@ MODEL_DEFAULTS = {
                      'SWCF', 'LWCF'],
             'cmap': 'plasma',
             'line_color': 'white',
+        },
+        'wind_scale': 1.0,    # already m/s
+        'species': {
+            'temp': 'T', 'o': 'O', 'o2': 'O2', 'n2': 'N2',
+            'no': 'NO', 'co2': 'CO2', 'h': 'H', 'o3': 'O3', 'ho2': 'HO2',
         },
     },
 }
@@ -131,3 +141,77 @@ class PlotData:
     selected_lat: float = None
     selected_lon: float = None
     selected_lev: float = None
+
+
+def get_species_names(model):
+    """Return species name mapping for a model type.
+
+    Uses ``MODEL_DEFAULTS`` as the single source of truth for
+    mapping canonical role names to dataset variable names.
+
+    Args:
+        model (str): Model type (``'TIE-GCM'`` or ``'WACCM-X'``).
+
+    Returns:
+        dict: Mapping from canonical names (e.g. ``'temp'``, ``'o'``,
+        ``'o2'``) to dataset variable names (e.g. ``'TN'``, ``'O1'``,
+        ``'O2'``).
+
+    Raises:
+        ValueError: If *model* is not recognized.
+    """
+    if model not in MODEL_DEFAULTS:
+        raise ValueError(
+            f"Unknown model '{model}'. Known: {list(MODEL_DEFAULTS)}"
+        )
+    return MODEL_DEFAULTS[model]['species']
+
+
+# ---------------------------------------------------------------------------
+# Derived-variable registry
+# ---------------------------------------------------------------------------
+
+DERIVED_VARIABLES = {}
+
+
+def register_derived(name, handler, plot_types=None):
+    """Register a derived variable computation handler.
+
+    Args:
+        name (str): Variable name (e.g. ``'NO53'``) or a glob-style
+            pattern ending with ``*`` (e.g. ``'OH_*'``).
+        handler (callable): Function with signature
+            ``(datasets, variable_name, time, **kwargs) -> PlotData``.
+        plot_types (set, optional): Plot types this variable supports
+            (e.g. ``{'lat_lon', 'lev_lat'}``).  *None* means all.
+    """
+    DERIVED_VARIABLES[name] = {
+        'handler': handler,
+        'plot_types': plot_types,
+    }
+
+
+def resolve_derived(variable_name):
+    """Look up the handler for a derived variable name.
+
+    Checks exact matches first, then pattern matches (keys ending
+    with ``*``).
+
+    Args:
+        variable_name (str): The variable name to look up.
+
+    Returns:
+        tuple: ``(handler, True)`` if found, ``(None, False)`` otherwise.
+    """
+    # Exact match
+    if variable_name in DERIVED_VARIABLES:
+        return DERIVED_VARIABLES[variable_name]['handler'], True
+    # Also check upper-case form
+    vn_upper = variable_name.upper()
+    if vn_upper in DERIVED_VARIABLES:
+        return DERIVED_VARIABLES[vn_upper]['handler'], True
+    # Pattern match (e.g. 'OH_*')
+    for key, entry in DERIVED_VARIABLES.items():
+        if key.endswith('*') and vn_upper.startswith(key[:-1]):
+            return entry['handler'], True
+    return None, False
