@@ -97,6 +97,15 @@ Example:
         intervals = 20
         plot = gy.plt_lat_lon(datasets, variable_name, mtime=value_of_mtime, level=pressure_level, variable_unit=unit_of_variable, contour_intervals=intervals)
 
+Height Mode:
+    Use ``level_type='height'`` to specify the level as height in km instead of pressure.
+
+    .. code-block:: python
+
+        # Lat-lon plot at 300 km altitude (automatically finds nearest pressure level)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2022-01-01T12:00:00',
+                              level=300.0, level_type='height')
+
 Polar Projections:
     The ``projection`` parameter supports polar stereographic views in addition to the default Mercator projection.
 
@@ -111,8 +120,45 @@ Polar Projections:
         # Both hemispheres side by side
         plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar')
 
+Orthographic and Mollweide Projections:
+    .. code-block:: python
+
+        # Orthographic (satellite view) with coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='orthographic', coastlines=True)
+
+        # Mollweide (equal-area) with coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='mollweide', coastlines=True)
+
+Wind Vector Overlays:
+    Set ``wind=True`` to overlay wind vectors. Variable names are automatically selected
+    based on model type (TIE-GCM: UN/VN, WACCM-X: U/V).
+
+    .. code-block:: python
+
+        # Mercator with wind vectors
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, wind=True)
+
+        # Orthographic with wind vectors and coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='orthographic', wind=True, wind_density=3, coastlines=True)
+
+        # Customize wind arrow appearance
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              wind=True, wind_density=5, wind_color='red', wind_scale=500)
+
+Coastlines:
+    Add coastline outlines to any projection.
+
+    .. code-block:: python
+
+        # Mercator with coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, coastlines=True)
+
         # Polar with coastlines
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar', coastlines=True)
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='polar', coastlines=True)
 
 Pressure Level / Height vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -280,29 +326,6 @@ Example:
 
         # Contour plot across all levels
         plot = gy.plt_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon)
-
-Wind Vector Overlays
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Wind vectors can be overlaid on any ``plt_lat_lon`` plot by setting ``wind=True``.
-The wind variable names are automatically selected based on the model type
-(TIE-GCM: UN/VN, WACCM-X: U/V) using ``MODEL_DEFAULTS``.
-
-Example:
-    .. code-block:: python
-
-        datasets = gy.load_datasets(directory, dataset_filter)
-
-        # Mercator with wind vectors
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, wind=True)
-
-        # Orthographic with wind vectors and coastlines
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
-                              projection='orthographic', wind=True, wind_density=3, coastlines=True)
-
-        # Customize wind arrow appearance
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
-                              wind=True, wind_density=5, wind_color='red', wind_scale=500)
 
 .. currentmodule:: gcmprocpy.plot_gen
 
