@@ -20,7 +20,7 @@ def mkeno53(arr_temp, arr_o, arr_no):
 
     .. math::
 
-        N(5.3 \, \mu m) = \\frac{2.63 \\times 10^{-22} \\cdot \\exp\\left(-\\frac{2715}{T_k}\\right) \\cdot [O] \\cdot [NO]}{4 \\pi \\cdot \\left(10.78 + 6.5 \\times 10^{-11} \\cdot [O]\\right)}
+        N(5.3 \\, \\mu m) = \\frac{2.63 \\times 10^{-22} \\cdot \\exp\\left(-\\frac{2715}{T_k}\\right) \\cdot [O] \\cdot [NO]}{4 \\pi \\cdot \\left(10.78 + 6.5 \\times 10^{-11} \\cdot [O]\\right)}
     
     Args:
         arr_temp (numpy.ndarray): Array of temperatures in Kelvin.
@@ -29,7 +29,7 @@ def mkeno53(arr_temp, arr_o, arr_no):
     Returns:
         numpy.ndarray: Calculated NO emission at 5.3 microns.
     """
-    pi = 3.14156
+    pi = np.pi
     NO_emission = (2.63e-22 * np.exp(-2715 / arr_temp) * arr_o * arr_no) / (4 * pi * (10.78 + 6.5e-11 * arr_o))
     return NO_emission
 
@@ -58,7 +58,7 @@ def mkeco215(arr_temp, arr_o, arr_co2):
 
     .. math::
 
-        N(15 \, \mu m) = \\frac{5.94 \\times 10^{-26} \\cdot \\sqrt{T_k} \\cdot \\exp\\left(-\\frac{960}{T_k}\\right) \\cdot [O] \\cdot [CO_2]}{4 \\pi \\cdot \\left(1.28 + 3.5 \\times 10^{-13} \\cdot \\sqrt{T_k} \\cdot [O]\\right)}
+        N(15 \\, \\mu m) = \\frac{5.94 \\times 10^{-26} \\cdot \\sqrt{T_k} \\cdot \\exp\\left(-\\frac{960}{T_k}\\right) \\cdot [O] \\cdot [CO_2]}{4 \\pi \\cdot \\left(1.28 + 3.5 \\times 10^{-13} \\cdot \\sqrt{T_k} \\cdot [O]\\right)}
     
     Args:
         arr_temp (numpy.ndarray): Array of temperatures (Tk).
@@ -68,7 +68,7 @@ def mkeco215(arr_temp, arr_o, arr_co2):
     Returns:
         numpy.ndarray: Calculated 15 micron CO2 emission.
     """
-    pi = 3.14156
+    pi = np.pi
     CO2_emission = (5.94e-26 * np.sqrt(arr_temp) * np.exp(-960 / arr_temp) * arr_o * arr_co2) / (4 * pi * (1.28 + 3.5e-13 * np.sqrt(arr_temp) * arr_o))
     return CO2_emission
 
@@ -135,11 +135,11 @@ def arr_mkeno53(datasets, variable_name, time, selected_lev_ilev = None, selecte
             WACCMX = True
             break
 
-    if TIEGCM == True:
+    if TIEGCM:
         temp_name = 'TN'
         o_name = 'O1'
         no_name = 'NO'
-    elif WACCMX == True:
+    elif WACCMX:
         temp_name = 'T'
         o_name = 'O'
         no_name = 'NO'
@@ -198,11 +198,11 @@ def arr_mkeco215(datasets, variable_name, time, selected_lev_ilev = None, select
             WACCMX = True
             break
 
-    if TIEGCM == True:
+    if TIEGCM:
         temp_name = 'TN'
         o_name = 'O1'
         co2_name = 'CO2'
-    elif WACCMX == True:
+    elif WACCMX:
         temp_name = 'T'
         o_name = 'O'
         co2_name = 'CO2'
@@ -263,12 +263,12 @@ def arr_mkeoh83(datasets, variable_name, time, selected_lev_ilev = None, selecte
             WACCMX = True
             break
 
-    if TIEGCM == True:
+    if TIEGCM:
         temp_name = 'TN'
         o_name = 'O1'
         o2_name = 'O2'
         n2_name = 'N2'
-    elif WACCMX == True:
+    elif WACCMX:
         temp_name = 'T'
         o_name = 'O'
         o2_name = 'O2'

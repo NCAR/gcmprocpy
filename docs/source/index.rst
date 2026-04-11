@@ -21,4 +21,12 @@ Contents
    gcmprocpy/postproc_functions
    gcmprocpy/file_structure
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Examples
+
+   gcmprocpy/notebooks/01_data_exploration
+   gcmprocpy/notebooks/02_data_extraction
+   gcmprocpy/notebooks/03_plotting
+   gcmprocpy/notebooks/04_emissions
 

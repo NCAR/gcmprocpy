@@ -3,6 +3,9 @@ Post Processing Functions
 
 gcmprocpy provides a range of functions for post processing the data. Below are the key plotting routines along with their detailed parameters and usage examples.
 
+.. note::
+   For live examples with output, see the :doc:`notebooks/04_emissions` notebook.
+
 Emissions Plots 
 --------------------------------------------------------------------------------------------------------------------
 .. currentmodule:: gcmprocpy.data_emissions

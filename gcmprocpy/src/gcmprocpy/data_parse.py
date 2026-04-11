@@ -223,7 +223,7 @@ def dim_info(datasets, dimension):
         if dimension in ds.dims:
             # Gather dimension details
             dim_details = {
-                "size": ds.dims[dimension]
+                "size": ds.sizes[dimension]
             }
             
             # Check if the dimension is a coordinate and add more details if it is
@@ -495,17 +495,17 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 str: Name of the dataset file from which data is extracted.
     """
 
-    if selected_lev_ilev != None and selected_lev_ilev != "mean":
+    if selected_lev_ilev is not None and selected_lev_ilev != "mean":
         selected_lev_ilev = float(selected_lev_ilev)
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     first_pass = True
     for mds in datasets:
         ds = mds.ds
-        if first_pass == True:
+        if first_pass:
             lev_ilev = check_var_dims(ds, variable_name)
         if lev_ilev == 'lev':
-            first_pass == False
+            first_pass = False
             if mds.has_time(time):
                 if 'lev' not in ds[variable_name].dims:
                     raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'lev'")
@@ -518,7 +518,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                     lons = data.lon.values
                     lats = data.lat.values
                     variable_values = data.values
-                    if selected_unit != None:
+                    if selected_unit is not None:
                         variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 else:
@@ -527,7 +527,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                         lons = data.lon.values
                         lats = data.lat.values
                         variable_values = data.values
-                        if selected_unit != None:
+                        if selected_unit is not None:
                             variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                     else:
@@ -541,7 +541,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < lev_min:
                             logger.warning(f"Using minimum valid lev {lev_min}")
@@ -550,7 +550,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         else:
                             sorted_levs = sorted(ds['lev'].values, key=lambda x: abs(x - selected_lev_ilev))
@@ -565,7 +565,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             data2 = ds[variable_name].sel(time=time, lev=closest_lev2)
                             variable_values_2 = data2.values
                             variable_values = (variable_values_1 + variable_values_2) / 2
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                 if plot_mode:
                     return PlotData(values=variable_values, selected_lev=selected_lev_ilev, lats=lats, lons=lons,
@@ -575,7 +575,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                     return variable_values
 
         elif lev_ilev == 'ilev':
-            first_pass == False
+            first_pass = False
             if mds.has_time(time):
                 if 'ilev' not in ds[variable_name].dims:
                     raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'ilev'")
@@ -584,11 +584,11 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 selected_mtime = get_mtime(ds, time)
 
                 if selected_lev_ilev == "mean":
-                    data = ds[variable_name].sel(time=time).mean(dim='lev')
+                    data = ds[variable_name].sel(time=time).mean(dim='ilev')
                     lons = data.lon.values
                     lats = data.lat.values
                     variable_values = data.values
-                    if selected_unit != None:
+                    if selected_unit is not None:
                         variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 else:
@@ -597,7 +597,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                         lons = data.lon.values
                         lats = data.lat.values
                         variable_values = data.values
-                        if selected_unit != None:
+                        if selected_unit is not None:
                             variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                     else:
@@ -611,7 +611,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < ilev_min:
                             logger.warning(f"Using minimum valid ilev {ilev_min}")
@@ -620,7 +620,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         else:
                             sorted_levs = sorted(ds['ilev'].values, key=lambda x: abs(x - selected_lev_ilev))
@@ -635,7 +635,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             data2 = ds[variable_name].sel(time=time, ilev=closest_lev2)
                             variable_values_2 = data2.values
                             variable_values = (variable_values_1 + variable_values_2) / 2
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 if plot_mode:
@@ -645,8 +645,8 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 else:
                     return variable_values
 
-        elif lev_ilev == None:
-            first_pass == False
+        elif lev_ilev is None:
+            first_pass = False
             selected_lev_ilev = None
             if mds.has_time(time):
                 variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
@@ -656,7 +656,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 lons = data.lon.values
                 lats = data.lat.values
                 variable_values = data.values
-                if selected_unit != None:
+                if selected_unit is not None:
                     variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 if plot_mode:

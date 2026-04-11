@@ -216,15 +216,15 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
     """
 
     # Printing Execution data
-    if time == None:
+    if time is None:
         time = get_time(datasets, mtime)
-    if contour_intervals == None:
+    if contour_intervals is None:
         contour_intervals = 20
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---------------")
     # Generate 2D arrays, extract variable_unit
     '''
-    if level != None:
+    if level is not None:
         try:
             data, level,  unique_lats, unique_lons, variable_unit, variable_long_name, selected_mtime, filename =lat_lon_lev(datasets, variable_name, time, level, variable_unit)
         except ValueError:
@@ -286,15 +286,15 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         wind_v_values, _ = add_cyclic_point(wind_v_values, coord=unique_lons, axis=1)
     variable_values, unique_lons = add_cyclic_point(variable_values, coord=unique_lons, axis=1)
 
-    if level != 'mean' and level != None:
+    if level != 'mean' and level is not None:
             avg_ht=calc_avg_ht(datasets, time,level)
-    if latitude_minimum == None:
+    if latitude_minimum is None:
         latitude_minimum = np.nanmin(unique_lats)
-    if latitude_maximum == None:
+    if latitude_maximum is None:
         latitude_maximum = np.nanmax(unique_lats)
-    if longitude_minimum == None:
+    if longitude_minimum is None:
         longitude_minimum = -180
-    if longitude_maximum == None:
+    if longitude_maximum is None:
         longitude_maximum = 180
     min_val, max_val = min_max(variable_values)
     selected_day=selected_mtime[0]
@@ -302,25 +302,25 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
     selected_min=selected_mtime[2]
     selected_sec=selected_mtime[3]
 
-    if cmap_lim_min == None:
+    if cmap_lim_min is None:
         cmap_lim_min = min_val
     else:
         min_val = cmap_lim_min
-    if cmap_lim_max == None:
+    if cmap_lim_max is None:
         cmap_lim_max = max_val
     else:
         max_val = cmap_lim_max
         
-    if cmap_color == None:
+    if cmap_color is None:
         cmap_color, line_color = color_scheme(variable_name, model)
     # Extract values, latitudes, and longitudes from the array
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
         interval_value = contour_value
-    elif symmetric_interval == False:
+    elif not symmetric_interval:
         contour_levels = np.linspace(min_val, max_val, contour_intervals)
         interval_value = (max_val - min_val) / (contour_intervals - 1)
-    elif symmetric_interval == True:
+    elif symmetric_interval:
         range_half = math.ceil(max(abs(min_val), abs(max_val))/10)*10
         interval_value = range_half / (contour_intervals // 2)  # Divide by 2 to get intervals for one side
         positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
@@ -369,7 +369,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
         cbar.ax.tick_params(labelsize=9)
 
-        if clean_plot == False:
+        if not clean_plot:
             title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
             if level is not None:
                 title_str += '\n' + _level_label(level, avg_ht, _original_height)
@@ -429,7 +429,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
         cbar.ax.tick_params(labelsize=9)
 
-        if clean_plot == False:
+        if not clean_plot:
             title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
             if level is not None:
                 title_str += '\n' + _level_label(level, avg_ht, _original_height)
@@ -488,7 +488,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
         cbar.ax.tick_params(labelsize=9)
 
-        if clean_plot == False:
+        if not clean_plot:
             title_str = variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')'
             if level is not None:
                 title_str += '\n' + _level_label(level, avg_ht, _original_height)
@@ -508,10 +508,10 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
     # ---- Mercator (default) projection branch ----
 
     # Clean plot
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
     # Generate contour plot
@@ -570,7 +570,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
 
 
 
-    if clean_plot == False:
+    if not clean_plot:
         # Add plot title
         plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ') ' + '\n\n', fontsize=18)
         # Add plot subtitle
@@ -657,7 +657,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     """
 
     # Printing Execution data
-    if time == None:
+    if time is None:
         time = get_time(datasets, mtime)
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
@@ -678,9 +678,9 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         height_levs = np.array([calc_avg_ht(datasets, time, lev) for lev in levs_ilevs])
         levs_ilevs = height_levs
 
-    if level_minimum == None:
+    if level_minimum is None:
         level_minimum = np.nanmin(levs_ilevs)
-    if level_maximum == None:
+    if level_maximum is None:
         level_maximum = np.nanmax(levs_ilevs)
 
     min_val, max_val = min_max(variable_values)
@@ -690,10 +690,10 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     selected_sec=selected_mtime[3]
     
     # Clean plot
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6 
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
     # Generate contour plot
@@ -712,7 +712,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     if model == 'WACCM-X' and y_axis != 'height':
         plt.gca().invert_yaxis()
     
-    if clean_plot == False:
+    if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         if longitude == 'mean' and latitude == 'mean':
             plt.text(0.5, 1.08,"LAT= Mean LON= Mean", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
@@ -787,9 +787,9 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     """
 
     # Printing Execution data
-    if time == None:
+    if time is None:
         time = get_time(datasets, mtime)
-    if contour_intervals == None:
+    if contour_intervals is None:
         contour_intervals = 20    
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---------------")
@@ -812,13 +812,13 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         variable_values, unique_levs = interpolate_to_height(
             datasets, variable_values, unique_levs, time)
 
-    if level_minimum == None:
+    if level_minimum is None:
         level_minimum = np.nanmin(unique_levs)
-    if level_maximum == None:
+    if level_maximum is None:
         level_maximum = np.nanmax(unique_levs)
-    if longitude_minimum == None:
+    if longitude_minimum is None:
         longitude_minimum = np.nanmin(unique_lons)
-    if longitude_maximum == None:   
+    if longitude_maximum is None:   
         longitude_maximum = np.nanmax(unique_lons)
 
     min_val, max_val = min_max(variable_values)
@@ -827,25 +827,25 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     selected_min=selected_mtime[2]
     selected_sec=selected_mtime[3]
 
-    if cmap_lim_min == None:
+    if cmap_lim_min is None:
         cmap_lim_min = min_val
     else:
         min_val = cmap_lim_min
-    if cmap_lim_max == None:
+    if cmap_lim_max is None:
         cmap_lim_max = max_val
     else:
         max_val = cmap_lim_max
 
-    if cmap_color == None:
+    if cmap_color is None:
         cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
         interval_value = contour_value
-    elif symmetric_interval == False:
+    elif not symmetric_interval:
         contour_levels = np.linspace(min_val, max_val, contour_intervals)
         interval_value = (max_val - min_val) / (contour_intervals - 1)
-    elif symmetric_interval == True:
+    elif symmetric_interval:
         range_half = math.ceil(max(abs(min_val), abs(max_val))/10)*10
         interval_value = range_half / (contour_intervals // 2)  # Divide by 2 to get intervals for one side
         positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
@@ -857,10 +857,10 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         variable_values = np.insert(variable_values, -1, variable_values[:, lon_idx], axis=1)
 
     # Clean plot
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6 
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
     # Generate contour plot
@@ -871,7 +871,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
     cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
-    if clean_plot == False:
+    if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         if latitude == 'mean':
             plt.text(0.5, 1.10,'ZONAL MEANS', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes) 
@@ -880,7 +880,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         
     if y_axis == 'height':
         plt.ylabel('Height (km)',fontsize=14)
-    elif log_level == True:
+    elif log_level:
         plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
     else:
         plt.ylabel('PRESSURE (HPA)',fontsize=14)
@@ -894,7 +894,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         plt.gca().invert_yaxis()
 
 
-    if clean_plot == False:
+    if not clean_plot:
         # Add subtext to the plot
         plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
@@ -979,9 +979,9 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     """
 
     # Printing Execution data
-    if time == None:
+    if time is None:
         time = get_time(datasets, mtime)
-    if contour_intervals == None:
+    if contour_intervals is None:
         contour_intervals = 20
     if verbose:    
         logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
@@ -1004,13 +1004,13 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         variable_values, unique_levs = interpolate_to_height(
             datasets, variable_values, unique_levs, time)
 
-    if level_minimum == None:
+    if level_minimum is None:
         level_minimum = np.nanmin(unique_levs)
-    if level_maximum == None:
+    if level_maximum is None:
         level_maximum = np.nanmax(unique_levs)
-    if latitude_minimum == None:
+    if latitude_minimum is None:
         latitude_minimum = np.nanmin(unique_lats)
-    if latitude_maximum == None:
+    if latitude_maximum is None:
         latitude_maximum = np.nanmax(unique_lats)
 
     min_val, max_val = min_max(variable_values)
@@ -1019,25 +1019,25 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     selected_min=selected_mtime[2]
     selected_sec=selected_mtime[3]
 
-    if cmap_lim_min == None:
+    if cmap_lim_min is None:
         cmap_lim_min = min_val
     else:
         min_val = cmap_lim_min
-    if cmap_lim_max == None:
+    if cmap_lim_max is None:
         cmap_lim_max = max_val
     else:
         max_val = cmap_lim_max
 
-    if cmap_color == None:
+    if cmap_color is None:
         cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
         interval_value = contour_value
-    elif symmetric_interval == False:
+    elif not symmetric_interval:
         contour_levels = np.linspace(min_val, max_val, contour_intervals)
         interval_value = (max_val - min_val) / (contour_intervals - 1)
-    elif symmetric_interval == True:
+    elif symmetric_interval:
         range_half = math.ceil(max(abs(min_val), abs(max_val))/10)*10
         interval_value = range_half / (contour_intervals // 2)  # Divide by 2 to get intervals for one side
         positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
@@ -1049,10 +1049,10 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     interval_value = contour_value if contour_value else (max_val - min_val) / (contour_intervals - 1)
     
         # Clean plot
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6 
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
     # Generate contour plot
@@ -1063,7 +1063,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
     cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
-    if clean_plot == False:
+    if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
     
         if longitude == 'mean':
@@ -1072,7 +1072,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
             plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
     if y_axis == 'height':
         plt.ylabel('Height (km)',fontsize=14)
-    elif log_level == True:
+    elif log_level:
         plt.ylabel('LN(P0/P) (INTERFACES)',fontsize=14)
     else:
         plt.ylabel('PRESSURE (HPA)',fontsize=14)
@@ -1084,7 +1084,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
 
     if model == 'WACCM-X' and y_axis != 'height':
         plt.gca().invert_yaxis()
-    if clean_plot == False:
+    if not clean_plot:
         # Add subtext to the plot
         plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.75, -0.2, "Contour Interval = "+str("{:.2e}".format(interval_value)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
@@ -1162,7 +1162,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         matplotlib.figure.Figure: Contour plot.
     """
 
-    if contour_intervals == None:
+    if contour_intervals is None:
         contour_intervals = 20
     #print(datasets)
     result = arr_lev_time(datasets, variable_name, latitude, longitude, variable_unit, plot_mode=True)
@@ -1180,9 +1180,9 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         variable_values_all, levs_ilevs = interpolate_to_height(
             datasets, variable_values_all, levs_ilevs, first_time)
 
-    if level_minimum == None:
+    if level_minimum is None:
         level_minimum = np.nanmin(levs_ilevs)
-    if level_maximum == None:
+    if level_maximum is None:
         level_maximum = np.nanmax(levs_ilevs)
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(latitude)+"]---["+str(longitude)+"]---------------")
@@ -1211,25 +1211,25 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
 
     min_val, max_val = np.nanmin(variable_values_all), np.nanmax(variable_values_all)
 
-    if cmap_lim_min == None:
+    if cmap_lim_min is None:
         cmap_lim_min = min_val
     else:
         min_val = cmap_lim_min
-    if cmap_lim_max == None:
+    if cmap_lim_max is None:
         cmap_lim_max = max_val
     else:
         max_val = cmap_lim_max
 
-    if cmap_color == None:
+    if cmap_color is None:
         cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
         interval_value = contour_value
-    elif symmetric_interval == False:
+    elif not symmetric_interval:
         contour_levels = np.linspace(min_val, max_val, contour_intervals)
         interval_value = (max_val - min_val) / (contour_intervals - 1)
-    elif symmetric_interval == True:
+    elif symmetric_interval:
         range_half = math.ceil(max(abs(min_val), abs(max_val))/10)*10
         interval_value = range_half / (contour_intervals // 2)  # Divide by 2 to get intervals for one side
         positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
@@ -1251,10 +1251,10 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
         # Clean plot
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6 
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
     # Generate contour plot
@@ -1282,7 +1282,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
     plt.yticks(fontsize=9)
     plt.ylim(level_minimum,level_maximum)
 
-    if clean_plot == False:
+    if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         # Add subtext to the plot
         if longitude == 'mean' and latitude == 'mean':
@@ -1337,7 +1337,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
         matplotlib.figure.Figure: Contour plot.
     """
 
-    if contour_intervals == None:
+    if contour_intervals is None:
         contour_intervals = 20
     # Convert height to pressure level if needed
     _original_height = None
@@ -1358,9 +1358,9 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
     model = result.model
     filename = result.filename
 
-    if longitude_minimum == None:
+    if longitude_minimum is None:
         longitude_minimum = np.nanmin(unique_lons)
-    if longitude_maximum == None:
+    if longitude_maximum is None:
         longitude_maximum = np.nanmax(unique_lons)
 
     num_deleted_before = 0
@@ -1387,25 +1387,25 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
 
     min_val, max_val = np.nanmin(variable_values_all), np.nanmax(variable_values_all)
 
-    if cmap_lim_min == None:
+    if cmap_lim_min is None:
         cmap_lim_min = min_val
     else:
         min_val = cmap_lim_min
-    if cmap_lim_max == None:
+    if cmap_lim_max is None:
         cmap_lim_max = max_val
     else:
         max_val = cmap_lim_max
 
-    if cmap_color == None:
+    if cmap_color is None:
         cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
         interval_value = contour_value
-    elif symmetric_interval == False:
+    elif not symmetric_interval:
         contour_levels = np.linspace(min_val, max_val, contour_intervals)
         interval_value = (max_val - min_val) / (contour_intervals - 1)
-    elif symmetric_interval == True:
+    elif symmetric_interval:
         range_half = math.ceil(max(abs(min_val), abs(max_val))/10)*10
         interval_value = range_half / (contour_intervals // 2)
         positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
@@ -1425,10 +1425,10 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
         unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
 
@@ -1454,7 +1454,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
     plt.yticks(fontsize=9)
     plt.ylim(longitude_minimum, longitude_maximum)
 
-    if clean_plot == False:
+    if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n', fontsize=18)
         subtitle_parts = []
         if level is not None:
@@ -1551,10 +1551,10 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, lev
         unique_times = sorted(list(set([day for day, _, _ in mtime_values])))
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
 
@@ -1575,7 +1575,7 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, lev
     plt.yticks(fontsize=9)
     plt.grid(True, alpha=0.3)
 
-    if clean_plot == False:
+    if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n', fontsize=18)
         subtitle_parts = []
         if latitude is not None:
@@ -1629,7 +1629,7 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
         matplotlib.figure.Figure: Contour plot.
     """
 
-    if contour_intervals == None:
+    if contour_intervals is None:
         contour_intervals = 20
     # Convert height to pressure level if needed
     _original_height = None
@@ -1640,7 +1640,7 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(level)+"]---["+str(longitude)+"]---------------")
     '''
-    if level != None:
+    if level is not None:
         try:
             variable_values_all, unique_lats, mtime_values, longitude, variable_unit, variable_long_name, filename = lat_time_lev(datasets, variable_name, level, longitude, variable_unit)
         except:
@@ -1658,9 +1658,9 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
     model = result.model
     filename = result.filename
     # Assuming the levels are consistent across datasets, but using the minimum size for safety
-    if latitude_minimum == None:
+    if latitude_minimum is None:
         latitude_minimum = np.nanmin(unique_lats)
-    if latitude_maximum == None:
+    if latitude_maximum is None:
         latitude_maximum = np.nanmax(unique_lats)
     num_deleted_before = 0
     num_deleted_after = 0
@@ -1683,25 +1683,25 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
         variable_values_all = variable_values_all[:, num_deleted_before:-num_deleted_after]
     min_val, max_val = np.nanmin(variable_values_all), np.nanmax(variable_values_all)
     
-    if cmap_lim_min == None:
+    if cmap_lim_min is None:
         cmap_lim_min = min_val
     else:
         min_val = cmap_lim_min
-    if cmap_lim_max == None:
+    if cmap_lim_max is None:
         cmap_lim_max = max_val
     else:
         max_val = cmap_lim_max
 
-    if cmap_color == None:
+    if cmap_color is None:
         cmap_color, line_color = color_scheme(variable_name, model)
 
     if contour_value is not None:
         contour_levels = np.arange(min_val, max_val + contour_value, contour_value)
         interval_value = contour_value
-    elif symmetric_interval == False:
+    elif not symmetric_interval:
         contour_levels = np.linspace(min_val, max_val, contour_intervals)
         interval_value = (max_val - min_val) / (contour_intervals - 1)
-    elif symmetric_interval == True:
+    elif symmetric_interval:
         range_half = math.ceil(max(abs(min_val), abs(max_val))/10)*10
         interval_value = range_half / (contour_intervals // 2)  # Divide by 2 to get intervals for one side
         positive_levels = np.arange(interval_value, range_half + interval_value, interval_value)
@@ -1723,10 +1723,10 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
         time_indices = [i for i, (day, _, _) in enumerate(mtime_values) if i == 0 or mtime_values[i-1][0] != day]
 
         # Clean plot
-    if clean_plot == False:
+    if not clean_plot:
         figure_height = 6 
         figure_width = 10
-    elif clean_plot == True:
+    elif clean_plot:
         figure_height = 5
         figure_width = 10
     # Generate contour plot
@@ -1752,7 +1752,7 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
     plt.yticks(fontsize=9)
     plt.ylim(latitude_minimum, latitude_maximum)
 
-    if clean_plot == False:
+    if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         # Add subtext to the plot
         subtitle_parts = []
