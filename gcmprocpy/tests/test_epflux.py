@@ -58,6 +58,19 @@ class TestEpflux:
         result = epflux(**synthetic_fields)
         assert np.all(np.isfinite(result['EPVZ']))
 
+    def test_rho_argument_affects_epvdiv(self, synthetic_fields):
+        """Passing an explicit rho must reach EPVDIV (changes vs proxy)."""
+        baseline = epflux(**synthetic_fields)
+        nlev, nlat, nlon = synthetic_fields['temp'].shape
+        np.random.seed(7)
+        rho_field = np.random.uniform(1e-7, 1e-3, (nlev, nlat, nlon))
+        with_rho = epflux(**synthetic_fields, rho=rho_field)
+        # EPVY/EPVZ shouldn't change (rho only enters EPVDIV)
+        np.testing.assert_allclose(baseline['EPVY'], with_rho['EPVY'])
+        np.testing.assert_allclose(baseline['EPVZ'], with_rho['EPVZ'])
+        # EPVDIV should change
+        assert not np.allclose(baseline['EPVDIV'], with_rho['EPVDIV'])
+
     def test_zero_perturbation_gives_small_ep_flux(self):
         """If all fields are zonally uniform, eddy fluxes should be zero."""
         nlev, nlat, nlon = 6, 8, 12

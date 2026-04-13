@@ -27,6 +27,8 @@ _OMEGA = 2.0 * np.pi / 86400.0      # Earth rotation rate (rad s⁻¹)
 _R = 287.0                           # gas constant for dry air (J kg⁻¹ K⁻¹)
 _D2R = np.pi / 180.0                # degrees → radians
 _H = _R * _TS / _G                  # reference scale height (m) ≈ 8786
+_AMU = 1.66053907e-27               # atomic mass unit (kg)
+_M_O, _M_O2, _M_N2 = 16.0, 32.0, 28.0  # atomic / molecular masses (u)
 
 
 def _interp_ilev_to_lev(w_ilev, ilev_vals, lev_vals):
@@ -55,7 +57,7 @@ def _interp_ilev_to_lev(w_ilev, ilev_vals, lev_vals):
     return w_lev
 
 
-def epflux(temp, u, v, lats, levs, w=None):
+def epflux(temp, u, v, lats, levs, w=None, rho=None):
     """Compute Eliassen-Palm flux components.
 
     All inputs must be in SI units (K, m s⁻¹, degrees, dimensionless
@@ -89,6 +91,11 @@ def epflux(temp, u, v, lats, levs, w=None):
         levs: Log-pressure levels (dimensionless), shape ``(nlev,)``.
         w: Vertical wind (m s⁻¹), same shape as *temp*.
            Optional — required for EPVZ and EPVDIV.
+        rho: Total mass density (kg m⁻³), same shape as *temp*.
+           Optional — used as zonal mean for EPVDIV.  If omitted, falls
+           back to the ideal-gas proxy ρ ∝ exp(-lev)/T (constant mean
+           molecular mass), which deviates from tgcmproc when M̄ varies
+           with altitude (notably in the thermosphere).
 
     Returns:
         dict: Keys ``'EPVY'``, ``'EPVZ'``, ``'EPVDIV'``, each a
@@ -173,8 +180,13 @@ def epflux(temp, u, v, lats, levs, w=None):
         epvz = -(uw_bar + (dudy - f_cor[np.newaxis, :]) * vt_bar / gamma)
 
         # ---- EPVDIV: divergence / wave forcing (m s⁻¹ day⁻¹) ----
-        # Density profile from hydrostatic approximation: rho ∝ exp(-lev)/T
-        rhozm = np.exp(-levs[:, np.newaxis]) / tzm  # (nlev, nlat)
+        # Use provided mass density (matches tgcmproc mkrhokg) when
+        # available; otherwise fall back to the ideal-gas proxy with
+        # constant mean molecular mass.
+        if rho is not None:
+            rhozm = np.asarray(rho, dtype=float).mean(axis=2)  # (nlev, nlat)
+        else:
+            rhozm = np.exp(-levs[:, np.newaxis]) / tzm
 
         epvdiv = np.zeros((nlev, nlat))
 
@@ -321,8 +333,27 @@ def arr_epflux(datasets, component, time, log_level=True):
             else:
                 w_si = w_raw
 
+        # ---- Mass density (kg m⁻³) for EPVDIV (matches tgcmproc mkrhokg) ----
+        rho_si = None
+        if component == 'EPVDIV':
+            o_name, o2_name, n2_name = sp['o'], sp['o2'], sp['n2']
+            if all(n in ds.variables for n in (o_name, o2_name, n2_name)):
+                n_o = ds_t[o_name].values.astype(float)
+                n_o2 = ds_t[o2_name].values.astype(float)
+                n_n2 = ds_t[n2_name].values.astype(float)
+                # Number density (cm⁻³) → mass density (kg m⁻³):
+                # ρ = Σ Mᵢ · nᵢ · m_u · 1e6 (cm³→m³)
+                rho_full = (_M_O * n_o + _M_O2 * n_o2 + _M_N2 * n_n2) * _AMU * 1.0e6
+                rho_si = rho_full[not_nan]
+            else:
+                logger.warning(
+                    "EPVDIV: %s missing one of (%s, %s, %s); using ideal-gas "
+                    "ρ ∝ exp(-lev)/T proxy (results may differ from tgcmproc).",
+                    mds.filename, o_name, o2_name, n2_name,
+                )
+
         # ---- Compute EP flux ----
-        result = epflux(temp, u_si, v_si, lats, levs_raw, w=w_si)
+        result = epflux(temp, u_si, v_si, lats, levs_raw, w=w_si, rho=rho_si)
 
         values = result[component]
         if values is None:
