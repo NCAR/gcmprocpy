@@ -36,7 +36,7 @@ dependencies = [
     "netcdf4",
     "ipympl",
     "mplcursors",
-    "PyQt5",
+    "PySide6",
     "scipy",
 ]
 

@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from .data_parse import arr_lat_lon,arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height
+from .data_parse import arr_lat_lon, batch_arr_lat_lon, arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height
 
 logger = logging.getLogger(__name__)
 from .containers import resolve_derived
@@ -129,9 +129,19 @@ def _polar_boundary():
     return mpath.Path(verts * radius + center)
 
 
+def _compute_gm_equator_lats(unique_lons):
+    """Compute geomagnetic equator latitudes for an array of longitudes.
+
+    Hoisted out of plt_lat_lon's three projection branches so the geomag
+    solver (slow) runs once per plot instead of once per branch.
+    """
+    gm = geomag.geomag.GeoMag()
+    return [gm.GeoMag(0, lon).dec for lon in unique_lons]
+
+
 def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
                  cmap_color, cmap_lim_min, cmap_lim_max, line_color, coastlines,
-                 nightshade, time, gm_equator, hemisphere,
+                 nightshade, time, gm_equator_lats, hemisphere,
                  wind_u_values=None, wind_v_values=None, wind_density=15,
                  wind_scale=None, wind_color='black'):
     """Draws a single polar contour panel on the given axes."""
@@ -140,10 +150,8 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
         ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=1.5)
     if nightshade:
         ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O') / 1e9, tz=timezone.utc), alpha=0.4))
-    if gm_equator:
-        gm = geomag.geomag.GeoMag()
-        geomagnetic_lats = [gm.GeoMag(0, lon).dec for lon in unique_lons]
-        ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--',
+    if gm_equator_lats is not None:
+        ax.plot(unique_lons, gm_equator_lats, color=line_color, linestyle='--',
                 transform=ccrs.Geodetic(), label='Geomagnetic Equator')
 
     if hemisphere == 'north':
@@ -275,10 +283,11 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         from .containers import MODEL_DEFAULTS
         wind_u = MODEL_DEFAULTS[model]['wind_u']
         wind_v = MODEL_DEFAULTS[model]['wind_v']
-        u_result = arr_lat_lon(datasets, wind_u, time, selected_lev_ilev=level, plot_mode=True)
-        v_result = arr_lat_lon(datasets, wind_v, time, selected_lev_ilev=level, plot_mode=True)
-        wind_u_values = u_result.values[:, sorted_indices]
-        wind_v_values = v_result.values[:, sorted_indices]
+        wind_results = batch_arr_lat_lon(datasets, [wind_u, wind_v], time,
+                                         selected_lev_ilev=level, plot_mode=True)
+        if wind_results is not None:
+            wind_u_values = wind_results[wind_u].values[:, sorted_indices]
+            wind_v_values = wind_results[wind_v].values[:, sorted_indices]
 
     # Adjust cyclic point handling for central_longitude=180
     if wind_u_values is not None:
@@ -332,6 +341,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
 
     interval_value = contour_value if contour_value else (max_val - min_val) / (contour_intervals - 1)
 
+    # Compute geomagnetic equator once (shared across all projection branches)
+    gm_equator_lats = _compute_gm_equator_lats(unique_lons) if gm_equator else None
+
     # ---- Polar projection branch ----
     if projection in ('north_polar', 'south_polar', 'polar'):
         polar_args = dict(unique_lons=unique_lons, unique_lats=unique_lats,
@@ -339,7 +351,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
                           cmap_color=cmap_color, cmap_lim_min=cmap_lim_min,
                           cmap_lim_max=cmap_lim_max, line_color=line_color,
                           coastlines=coastlines, nightshade=nightshade, time=time,
-                          gm_equator=gm_equator,
+                          gm_equator_lats=gm_equator_lats,
                           wind_u_values=wind_u_values, wind_v_values=wind_v_values,
                           wind_density=wind_density, wind_scale=wind_scale,
                           wind_color=wind_color)
@@ -382,7 +394,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
                       ha='center', va='center', fontsize=10, transform=plot.transFigure)
 
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, cf, unique_lons, unique_lats, variable_values
         return plot
 
@@ -396,13 +408,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
             ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=1.5)
         if nightshade:
             ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O')/1e9, tz=timezone.utc), alpha=0.4))
-        if gm_equator:
-            gm = geomag.geomag.GeoMag()
-            geomagnetic_lats = []
-            for lon in unique_lons:
-                geo_coord = gm.GeoMag(0, lon)
-                geomagnetic_lats.append(geo_coord.dec)
-            ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--',
+        if gm_equator_lats is not None:
+            ax.plot(unique_lons, gm_equator_lats, color=line_color, linestyle='--',
                     transform=ccrs.Geodetic(), label='Geomagnetic Equator')
 
         ax.set_global()
@@ -442,7 +449,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
                       ha='center', va='center', fontsize=10, transform=plot.transFigure)
 
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, cf, unique_lons, unique_lats, variable_values
         return plot
 
@@ -455,13 +462,8 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
             ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=1.5)
         if nightshade:
             ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O')/1e9, tz=timezone.utc), alpha=0.4))
-        if gm_equator:
-            gm = geomag.geomag.GeoMag()
-            geomagnetic_lats = []
-            for lon in unique_lons:
-                geo_coord = gm.GeoMag(0, lon)
-                geomagnetic_lats.append(geo_coord.dec)
-            ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--',
+        if gm_equator_lats is not None:
+            ax.plot(unique_lons, gm_equator_lats, color=line_color, linestyle='--',
                     transform=ccrs.Geodetic(), label='Geomagnetic Equator')
 
         ax.set_global()
@@ -501,7 +503,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
                       ha='center', va='center', fontsize=10, transform=plot.transFigure)
 
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, cf, unique_lons, unique_lats, variable_values
         return plot
 
@@ -527,14 +529,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         ax.add_feature(cfeature.COASTLINE, edgecolor=line_color, linewidth=1.5)
     if nightshade:
         ax.add_feature(Nightshade(datetime.fromtimestamp(time.astype('O')/1e9, tz=timezone.utc), alpha=0.4))
-    if gm_equator:
-        gm = geomag.geomag.GeoMag()
-        geomagnetic_lats = []
-        for lon in unique_lons:
-            geo_coord = gm.GeoMag(0, lon)
-            geomagnetic_lats.append(geo_coord.dec)
-
-        ax.plot(unique_lons, geomagnetic_lats, color=line_color, linestyle='--', transform=ccrs.Geodetic(), label='Geomagnetic Equator')
+    if gm_equator_lats is not None:
+        ax.plot(unique_lons, gm_equator_lats, color=line_color, linestyle='--',
+                transform=ccrs.Geodetic(), label='Geomagnetic Equator')
 
     contour_filled = plt.contourf(unique_lons, unique_lats, variable_values, cmap=cmap_color, levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
     contour_lines = plt.contour(unique_lons, unique_lats, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
@@ -626,7 +623,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, center_longitude, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, longitude_minimum, longitude_maximum, contour_filled, unique_lons, unique_lats, variable_values
         elif plot is not None:
             plt.close(plot)
@@ -749,7 +746,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, level_minimum, level_maximum
         elif plot is not None:
             plt.close(plot)
@@ -941,7 +938,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, latitude, time, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, longitude_minimum, longitude_maximum, contour_filled, unique_lons, unique_levs, variable_values
         elif plot is not None:
             plt.close(plot)
@@ -1128,7 +1125,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, time, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, latitude_minimum, latitude_maximum, contour_filled, unique_lats, unique_levs, variable_values
         elif plot is not None:
             plt.close(plot)
@@ -1306,7 +1303,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, level_minimum, level_maximum, contour_filled, levs_ilevs, variable_values_all
         if plot is not None:
             plt.close(plot)
@@ -1476,7 +1473,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, longitude_minimum, longitude_maximum, contour_filled, unique_lons, variable_values_all
         if plot is not None:
             plt.close(plot)
@@ -1597,7 +1594,7 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, lev
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit
         if plot is not None:
             plt.close(plot)
@@ -1775,7 +1772,7 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
         return plot
     else:
         backend = get_backend()
-        if "Qt5Agg" in backend:
+        if "Qt" in backend:
             return plot, variable_unit, contour_intervals, contour_value, symmetric_interval, cmap_color, cmap_lim_min, cmap_lim_max, line_color, latitude_minimum, latitude_maximum, contour_filled, unique_lats, variable_values_all
         if plot is not None:
             plt.close(plot)

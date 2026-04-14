@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import dask
 from .convert_units import convert_units
-from .containers import ModelDataset, PlotData
+from .containers import ModelDataset, PlotData, cache_data_fn
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -237,6 +237,7 @@ def dim_info(datasets, dimension):
     
     return dimension_info
 
+@cache_data_fn
 def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, plot_mode=False):
     """
     Extracts and processes data for a given variable at a specific time from multiple datasets. 
@@ -317,6 +318,7 @@ def check_var_dims(ds, variable_name):
     else:
         return 'Variable not found in dataset'
 
+@cache_data_fn
 def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= None, log_level=True, plot_mode = False):
     """
     Extracts and processes data from the dataset based on a specific variable, time, and latitude.
@@ -386,6 +388,7 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
 
 
 
+@cache_data_fn
 def batch_arr_lat_lon(datasets, variable_names, time, selected_lev_ilev=None, selected_unit=None, plot_mode=False):
     """Extract multiple variables at once for the same time and level, avoiding redundant lookups.
 
@@ -469,6 +472,7 @@ def batch_arr_lat_lon(datasets, variable_names, time, selected_lev_ilev=None, se
     return None
 
 
+@cache_data_fn
 def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts data from the dataset based on the specified variable, time, and level (lev/ilev).
@@ -669,6 +673,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
 
 
     
+@cache_data_fn
 def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selected_unit= None, log_level=True, plot_mode = False):
     """
     Extracts data from the dataset for a given variable name, latitude, longitude, and time.
@@ -735,6 +740,7 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
 
 
 
+@cache_data_fn
 def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None, log_level=True, plot_mode = False):
     """
     Extracts data from a dataset based on the specified variable name, timestamp, and longitude.
@@ -799,6 +805,7 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
 
 
 
+@cache_data_fn
 def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_unit = None, log_level = True, plot_mode = False):
     """
     This function extracts and processes data from multiple datasets based on specified parameters. It focuses on extracting 
@@ -904,6 +911,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
     else:
         return variable_values_all
 
+@cache_data_fn
 def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts and processes data from the dataset based on the specified variable name, longitude, and level/ilev.
@@ -1000,6 +1008,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
         return variable_values_all
 
 
+@cache_data_fn
 def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts and processes data from the dataset based on the specified variable name, latitude, and level/ilev.
@@ -1088,6 +1097,7 @@ def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None
         return variable_values_all
 
 
+@cache_data_fn
 def arr_var_time(datasets, variable_name, selected_lat, selected_lon, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts a 1D time series of a variable at a specific lat/lon/level location.

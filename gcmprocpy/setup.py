@@ -23,7 +23,7 @@ setup(
         'netcdf4',
         'ipympl',
         'mplcursors',
-        'PyQt5',
+        'PySide6',
         'dask',
         'scipy',
     ],

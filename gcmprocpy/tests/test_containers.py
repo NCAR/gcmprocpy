@@ -72,7 +72,9 @@ class TestRegisterDerived:
         register_derived('_TEST_VAR', _dummy)
         handler, found = resolve_derived('_TEST_VAR')
         assert found is True
-        assert handler is _dummy
+        # resolve_derived wraps handlers in a cache decorator; check
+        # the underlying function is preserved
+        assert getattr(handler, '__wrapped__', handler) is _dummy
 
         # Cleanup
         del DERIVED_VARIABLES['_TEST_VAR']

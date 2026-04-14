@@ -27,7 +27,7 @@ nbsphinx_execute = 'never'
 templates_path = ['_templates']
 exclude_patterns = ['**.ipynb_checkpoints']
 
-autodoc_mock_imports = ["numpy","cartopy","matplotlib","xarray","ipython","geomag","netcdf4","mplcursors","PyQt5","dask","scipy"]
+autodoc_mock_imports = ["numpy","cartopy","matplotlib","xarray","ipython","geomag","netcdf4","mplcursors","PySide6","dask","scipy"]
 
 
 # -- Options for HTML output -------------------------------------------------

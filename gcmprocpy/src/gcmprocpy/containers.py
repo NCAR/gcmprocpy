@@ -173,6 +173,68 @@ def get_species_names(model):
 
 DERIVED_VARIABLES = {}
 
+# Bounded LRU cache for data extraction + derived-variable computations.
+# Scrubbing the timeline or re-clicking Plot with the same settings repeatedly
+# calls the same (datasets, variable, time, level, ...) tuple — caching turns
+# the second hit onward into an O(1) dict lookup. Used for arr_* data
+# extraction functions in data_parse.py and derived-variable handlers.
+from collections import OrderedDict as _OrderedDict
+_DATA_CACHE_MAX = 128
+_data_cache = _OrderedDict()
+
+
+def _make_cache_key(fn_name, datasets, args, kwargs):
+    # Normalize: convert any list kwargs/args to tuples so keys hash.
+    norm_args = tuple(tuple(a) if isinstance(a, list) else a for a in args)
+    norm_kwargs = tuple(sorted(
+        (k, tuple(v) if isinstance(v, list) else v) for k, v in kwargs.items()
+    ))
+    return (fn_name, id(datasets), norm_args, norm_kwargs)
+
+
+def _cached_call(fn, datasets, *args, **kwargs):
+    try:
+        key = _make_cache_key(fn.__name__, datasets, args, kwargs)
+        hash(key)
+    except TypeError:
+        return fn(datasets, *args, **kwargs)
+    cached = _data_cache.get(key)
+    if cached is not None:
+        _data_cache.move_to_end(key)
+        return cached
+    result = fn(datasets, *args, **kwargs)
+    _data_cache[key] = result
+    if len(_data_cache) > _DATA_CACHE_MAX:
+        _data_cache.popitem(last=False)
+    return result
+
+
+def clear_data_cache():
+    """Drop all cached results. Call on dataset reload."""
+    _data_cache.clear()
+
+
+# Backwards-compat alias (GUI imports this name)
+clear_derived_cache = clear_data_cache
+
+
+def cache_data_fn(fn):
+    """Decorator to memoize an arr_* data extraction function.
+
+    Keys on (fn name, id(datasets), positional args, kwargs). Skips caching
+    if any arg is unhashable (e.g. raw numpy arrays in arr_sat_track).
+    """
+    def wrapped(datasets, *args, **kwargs):
+        return _cached_call(fn, datasets, *args, **kwargs)
+    wrapped.__wrapped__ = fn
+    wrapped.__name__ = fn.__name__
+    return wrapped
+
+
+def _wrap_cached(handler):
+    """Wrap a derived-variable handler with data caching."""
+    return cache_data_fn(handler)
+
 
 def register_derived(name, handler, plot_types=None):
     """Register a derived variable computation handler.
@@ -205,13 +267,13 @@ def resolve_derived(variable_name):
     """
     # Exact match
     if variable_name in DERIVED_VARIABLES:
-        return DERIVED_VARIABLES[variable_name]['handler'], True
+        return _wrap_cached(DERIVED_VARIABLES[variable_name]['handler']), True
     # Also check upper-case form
     vn_upper = variable_name.upper()
     if vn_upper in DERIVED_VARIABLES:
-        return DERIVED_VARIABLES[vn_upper]['handler'], True
+        return _wrap_cached(DERIVED_VARIABLES[vn_upper]['handler']), True
     # Pattern match (e.g. 'OH_*')
     for key, entry in DERIVED_VARIABLES.items():
         if key.endswith('*') and vn_upper.startswith(key[:-1]):
-            return entry['handler'], True
+            return _wrap_cached(entry['handler']), True
     return None, False

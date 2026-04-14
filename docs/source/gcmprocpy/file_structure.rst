@@ -22,7 +22,7 @@ The gcmprocpy package is structured as follows:
     │       ├── main.py                 # Main python file to run
     │       ├── gui
     │       │   ├── __init__.py         # Initialize functions for GUI
-    │       │   └── gcmprocpy.py        # PyQt5 GUI implementation
+    │       │   └── gcmprocpy.py        # PySide6 GUI implementation
     │       └── cmd
     │           ├── __init__.py         # Initialize functions for CLI
     │           ├── cmd_lat_lon.py      # Latitude vs Longitude plot function
