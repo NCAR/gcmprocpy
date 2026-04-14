@@ -75,6 +75,9 @@ Example: Using derived variables in plot functions
     plot = gy.plt_lev_lat(datasets, 'EPVY', time=time)
     plot = gy.plt_lev_lat(datasets, 'EPVDIV', time=time)
 
+    # Species density — use arr_density for explicit unit control
+    cm3 = gy.arr_density(datasets, 'O1', time=time, to_unit='CM3')
+
 
 Emissions
 --------------------------------------------------------------------------------------------------------------------
@@ -280,6 +283,94 @@ components. Can be called directly with numpy arrays for custom workflows.
 
 .. autofunction:: epflux
    :noindex:
+
+
+Species-Aware Density Conversions
+--------------------------------------------------------------------------------------------------------------------
+.. currentmodule:: gcmprocpy.data_density
+
+gcmprocpy converts atmospheric species fields among the four density representations used by
+tgcmproc, ported from ``denconv.F`` (B. Foster):
+
+- **MMR** — mass mixing ratio (dimensionless, mass fraction)
+- **CM3** — number density (molecules cm\ :sup:`-3`)
+- **CM3-MR** — volume mixing ratio / mole fraction (dimensionless)
+- **GM/CM3** — mass density (g cm\ :sup:`-3`)
+
+Cross-unit conversions require the mean air molar mass (``BARM``) and the air number density
+(``pkt``), both derived from the model's temperature and O / O\ :sub:`2` fields.  Formulas::
+
+    BARM = 1 / (O₂/32 + O/16 + (1 − O₂ − O)/28)
+    pkt  = p / (k_B · T)                           [CGS]
+
+    MMR → CM3     :   f · pkt · BARM / W
+    MMR → CM3-MR  :   f · BARM / W
+    MMR → GM/CM3  :   f · pkt · BARM · 1.66e-24
+
+.. note::
+   Currently supports TIE-GCM only (log-pressure coordinate).  WACCM-X support for
+   the hybrid-sigma pressure coordinate is pending; :func:`arr_density` raises
+   ``NotImplementedError`` for WACCM-X datasets.
+
+Example: Convert atomic oxygen from MMR to number density
+
+.. code-block:: python
+
+    import gcmprocpy as gy
+
+    datasets = gy.load_datasets(directory, dataset_filter)
+
+    # Reads O1 from the dataset, uses the 'units' attr for the source unit
+    # (falls back to passing from_unit=... explicitly)
+    result = gy.arr_density(datasets, 'O1', time='2022-01-01T12:00:00',
+                             to_unit='CM3')
+    print(result.values.shape)      # (nlev, nlat, nlon)
+    print(result.variable_unit)     # 'CM3'
+
+Example: Direct conversion with explicit barm / pkt
+
+.. code-block:: python
+
+    from gcmprocpy import (
+        convert_density_units, compute_barm, compute_pkt,
+        get_species_molar_mass,
+    )
+
+    # Using raw numpy arrays — barm/pkt can be scalar or full 3-D fields
+    barm = compute_barm(o_mmr=o1_field, o2_mmr=o2_field)
+    pkt  = compute_pkt(levs, temperature, model='TIE-GCM')
+    w    = get_species_molar_mass('TIE-GCM', 'O2')
+
+    o2_cm3 = convert_density_units(o2_mmr, 'MMR', 'CM3',
+                                    barm=barm, pkt=pkt, molar_mass=w)
+
+Density Conversion Array Function
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: arr_density
+   :noindex:
+
+Core Conversion and Helpers
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The pure-math functions that :func:`arr_density` composes.  Use these directly for custom
+workflows (e.g. converting in-memory arrays from external sources).
+
+.. autofunction:: convert_density_units
+   :noindex:
+
+.. autofunction:: compute_barm
+   :noindex:
+
+.. autofunction:: compute_pkt
+   :noindex:
+
+.. autofunction:: get_species_molar_mass
+   :noindex:
+
+Supported unit aliases include ``'cm-3'`` → ``CM3``, ``'kg/kg'`` → ``MMR``, ``'mol/mol'`` →
+``CM3-MR``, and ``'g/cm3'`` → ``GM/CM3``.  See :data:`SUPPORTED_DENSITY_UNITS` for the
+canonical tuple.
 
 
 Difference Fields

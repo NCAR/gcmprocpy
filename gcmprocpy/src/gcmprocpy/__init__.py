@@ -11,3 +11,7 @@ from .data_emissions import mkeno53, mkeco215, mkeoh83, arr_mkeno53, arr_mkeco21
 from .data_oh import ohrad, arr_mkoh_band, OH_BANDS
 from .data_diff import compute_diff, diff_plotdata
 from .data_epflux import epflux, arr_epflux
+from .data_density import (
+    arr_density, convert_density_units, compute_barm, compute_pkt,
+    get_species_molar_mass, SUPPORTED_DENSITY_UNITS,
+)
