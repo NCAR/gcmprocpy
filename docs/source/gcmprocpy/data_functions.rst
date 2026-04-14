@@ -565,6 +565,45 @@ Example:
             mt = gy.get_mtime(datasets, t)
             print(f'{t} -> mtime {mt}')
 
+Data Caching
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: gcmprocpy.containers
+
+All ``arr_*`` data extraction functions (and derived-variable handlers) are transparently memoized
+by a bounded LRU cache. Repeated calls with the same ``(datasets, variable, time, level, ...)``
+tuple return the cached result in O(1), which speeds up timeline scrubbing, re-plotting, and
+composite plots that extract the same field multiple times.
+
+The cache is keyed on the Python identity (``id``) of the ``datasets`` list plus all positional
+and keyword arguments (lists are normalized to tuples so batch calls cache correctly). Unhashable
+arguments (e.g. raw numpy arrays in ``arr_sat_track``) transparently bypass the cache.
+
+.. autofunction:: clear_data_cache
+   :noindex:
+
+The default cache holds up to 128 entries and evicts least-recently-used results. Call
+``clear_data_cache()`` after reloading datasets or otherwise mutating them in place, so that
+stale results don't leak across sessions. The GUI does this automatically on dataset reload.
+
+``clear_derived_cache`` is kept as a backwards-compatible alias for ``clear_data_cache``.
+
+Example:
+    Invalidate the cache after reloading datasets.
+
+    .. code-block:: python
+
+        from gcmprocpy import clear_data_cache, load_datasets
+
+        datasets = load_datasets(directory, dataset_filter)
+        # ... use datasets ...
+
+        # Reload from disk — drop stale cached extractions
+        datasets = load_datasets(directory, dataset_filter)
+        clear_data_cache()
+
+.. currentmodule:: gcmprocpy.data_parse
+
 Height Interpolation
 ---------------------------------------------------------------------------------------------------------------------
 
