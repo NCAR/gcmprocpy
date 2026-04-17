@@ -315,6 +315,61 @@ Example:
                               time='2022-01-01T12:00:00', local_time=12.0)
 
 
+Variable vs Latitude (Meridional 1D)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function extracts a 1D meridional profile of a variable along latitude at a fixed pressure level and longitude (or zonal mean).
+
+.. autofunction:: arr_var_lat
+   :noindex:
+
+Example:
+    Extract a 1D meridional slice at a specific level, time, and longitude.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # PlotData object with 1D values aligned to latitudes
+        result = gy.arr_var_lat(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lon=30.0,
+                                plot_mode=True)
+        print(result.lats, result.values)
+
+        # Zonal mean across all longitudes
+        result = gy.arr_var_lat(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lon='mean',
+                                plot_mode=True)
+
+Variable vs Longitude (Zonal 1D)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function extracts a 1D zonal profile of a variable along longitude at a fixed pressure level and latitude (or meridional mean).
+
+.. autofunction:: arr_var_lon
+   :noindex:
+
+Example:
+    Extract a 1D zonal slice at a specific level, time, and latitude.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # PlotData object with 1D values aligned to longitudes
+        result = gy.arr_var_lon(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lat=2.5,
+                                plot_mode=True)
+        print(result.lons, result.values)
+
+        # Meridional mean across all latitudes
+        result = gy.arr_var_lon(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lat='mean',
+                                plot_mode=True)
+
+
 Selected Time Latitude
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 This function extracts and processes data from the dataset based on a specific variable, time, and latitude.

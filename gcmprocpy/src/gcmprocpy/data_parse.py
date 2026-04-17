@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import dask
 from .convert_units import convert_units
-from .containers import ModelDataset, PlotData, cache_data_fn
+from .containers import ModelDataset, PlotData, cache_data_fn, resolve_derived
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -738,6 +738,116 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
     return None
 
 
+def _arr_horizontal_slice(datasets, variable_name, time, selected_lev_ilev, selected_unit):
+    """Fetch a (lat, lon) PlotData slice, dispatching derived variables."""
+    handler, is_derived = resolve_derived(variable_name)
+    if is_derived:
+        return handler(datasets, variable_name, time,
+                       selected_lev_ilev=selected_lev_ilev,
+                       selected_unit=selected_unit, plot_mode=True)
+    return arr_lat_lon(datasets, variable_name, time,
+                       selected_lev_ilev=selected_lev_ilev,
+                       selected_unit=selected_unit, plot_mode=True)
+
+
+@cache_data_fn
+def arr_var_lat(datasets, variable_name, time, selected_lev_ilev, selected_lon,
+                selected_unit=None, plot_mode=False):
+    """Extract a 1D meridional profile (variable vs latitude) at a fixed lon and level.
+
+    Args:
+        datasets: List of ModelDataset objects.
+        variable_name (str): Variable name with lat/lon/lev dimensions.
+        time (Union[str, numpy.datetime64]): Timestamp.
+        selected_lev_ilev (Union[float, str]): Level value, or 'mean'.
+        selected_lon (Union[float, str]): Longitude value, or 'mean' for zonal mean.
+        selected_unit (str, optional): Desired unit override.
+        plot_mode (bool): If True, return a PlotData; else a 1D ndarray.
+
+    Returns:
+        PlotData with shape (nlat,) when plot_mode=True; ndarray otherwise; None
+        if the requested time is not in any dataset.
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    result = _arr_horizontal_slice(datasets, variable_name, time,
+                                   selected_lev_ilev, selected_unit)
+    if result is None:
+        return None
+
+    lats = result.lats
+    lons = result.lons
+    values_2d = result.values  # shape (nlat, nlon)
+
+    if selected_lon == 'mean':
+        values_1d = np.nanmean(values_2d, axis=1)
+        resolved_lon = 'mean'
+    else:
+        lon_val = float(selected_lon)
+        lon_idx = int(np.argmin(np.abs(lons - lon_val)))
+        values_1d = values_2d[:, lon_idx]
+        resolved_lon = float(lons[lon_idx])
+
+    if plot_mode:
+        return PlotData(values=values_1d, lats=lats,
+                        selected_lon=resolved_lon,
+                        selected_lev=result.selected_lev,
+                        variable_unit=result.variable_unit,
+                        variable_long_name=result.variable_long_name,
+                        mtime=result.mtime, model=result.model,
+                        filename=result.filename)
+    return values_1d
+
+
+@cache_data_fn
+def arr_var_lon(datasets, variable_name, time, selected_lev_ilev, selected_lat,
+                selected_unit=None, plot_mode=False):
+    """Extract a 1D zonal profile (variable vs longitude) at a fixed lat and level.
+
+    Args:
+        datasets: List of ModelDataset objects.
+        variable_name (str): Variable name with lat/lon/lev dimensions.
+        time (Union[str, numpy.datetime64]): Timestamp.
+        selected_lev_ilev (Union[float, str]): Level value, or 'mean'.
+        selected_lat (Union[float, str]): Latitude value, or 'mean' for meridional mean.
+        selected_unit (str, optional): Desired unit override.
+        plot_mode (bool): If True, return a PlotData; else a 1D ndarray.
+
+    Returns:
+        PlotData with shape (nlon,) when plot_mode=True; ndarray otherwise; None
+        if the requested time is not in any dataset.
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    result = _arr_horizontal_slice(datasets, variable_name, time,
+                                   selected_lev_ilev, selected_unit)
+    if result is None:
+        return None
+
+    lats = result.lats
+    lons = result.lons
+    values_2d = result.values  # shape (nlat, nlon)
+
+    if selected_lat == 'mean':
+        values_1d = np.nanmean(values_2d, axis=0)
+        resolved_lat = 'mean'
+    else:
+        lat_val = float(selected_lat)
+        lat_idx = int(np.argmin(np.abs(lats - lat_val)))
+        values_1d = values_2d[lat_idx, :]
+        resolved_lat = float(lats[lat_idx])
+
+    if plot_mode:
+        return PlotData(values=values_1d, lons=lons,
+                        selected_lat=resolved_lat,
+                        selected_lev=result.selected_lev,
+                        variable_unit=result.variable_unit,
+                        variable_long_name=result.variable_long_name,
+                        mtime=result.mtime, model=result.model,
+                        filename=result.filename)
+    return values_1d
 
 
 @cache_data_fn

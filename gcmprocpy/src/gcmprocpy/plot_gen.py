@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from .data_parse import arr_lat_lon, batch_arr_lat_lon, arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height
+from .data_parse import arr_lat_lon, batch_arr_lat_lon, arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, arr_var_lat, arr_var_lon, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height
 
 logger = logging.getLogger(__name__)
 from .containers import resolve_derived
@@ -139,6 +139,24 @@ def _compute_gm_equator_lats(unique_lons):
     return [gm.GeoMag(0, lon).dec for lon in unique_lons]
 
 
+def _quiver_overlay(ax, x_coords, y_coords, u_values, v_values, *,
+                    density=15, scale=None, color='black', transform=None):
+    """Draw a thinned quiver overlay on the given axes.
+
+    No-op if either component is None. Keeps stride/scale/color logic
+    in one place so callers (lat-lon projections, lev-lat/lev-lon
+    slices) don't duplicate the call.
+    """
+    if u_values is None or v_values is None:
+        return
+    d = density
+    kwargs = {'color': color, 'scale': scale, 'zorder': 5}
+    if transform is not None:
+        kwargs['transform'] = transform
+    ax.quiver(x_coords[::d], y_coords[::d],
+              u_values[::d, ::d], v_values[::d, ::d], **kwargs)
+
+
 def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
                  cmap_color, cmap_lim_min, cmap_lim_max, line_color, coastlines,
                  nightshade, time, gm_equator_lats, hemisphere,
@@ -166,12 +184,9 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
                     linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
     ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
 
-    if wind_u_values is not None and wind_v_values is not None:
-        d = wind_density
-        ax.quiver(unique_lons[::d], unique_lats[::d],
-                  wind_u_values[::d, ::d], wind_v_values[::d, ::d],
-                  color=wind_color, transform=ccrs.PlateCarree(),
-                  scale=wind_scale, zorder=5)
+    _quiver_overlay(ax, unique_lons, unique_lats, wind_u_values, wind_v_values,
+                    density=wind_density, scale=wind_scale, color=wind_color,
+                    transform=ccrs.PlateCarree())
 
     gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5,
                       linestyle='--')
@@ -424,12 +439,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
                         linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
         ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
 
-        if wind_u_values is not None and wind_v_values is not None:
-            d = wind_density
-            ax.quiver(unique_lons[::d], unique_lats[::d],
-                      wind_u_values[::d, ::d], wind_v_values[::d, ::d],
-                      color=wind_color, transform=ccrs.PlateCarree(),
-                      scale=wind_scale, zorder=5)
+        _quiver_overlay(ax, unique_lons, unique_lats, wind_u_values, wind_v_values,
+                        density=wind_density, scale=wind_scale, color=wind_color,
+                        transform=ccrs.PlateCarree())
 
         cbar = plot.colorbar(cf, label=variable_name + " [" + variable_unit + "]",
                              fraction=0.046, pad=0.04, shrink=0.65)
@@ -478,12 +490,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
                         linewidths=0.5, levels=contour_levels, transform=ccrs.PlateCarree())
         ax.clabel(cl, inline=True, fontsize=8, colors=line_color)
 
-        if wind_u_values is not None and wind_v_values is not None:
-            d = wind_density
-            ax.quiver(unique_lons[::d], unique_lats[::d],
-                      wind_u_values[::d, ::d], wind_v_values[::d, ::d],
-                      color=wind_color, transform=ccrs.PlateCarree(),
-                      scale=wind_scale, zorder=5)
+        _quiver_overlay(ax, unique_lons, unique_lats, wind_u_values, wind_v_values,
+                        density=wind_density, scale=wind_scale, color=wind_color,
+                        transform=ccrs.PlateCarree())
 
         cbar = plot.colorbar(cf, label=variable_name + " [" + variable_unit + "]",
                              fraction=0.046, pad=0.04, shrink=0.65)
@@ -537,12 +546,9 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
     contour_lines = plt.contour(unique_lons, unique_lats, variable_values, colors=line_color, linewidths=0.5, levels=contour_levels)
     plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
 
-    if wind_u_values is not None and wind_v_values is not None:
-        d = wind_density
-        ax.quiver(unique_lons[::d], unique_lats[::d],
-                  wind_u_values[::d, ::d], wind_v_values[::d, ::d],
-                  color=wind_color, transform=ccrs.PlateCarree(),
-                  scale=wind_scale, zorder=5)
+    _quiver_overlay(ax, unique_lons, unique_lats, wind_u_values, wind_v_values,
+                    density=wind_density, scale=wind_scale, color=wind_color,
+                    transform=ccrs.PlateCarree())
 
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]",fraction=0.046, pad=0.04, shrink=0.65)
     cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
@@ -734,11 +740,11 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
             def on_add(sel):
                 # Get the x (variable value) and y (level) from the cursor's target
                 x, y = sel.target
-                
+
                 # Set annotation text to show level and variable value
                 sel.annotation.set(
                     text=f"Level: {y:.2f} ln(P0/P)\n{variable_name}: {x:.2e} {variable_unit}")
-                
+
                 # Customize the appearance of the annotation box
                 sel.annotation.get_bbox_patch().set(alpha=0.9)
 
@@ -748,6 +754,224 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         backend = get_backend()
         if "Qt" in backend:
             return plot, variable_unit, level_minimum, level_maximum
+        elif plot is not None:
+            plt.close(plot)
+        return plot
+
+
+def plt_var_lat(datasets, variable_name, level, time=None, mtime=None, longitude=None,
+                level_type='pressure', variable_unit=None,
+                latitude_minimum=None, latitude_maximum=None,
+                clean_plot=False, verbose=False):
+    """
+    Generates a meridional 1D line plot (variable vs latitude) at a fixed longitude and level.
+
+    Args:
+        datasets (xarray.Dataset): The loaded dataset/s using xarray.
+        variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
+        level (float): The selected lev/ilev value (or 'mean').
+        time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
+        mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0].
+        longitude (Union[float, str], optional): The specific longitude, or 'mean' for zonal mean.
+        level_type (str, optional): 'pressure' (default) or 'height'.
+        variable_unit (str, optional): The desired unit of the variable.
+        latitude_minimum (float, optional): Minimum latitude on the x-axis.
+        latitude_maximum (float, optional): Maximum latitude on the x-axis.
+        clean_plot (bool, optional): If True, hide subtext. Defaults to False.
+        verbose (bool, optional): If True, log execution data. Defaults to False.
+
+    Returns:
+        matplotlib.figure.Figure: Line plot.
+    """
+    if time is None:
+        time = get_time(datasets, mtime)
+    if verbose:
+        logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---["+str(longitude)+"]---------------")
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    _original_height = None
+    if level_type == 'height' and level is not None and level != 'mean':
+        _original_height = float(level)
+        level = height_to_pres_level(datasets, time, _original_height)
+
+    result = arr_var_lat(datasets, variable_name, time, level, longitude,
+                         selected_unit=variable_unit, plot_mode=True)
+    variable_values = result.values
+    lats = result.lats
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    selected_mtime = result.mtime
+    filename = result.filename
+    selected_lon = result.selected_lon
+    selected_lev = result.selected_lev
+
+    if latitude_minimum is None:
+        latitude_minimum = np.nanmin(lats)
+    if latitude_maximum is None:
+        latitude_maximum = np.nanmax(lats)
+
+    min_val, max_val = min_max(variable_values)
+    selected_day = selected_mtime[0]
+    selected_hour = selected_mtime[1]
+    selected_min = selected_mtime[2]
+    selected_sec = selected_mtime[3]
+
+    if not clean_plot:
+        figure_height = 6
+        figure_width = 10
+    else:
+        figure_height = 5
+        figure_width = 10
+
+    plot = plt.figure(figsize=(figure_width, figure_height))
+    plt.plot(lats, variable_values)
+    plt.xlabel('Latitude (Deg)', fontsize=14)
+    plt.ylabel(variable_long_name + ' (' + variable_unit + ')', fontsize=14, labelpad=15)
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
+    plt.xlim(latitude_minimum, latitude_maximum)
+    plt.grid(True, alpha=0.3)
+
+    if not clean_plot:
+        plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')\n\n', fontsize=18)
+        if selected_lon == 'mean':
+            loc_str = 'LON= Mean'
+        else:
+            loc_str = 'LON=' + str(selected_lon)
+        if selected_lev is not None:
+            loc_str += '  ' + _level_label(selected_lev, original_height=_original_height)
+        plt.text(0.5, 1.08, loc_str, ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.3, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.35, str(filename), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            cursor = mplcursors.cursor(plot, hover=True)
+            @cursor.connect("add")
+            def on_add(sel):
+                x, y = sel.target
+                sel.annotation.set(text=f"Lat: {x:.2f}\u00b0\n{variable_name}: {y:.2e} {variable_unit}")
+                sel.annotation.get_bbox_patch().set(alpha=0.9)
+            plt.show(block=False)
+        return plot
+    else:
+        backend = get_backend()
+        if "Qt" in backend:
+            return plot, variable_unit, latitude_minimum, latitude_maximum
+        elif plot is not None:
+            plt.close(plot)
+        return plot
+
+
+def plt_var_lon(datasets, variable_name, level, time=None, mtime=None, latitude=None,
+                level_type='pressure', variable_unit=None,
+                longitude_minimum=None, longitude_maximum=None,
+                clean_plot=False, verbose=False):
+    """
+    Generates a zonal 1D line plot (variable vs longitude) at a fixed latitude and level.
+
+    Args:
+        datasets (xarray.Dataset): The loaded dataset/s using xarray.
+        variable_name (str): The name of the variable with latitude, longitude, and lev/ilev dimensions.
+        level (float): The selected lev/ilev value (or 'mean').
+        time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
+        mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0].
+        latitude (Union[float, str], optional): The specific latitude, or 'mean' for meridional mean.
+        level_type (str, optional): 'pressure' (default) or 'height'.
+        variable_unit (str, optional): The desired unit of the variable.
+        longitude_minimum (float, optional): Minimum longitude on the x-axis.
+        longitude_maximum (float, optional): Maximum longitude on the x-axis.
+        clean_plot (bool, optional): If True, hide subtext. Defaults to False.
+        verbose (bool, optional): If True, log execution data. Defaults to False.
+
+    Returns:
+        matplotlib.figure.Figure: Line plot.
+    """
+    if time is None:
+        time = get_time(datasets, mtime)
+    if verbose:
+        logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(level)+"]---["+str(latitude)+"]---------------")
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    _original_height = None
+    if level_type == 'height' and level is not None and level != 'mean':
+        _original_height = float(level)
+        level = height_to_pres_level(datasets, time, _original_height)
+
+    result = arr_var_lon(datasets, variable_name, time, level, latitude,
+                         selected_unit=variable_unit, plot_mode=True)
+    variable_values = result.values
+    lons = result.lons
+    variable_unit = result.variable_unit
+    variable_long_name = result.variable_long_name
+    selected_mtime = result.mtime
+    filename = result.filename
+    selected_lat = result.selected_lat
+    selected_lev = result.selected_lev
+
+    if longitude_minimum is None:
+        longitude_minimum = np.nanmin(lons)
+    if longitude_maximum is None:
+        longitude_maximum = np.nanmax(lons)
+
+    min_val, max_val = min_max(variable_values)
+    selected_day = selected_mtime[0]
+    selected_hour = selected_mtime[1]
+    selected_min = selected_mtime[2]
+    selected_sec = selected_mtime[3]
+
+    if not clean_plot:
+        figure_height = 6
+        figure_width = 10
+    else:
+        figure_height = 5
+        figure_width = 10
+
+    plot = plt.figure(figsize=(figure_width, figure_height))
+    plt.plot(lons, variable_values)
+    plt.xlabel('Longitude (Deg)', fontsize=14)
+    plt.ylabel(variable_long_name + ' (' + variable_unit + ')', fontsize=14, labelpad=15)
+    plt.xticks(fontsize=9)
+    plt.yticks(fontsize=9)
+    plt.xlim(longitude_minimum, longitude_maximum)
+    plt.grid(True, alpha=0.3)
+
+    if not clean_plot:
+        plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')\n\n', fontsize=18)
+        if selected_lat == 'mean':
+            loc_str = 'LAT= Mean'
+        else:
+            loc_str = 'LAT=' + str(selected_lat)
+        if selected_lev is not None:
+            loc_str += '  ' + _level_label(selected_lev, original_height=_original_height)
+        plt.text(0.5, 1.08, loc_str, ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+
+        plt.text(0.5, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.25, "Time = "+str(time.astype('M8[s]').astype(datetime)), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.3, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+        plt.text(0.5, -0.35, str(filename), ha='center', va='center', fontsize=14, transform=plt.gca().transAxes)
+
+    if is_notebook():
+        backend = get_backend()
+        if "inline" in backend or "nbagg" in backend:
+            cursor = mplcursors.cursor(plot, hover=True)
+            @cursor.connect("add")
+            def on_add(sel):
+                x, y = sel.target
+                sel.annotation.set(text=f"Lon: {x:.2f}\u00b0\n{variable_name}: {y:.2e} {variable_unit}")
+                sel.annotation.get_bbox_patch().set(alpha=0.9)
+            plt.show(block=False)
+        return plot
+    else:
+        backend = get_backend()
+        if "Qt" in backend:
+            return plot, variable_unit, longitude_minimum, longitude_maximum
         elif plot is not None:
             plt.close(plot)
         return plot

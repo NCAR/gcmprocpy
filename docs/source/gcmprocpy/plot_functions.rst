@@ -181,8 +181,38 @@ Example:
         unit_of_variable = 'K'
         plot = gy.plt_lev_var(datasets, variable_name, latitude, time=time_value, longitude=longitude_value, variable_unit=unit_of_variable)
 
-# Extracting the details for "Pressure level vs Longitude Contour Plot" and "Pressure Level vs Latitude Contour Plot" 
-# from the README.md to create corresponding sections in functionality.rst
+Variable vs Latitude Line Plot (Meridional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function generates a 1D meridional line plot of a variable along latitude at a fixed longitude and pressure level (or height). Pass ``longitude='mean'`` for a zonal-mean profile.
+
+.. autofunction:: plt_var_lat
+   :noindex:
+
+Example:
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        plot = gy.plt_var_lat(datasets, 'TN', level=4.0,
+                              time='2022-01-01T12:00:00', longitude=45.0)
+        # Zonal mean
+        plot = gy.plt_var_lat(datasets, 'TN', level=4.0,
+                              time='2022-01-01T12:00:00', longitude='mean')
+
+Variable vs Longitude Line Plot (Zonal)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function generates a 1D zonal line plot of a variable along longitude at a fixed latitude and pressure level (or height). Pass ``latitude='mean'`` for a meridional-mean profile.
+
+.. autofunction:: plt_var_lon
+   :noindex:
+
+Example:
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        plot = gy.plt_var_lon(datasets, 'TN', level=4.0,
+                              time='2022-01-01T12:00:00', latitude=30.0)
 
 Pressure Level / Height vs Longitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
