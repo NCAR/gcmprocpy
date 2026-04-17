@@ -157,11 +157,53 @@ def _quiver_overlay(ax, x_coords, y_coords, u_values, v_values, *,
               u_values[::d, ::d], v_values[::d, ::d], **kwargs)
 
 
+def _polar_ring_labels(ax, hemisphere, time, label_type='lt', fontsize=9):
+    """Draw 12 local-time or longitude labels around a polar stereographic ring.
+
+    Mirrors the tgcmproc IDL ``labpol.pro`` look — labels at every 30° of
+    azimuth, just outside the map boundary, with a footer caption.
+
+    label_type: 'lt' for solar local time (HH), 'lon' for geographic longitude (deg).
+    """
+    if label_type not in ('lt', 'lon'):
+        return
+
+    ut_hours = (time.astype('datetime64[s]').astype('int64') / 3600.0) % 24
+    boundary_lat = 40 if hemisphere == 'north' else -40
+    proj = ccrs.PlateCarree()
+
+    for lon in range(-180, 180, 30):
+        x_data, y_data = ax.projection.transform_point(lon, boundary_lat, proj)
+        x_disp, y_disp = ax.transData.transform((x_data, y_data))
+        x_axes, y_axes = ax.transAxes.inverted().transform((x_disp, y_disp))
+        dx = x_axes - 0.5
+        dy = y_axes - 0.5
+        r = math.sqrt(dx * dx + dy * dy)
+        if r == 0:
+            continue
+        offset = 0.05
+        x_lab = 0.5 + (dx / r) * (r + offset)
+        y_lab = 0.5 + (dy / r) * (r + offset)
+
+        if label_type == 'lt':
+            lt = (ut_hours + lon / 15.0) % 24
+            label = f"{int(round(lt)) % 24:02d}"
+        else:
+            label = f"{int(lon)}"
+
+        ax.text(x_lab, y_lab, label, transform=ax.transAxes,
+                ha='center', va='center', fontsize=fontsize)
+
+    caption = 'SOLAR LOCAL TIME (HRS)' if label_type == 'lt' else 'GEOGRAPHIC LONGITUDE (DEG)'
+    ax.text(0.5, -0.07, caption, transform=ax.transAxes,
+            ha='center', va='center', fontsize=fontsize)
+
+
 def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
                  cmap_color, cmap_lim_min, cmap_lim_max, line_color, coastlines,
                  nightshade, time, gm_equator_lats, hemisphere,
                  wind_u_values=None, wind_v_values=None, wind_density=15,
-                 wind_scale=None, wind_color='black'):
+                 wind_scale=None, wind_color='black', polar_label='lt'):
     """Draws a single polar contour panel on the given axes."""
     ax.set_boundary(_polar_boundary(), transform=ax.transAxes)
     if coastlines:
@@ -188,20 +230,23 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
                     density=wind_density, scale=wind_scale, color=wind_color,
                     transform=ccrs.PlateCarree())
 
-    gl = ax.gridlines(draw_labels=True, linewidth=0.5, color='gray', alpha=0.5,
-                      linestyle='--')
+    show_inline_labels = polar_label not in ('lt', 'lon')
+    gl = ax.gridlines(draw_labels=show_inline_labels, linewidth=0.5,
+                      color='gray', alpha=0.5, linestyle='--')
     gl.xlocator = mticker.FixedLocator(np.arange(-180, 181, 30))
     if hemisphere == 'north':
         gl.ylocator = mticker.FixedLocator(np.arange(40, 91, 10))
     else:
         gl.ylocator = mticker.FixedLocator(np.arange(-90, -39, 10))
 
+    _polar_ring_labels(ax, hemisphere, time, label_type=polar_label)
+
     title = 'North Pole' if hemisphere == 'north' else 'South Pole'
     ax.set_title(title, fontsize=14)
     return cf
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, level_type = 'pressure', variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, wind = False, wind_density = 15, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, level_type = 'pressure', variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, wind = False, wind_density = 15, wind_scale = None, wind_color = 'black', polar_label = 'lt', clean_plot = False, verbose = False ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -234,6 +279,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         wind_density (int, optional): Stride for thinning wind vectors (every Nth point). Defaults to 15.
         wind_scale (float, optional): Scale factor for quiver arrows. Larger values make arrows shorter. Defaults to None (auto-scaled).
         wind_color (str, optional): Color of the wind vectors. Defaults to 'black'.
+        polar_label (str, optional): Perimeter labels for polar projections. 'lt' (default) draws solar local-time labels at every 30° azimuth (the tgcmproc look), 'lon' draws geographic longitude labels, None disables ring labels and falls back to inline gridline labels. Ignored for non-polar projections.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -369,7 +415,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
                           gm_equator_lats=gm_equator_lats,
                           wind_u_values=wind_u_values, wind_v_values=wind_v_values,
                           wind_density=wind_density, wind_scale=wind_scale,
-                          wind_color=wind_color)
+                          wind_color=wind_color, polar_label=polar_label)
 
         if projection == 'polar':
             plot = plt.figure(figsize=(18, 10))

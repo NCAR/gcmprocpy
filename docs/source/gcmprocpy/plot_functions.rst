@@ -120,6 +120,22 @@ Polar Projections:
         # Both hemispheres side by side
         plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar')
 
+    Polar perimeter labels are controlled by ``polar_label``:
+
+    .. code-block:: python
+
+        # Solar local time labels (default — the tgcmproc look)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2003-03-20T00:00:00', level=4.0,
+                              projection='north_polar', polar_label='lt')
+
+        # Geographic longitude labels
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2003-03-20T00:00:00', level=4.0,
+                              projection='north_polar', polar_label='lon')
+
+        # Disable ring labels (fall back to inline gridline labels)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2003-03-20T00:00:00', level=4.0,
+                              projection='north_polar', polar_label=None)
+
 Orthographic and Mollweide Projections:
     .. code-block:: python
 
