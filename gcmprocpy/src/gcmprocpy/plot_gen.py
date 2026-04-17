@@ -1023,7 +1023,7 @@ def plt_var_lon(datasets, variable_name, level, time=None, mtime=None, latitude=
         return plot
 
 
-def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, y_axis = 'pressure', clean_plot = False, verbose = False):
+def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, y_axis = 'pressure', wind = False, wind_density = 5, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False):
     """
     Generates a Level vs Longitude contour plot for a given latitude.
 
@@ -1046,6 +1046,10 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         longitude_minimum (float, optional): Minimum longitude value for the plot. Defaults to -180.
         longitude_maximum (float, optional): Maximum longitude value for the plot. Defaults to 175.
+        wind (bool, optional): Overlay (U, W) wind vectors on the cross-section. Uses model-specific defaults (TIE-GCM: UN/WN, WACCM-X: U/OMEGA). Defaults to False.
+        wind_density (int, optional): Stride for thinning wind vectors (every Nth point). Defaults to 5.
+        wind_scale (float, optional): Scale factor for quiver arrows. Larger values make arrows shorter. Defaults to None (auto-scaled).
+        wind_color (str, optional): Color of the wind vectors. Defaults to 'black'.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -1057,7 +1061,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     if time is None:
         time = get_time(datasets, mtime)
     if contour_intervals is None:
-        contour_intervals = 20    
+        contour_intervals = 20
     if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(latitude)+"]---------------")
     if isinstance(time, str):
@@ -1160,6 +1164,33 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     if model == 'WACCM-X' and y_axis != 'height':
         plt.gca().invert_yaxis()
 
+    if wind:
+        from .containers import MODEL_DEFAULTS
+        u_name = MODEL_DEFAULTS[model]['wind_u']
+        u_res = arr_lev_lon(datasets, u_name, time, latitude,
+                            log_level=log_level, plot_mode=True)
+        w_res = None
+        w_candidates = [MODEL_DEFAULTS[model]['wind_w'], 'WN', 'W', 'OMEGA']
+        for w_name in dict.fromkeys(w_candidates):
+            try:
+                w_res = arr_lev_lon(datasets, w_name, time, latitude,
+                                    log_level=log_level, plot_mode=True)
+            except (KeyError, AttributeError):
+                continue
+            if w_res is not None:
+                break
+        if u_res is not None and w_res is not None:
+            u_vals = u_res.values
+            w_vals = w_res.values
+            w_levs = w_res.levs
+            if w_vals.shape[0] == u_vals.shape[0] + 1:
+                w_vals = 0.5 * (w_vals[:-1, :] + w_vals[1:, :])
+                w_levs = 0.5 * (w_levs[:-1] + w_levs[1:])
+            if w_vals.shape == u_vals.shape:
+                _quiver_overlay(plt.gca(), u_res.lons, u_res.levs,
+                                u_vals, w_vals,
+                                density=wind_density, scale=wind_scale,
+                                color=wind_color)
 
     if not clean_plot:
         # Add subtext to the plot
@@ -1169,7 +1200,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.3, str(filename), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
 
-    center_longitude = 0 
+    center_longitude = 0
     if is_notebook():
         backend = get_backend()
         if "inline" in backend or "nbagg" in backend:
@@ -1215,7 +1246,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         return plot
 
 
-def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, y_axis = 'pressure', clean_plot = False, verbose = False):
+def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, y_axis = 'pressure', wind = False, epflux = False, wind_density = 5, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False):
     """
     Generates a Level vs Latitude contour plot for a specified time and/or longitude.
 
@@ -1238,6 +1269,11 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         latitude_minimum (float, optional): Minimum latitude value for the plot. Defaults to -87.5.
         latitude_maximum (float, optional): Maximum latitude value for the plot. Defaults to 87.5.
+        wind (bool, optional): Overlay (V, W) wind vectors on the cross-section. Uses model-specific defaults (TIE-GCM: VN/WN, WACCM-X: V/OMEGA). Defaults to False.
+        epflux (bool, optional): Overlay (EPVY, EPVZ) Eliassen-Palm flux vectors instead of winds. Mutually exclusive with ``wind``. Defaults to False.
+        wind_density (int, optional): Stride for thinning overlay vectors (every Nth point). Defaults to 5.
+        wind_scale (float, optional): Scale factor for quiver arrows. Larger values make arrows shorter. Defaults to None (auto-scaled).
+        wind_color (str, optional): Color of the overlay vectors. Defaults to 'black'.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -1250,7 +1286,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         time = get_time(datasets, mtime)
     if contour_intervals is None:
         contour_intervals = 20
-    if verbose:    
+    if verbose:
         logger.debug("---------------["+variable_name+"]---["+str(time)+"]---["+str(longitude)+"]---------------")
     # Generate 2D arrays, extract variable_unit
     if isinstance(time, str):
@@ -1355,6 +1391,51 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
 
     if model == 'WACCM-X' and y_axis != 'height':
         plt.gca().invert_yaxis()
+
+    if wind or epflux:
+        from .data_epflux import arr_epflux
+        overlay_u = overlay_v = None
+        overlay_x = unique_lats
+        overlay_y = unique_levs
+        if epflux:
+            epvy = arr_epflux(datasets, 'EPVY', time, log_level=log_level)
+            epvz = arr_epflux(datasets, 'EPVZ', time, log_level=log_level)
+            if epvy is not None and epvz is not None:
+                overlay_u = epvy.values
+                overlay_v = epvz.values
+                overlay_x = epvy.lats
+                overlay_y = epvy.levs
+        else:
+            from .containers import MODEL_DEFAULTS
+            v_name = MODEL_DEFAULTS[model]['wind_v']
+            v_res = arr_lev_lat(datasets, v_name, time, longitude,
+                                log_level=log_level, plot_mode=True)
+            w_res = None
+            w_candidates = [MODEL_DEFAULTS[model]['wind_w'], 'WN', 'W', 'OMEGA']
+            for w_name in dict.fromkeys(w_candidates):
+                try:
+                    w_res = arr_lev_lat(datasets, w_name, time, longitude,
+                                        log_level=log_level, plot_mode=True)
+                except (KeyError, AttributeError):
+                    continue
+                if w_res is not None:
+                    break
+            if v_res is not None and w_res is not None:
+                u_vals = v_res.values
+                w_vals = w_res.values
+                w_levs = w_res.levs
+                # Interpolate W from ilev to lev when sizes differ by 1
+                if w_vals.shape[0] == u_vals.shape[0] + 1:
+                    w_vals = 0.5 * (w_vals[:-1, :] + w_vals[1:, :])
+                    w_levs = 0.5 * (w_levs[:-1] + w_levs[1:])
+                if w_vals.shape == u_vals.shape:
+                    overlay_u = u_vals
+                    overlay_v = w_vals
+                    overlay_x = v_res.lats
+                    overlay_y = v_res.levs
+        _quiver_overlay(plt.gca(), overlay_x, overlay_y, overlay_u, overlay_v,
+                        density=wind_density, scale=wind_scale, color=wind_color)
+
     if not clean_plot:
         # Add subtext to the plot
         plt.text(0.25, -0.2, "Min, Max = "+str("{:.2e}".format(min_val))+", "+str("{:.2e}".format(max_val)), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
@@ -1363,7 +1444,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         plt.text(0.75, -0.25, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.50, -0.3, str(filename), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
 
-    
+
     if is_notebook():
         backend = get_backend()
         if "inline" in backend or "nbagg" in backend:
@@ -1375,9 +1456,9 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
             def on_add(sel):
                 # sel.target gives the coordinates where the cursor is
                 x, y = sel.target
-                
-                lat_idx = (np.abs(unique_lats - x)).argmin() 
-                
+
+                lat_idx = (np.abs(unique_lats - x)).argmin()
+
                 # Find the nearest latitude index
                 level_idx = (np.abs(unique_levs - y)).argmin()
                 

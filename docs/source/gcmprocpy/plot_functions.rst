@@ -249,6 +249,14 @@ Example:
         contour_intervals = 20
         plot = gy.plt_lev_lon(datasets, variable_name, latitude, time=time_value, variable_unit=unit_of_variable, contour_intervals=contour_intervals)
 
+    Overlay (U, W) wind vectors on the cross-section:
+
+    .. code-block:: python
+
+        plot = gy.plt_lev_lon(datasets, 'TN', latitude=2.5,
+                              time='2003-03-20T00:00:00',
+                              wind=True, wind_density=3)
+
 Pressure Level / Height vs Latitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -268,6 +276,23 @@ Example:
         time_value = '2022-01-01T12:00:00'
         unit_of_variable = 'K'
         plot = gy.plt_lev_lat(datasets, variable_name, longitude=longitude_value, time=time_value, variable_unit=unit_of_variable)
+
+    Overlay (V, W) wind vectors on the meridional cross-section:
+
+    .. code-block:: python
+
+        plot = gy.plt_lev_lat(datasets, 'TN', longitude=30.0,
+                              time='2003-03-20T00:00:00',
+                              wind=True, wind_density=3)
+
+    Or overlay Eliassen-Palm flux vectors (EPVY, EPVZ) instead — useful for
+    diagnosing planetary-wave forcing of the zonal mean flow:
+
+    .. code-block:: python
+
+        plot = gy.plt_lev_lat(datasets, 'TN', longitude='mean',
+                              time='2003-03-20T00:00:00',
+                              epflux=True, wind_density=3)
 
 Pressure Level / Height vs Time Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
