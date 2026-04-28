@@ -3,6 +3,9 @@ Ploting Routines
 
 gcmprocpy provides a range of functions for data visualization. Below are the key plotting routines along with their detailed parameters and usage examples.
 
+.. note::
+   For live examples with output, see the :doc:`notebooks/03_plotting` notebook.
+
 Mode: API
 --------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -29,21 +32,6 @@ For interactive plotting in Jupyter notebooks, use the following code snippet in
 
 .. warning::
     The interactive plotting mode doesn't work in Jupyter notebooks on NCAR JupyterHub.
-
-.. currentmodule:: gcmprocpy.containers
-
-Data Containers
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-These dataclasses are used throughout gcmprocpy to hold dataset metadata and extracted plot data.
-
-.. autoclass:: ModelDataset
-   :noindex:
-   :members:
-
-.. autoclass:: PlotData
-   :noindex:
-   :members:
 
 .. currentmodule:: gcmprocpy.io
 
@@ -109,6 +97,15 @@ Example:
         intervals = 20
         plot = gy.plt_lat_lon(datasets, variable_name, mtime=value_of_mtime, level=pressure_level, variable_unit=unit_of_variable, contour_intervals=intervals)
 
+Height Mode:
+    Use ``level_type='height'`` to specify the level as height in km instead of pressure.
+
+    .. code-block:: python
+
+        # Lat-lon plot at 300 km altitude (automatically finds nearest pressure level)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2022-01-01T12:00:00',
+                              level=300.0, level_type='height')
+
 Polar Projections:
     The ``projection`` parameter supports polar stereographic views in addition to the default Mercator projection.
 
@@ -123,68 +120,63 @@ Polar Projections:
         # Both hemispheres side by side
         plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar')
 
+    Polar perimeter labels are controlled by ``polar_label``:
+
+    .. code-block:: python
+
+        # Solar local time labels (default — the tgcmproc look)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2003-03-20T00:00:00', level=4.0,
+                              projection='north_polar', polar_label='lt')
+
+        # Geographic longitude labels
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2003-03-20T00:00:00', level=4.0,
+                              projection='north_polar', polar_label='lon')
+
+        # Disable ring labels (fall back to inline gridline labels)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2003-03-20T00:00:00', level=4.0,
+                              projection='north_polar', polar_label=None)
+
+Orthographic and Mollweide Projections:
+    .. code-block:: python
+
+        # Orthographic (satellite view) with coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='orthographic', coastlines=True)
+
+        # Mollweide (equal-area) with coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='mollweide', coastlines=True)
+
+Wind Vector Overlays:
+    Set ``wind=True`` to overlay wind vectors. Variable names are automatically selected
+    based on model type (TIE-GCM: UN/VN, WACCM-X: U/V).
+
+    .. code-block:: python
+
+        # Mercator with wind vectors
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, wind=True)
+
+        # Orthographic with wind vectors and coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='orthographic', wind=True, wind_density=3, coastlines=True)
+
+        # Customize wind arrow appearance
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              wind=True, wind_density=5, wind_color='red', wind_scale=500)
+
+Coastlines:
+    Add coastline outlines to any projection.
+
+    .. code-block:: python
+
+        # Mercator with coastlines
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, coastlines=True)
+
         # Polar with coastlines
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, projection='polar', coastlines=True)
+        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
+                              projection='polar', coastlines=True)
 
-Height Interpolation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-All plot functions that accept a ``level`` parameter also accept ``level_type`` to specify
-whether the level value is a pressure level (default) or a height in km. When ``level_type='height'``,
-the height is automatically converted to the nearest pressure level using the model's geometric
-height field (``ZG`` for TIE-GCM, ``Z3`` for WACCM-X).
-
-All level-axis plots (``plt_lev_var``, ``plt_lev_lon``, ``plt_lev_lat``, ``plt_lev_time``) also
-accept ``y_axis='height'`` to display the vertical axis in km instead of pressure coordinates.
-
-Example:
-    Specify a level as height instead of pressure.
-
-    .. code-block:: python
-
-        datasets = gy.load_datasets(directory, dataset_filter)
-
-        # Lat-lon plot at 300 km altitude (automatically finds nearest pressure level)
-        plot = gy.plt_lat_lon(datasets, 'TN', time='2022-01-01T12:00:00',
-                              level=300.0, level_type='height')
-
-        # Latitude vs time at 400 km altitude
-        plot = gy.plt_lat_time(datasets, 'TN', level=400.0, level_type='height',
-                               longitude=0.0)
-
-        # Longitude vs time at 250 km altitude
-        plot = gy.plt_lon_time(datasets, 'TN', latitude=0.0, level=250.0,
-                               level_type='height')
-
-        # Variable vs time at 300 km altitude
-        plot = gy.plt_var_time(datasets, 'TN', latitude=0.0, longitude=0.0,
-                               level=300.0, level_type='height')
-
-Example:
-    Plot vertical axis in km instead of pressure.
-
-    .. code-block:: python
-
-        datasets = gy.load_datasets(directory, dataset_filter)
-
-        # Vertical profile with height axis
-        plot = gy.plt_lev_var(datasets, 'TN', latitude=0.0,
-                              time='2022-01-01T12:00:00', longitude=0.0,
-                              y_axis='height')
-
-        # Longitude cross-section with height axis
-        plot = gy.plt_lev_lon(datasets, 'TN', latitude=0.0,
-                              time='2022-01-01T12:00:00', y_axis='height')
-
-        # Latitude cross-section with height axis
-        plot = gy.plt_lev_lat(datasets, 'TN', time='2022-01-01T12:00:00',
-                              longitude=0.0, y_axis='height')
-
-        # Level vs time with height axis
-        plot = gy.plt_lev_time(datasets, 'TN', latitude=0.0, longitude=0.0,
-                               y_axis='height')
-
-Pressure Level vs Variable Line Plot
+Pressure Level / Height vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This function generates a line plot of a variable at a specific latitude and optional longitude, time, and local time.
@@ -193,7 +185,7 @@ This function generates a line plot of a variable at a specific latitude and opt
    :noindex:
 
 Example:
-    Load datasets and generate a Pressure Level vs Variable Line plot.
+    Load datasets and generate a Pressure Level / Height vs Variable Line plot.
 
     .. code-block:: python
 
@@ -205,10 +197,40 @@ Example:
         unit_of_variable = 'K'
         plot = gy.plt_lev_var(datasets, variable_name, latitude, time=time_value, longitude=longitude_value, variable_unit=unit_of_variable)
 
-# Extracting the details for "Pressure level vs Longitude Contour Plot" and "Pressure Level vs Latitude Contour Plot" 
-# from the README.md to create corresponding sections in functionality.rst
+Variable vs Latitude Line Plot (Meridional)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Pressure level vs Longitude Contour Plot
+This function generates a 1D meridional line plot of a variable along latitude at a fixed longitude and pressure level (or height). Pass ``longitude='mean'`` for a zonal-mean profile.
+
+.. autofunction:: plt_var_lat
+   :noindex:
+
+Example:
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        plot = gy.plt_var_lat(datasets, 'TN', level=4.0,
+                              time='2022-01-01T12:00:00', longitude=45.0)
+        # Zonal mean
+        plot = gy.plt_var_lat(datasets, 'TN', level=4.0,
+                              time='2022-01-01T12:00:00', longitude='mean')
+
+Variable vs Longitude Line Plot (Zonal)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This function generates a 1D zonal line plot of a variable along longitude at a fixed latitude and pressure level (or height). Pass ``latitude='mean'`` for a meridional-mean profile.
+
+.. autofunction:: plt_var_lon
+   :noindex:
+
+Example:
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        plot = gy.plt_var_lon(datasets, 'TN', level=4.0,
+                              time='2022-01-01T12:00:00', latitude=30.0)
+
+Pressure Level / Height vs Longitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This function generates a contour plot of a variable at a specific latitude against longitude, with optional time and local time.
@@ -227,16 +249,24 @@ Example:
         contour_intervals = 20
         plot = gy.plt_lev_lon(datasets, variable_name, latitude, time=time_value, variable_unit=unit_of_variable, contour_intervals=contour_intervals)
 
-Pressure Level vs Latitude Contour Plot
+    Overlay (U, W) wind vectors on the cross-section:
+
+    .. code-block:: python
+
+        plot = gy.plt_lev_lon(datasets, 'TN', latitude=2.5,
+                              time='2003-03-20T00:00:00',
+                              wind=True, wind_density=3)
+
+Pressure Level / Height vs Latitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This function generates a contour plot of a variable against pressure level and latitude.
+This function generates a contour plot of a variable against pressure level / height and latitude.
 
 .. autofunction:: plt_lev_lat
    :noindex:
 
 Example:
-    Load datasets and generate a Pressure Level vs Latitude contour plot.
+    Load datasets and generate a Pressure Level / Height vs Latitude contour plot.
 
     .. code-block:: python
 
@@ -247,16 +277,33 @@ Example:
         unit_of_variable = 'K'
         plot = gy.plt_lev_lat(datasets, variable_name, longitude=longitude_value, time=time_value, variable_unit=unit_of_variable)
 
-Pressure Level vs Time Contour Plot
+    Overlay (V, W) wind vectors on the meridional cross-section:
+
+    .. code-block:: python
+
+        plot = gy.plt_lev_lat(datasets, 'TN', longitude=30.0,
+                              time='2003-03-20T00:00:00',
+                              wind=True, wind_density=3)
+
+    Or overlay Eliassen-Palm flux vectors (EPVY, EPVZ) instead — useful for
+    diagnosing planetary-wave forcing of the zonal mean flow:
+
+    .. code-block:: python
+
+        plot = gy.plt_lev_lat(datasets, 'TN', longitude='mean',
+                              time='2003-03-20T00:00:00',
+                              epflux=True, wind_density=3)
+
+Pressure Level / Height vs Time Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This function creates a contour plot of a variable against pressure level and time.
+This function creates a contour plot of a variable against pressure level / height and time.
 
 .. autofunction:: plt_lev_time
    :noindex:
 
 Example:
-    Load datasets and generate a Pressure Level vs Time contour plot.
+    Load datasets and generate a Pressure Level / Height vs Time contour plot.
 
     .. code-block:: python
 
@@ -351,55 +398,6 @@ Example:
         # Contour plot across all levels
         plot = gy.plt_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon)
 
-Wind Vector Overlays
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Wind vectors can be overlaid on any ``plt_lat_lon`` plot by setting ``wind=True``.
-The wind variable names are automatically selected based on the model type
-(TIE-GCM: UN/VN, WACCM-X: U/V) using ``MODEL_DEFAULTS``.
-
-Example:
-    .. code-block:: python
-
-        datasets = gy.load_datasets(directory, dataset_filter)
-
-        # Mercator with wind vectors
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0, wind=True)
-
-        # Orthographic with wind vectors and coastlines
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
-                              projection='orthographic', wind=True, wind_density=3, coastlines=True)
-
-        # Customize wind arrow appearance
-        plot = gy.plt_lat_lon(datasets, 'TN', mtime=[360, 0, 0, 0], level=4.0,
-                              wind=True, wind_density=5, wind_color='red', wind_scale=500)
-
-.. currentmodule:: gcmprocpy.containers
-
-Model Defaults
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``MODEL_DEFAULTS`` is a dictionary containing model-specific default variable names and
-color scheme configurations for TIE-GCM and WACCM-X.
-
-.. autodata:: MODEL_DEFAULTS
-   :noindex:
-
-Example:
-    Access default wind variable names for a model.
-
-    .. code-block:: python
-
-        from gcmprocpy import MODEL_DEFAULTS
-
-        # TIE-GCM wind variables
-        print(MODEL_DEFAULTS['TIE-GCM']['wind_u'])  # 'UN'
-        print(MODEL_DEFAULTS['TIE-GCM']['wind_v'])  # 'VN'
-
-        # WACCM-X wind variables
-        print(MODEL_DEFAULTS['WACCM-X']['wind_u'])  # 'U'
-        print(MODEL_DEFAULTS['WACCM-X']['wind_v'])  # 'V'
-
 .. currentmodule:: gcmprocpy.plot_gen
 
 Mode: CLI
@@ -413,7 +411,7 @@ This command generates a contour plot of a variable against latitude and longitu
 .. autoprogram:: gcmprocpy.cmd.cmd_lat_lon:cmd_parser()
    :prog: lat_lon
 
-Pressure Level vs Variable Line Plot
+Pressure Level / Height vs Variable Line Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This command generates a line plot of a variable at a specific latitude and optional longitude, time, and local time.
@@ -421,7 +419,7 @@ This command generates a line plot of a variable at a specific latitude and opti
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_var:cmd_parser()
    :prog: lev_var
 
-Pressure level vs Longitude Contour Plot
+Pressure Level / Height vs Longitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This command generates a contour plot of a variable at a specific latitude against longitude, with optional time and local time.
@@ -429,18 +427,18 @@ This command generates a contour plot of a variable at a specific latitude again
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_lon:cmd_parser()
    :prog: lev_lon
 
-Pressure Level vs Latitude Contour Plot
+Pressure Level / Height vs Latitude Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This command generates a contour plot of a variable against pressure level and latitude.
+This command generates a contour plot of a variable against pressure level / height and latitude.
 
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_lat:cmd_parser()
    :prog: lev_lat
 
-Pressure Level vs Time Contour Plot
+Pressure Level / Height vs Time Contour Plot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This command creates a contour plot of a variable against pressure level and time.
+This command creates a contour plot of a variable against pressure level / height and time.
 
 .. autoprogram:: gcmprocpy.cmd.cmd_lev_time:cmd_parser()
    :prog: lev_time

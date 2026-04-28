@@ -58,6 +58,8 @@ The following plots can be made with gcmprocpy:
 
 - Latitude vs Longitude plots
 - Pressure level / Height vs Variable Value plots
+- Variable vs Latitude line plots (meridional cut)
+- Variable vs Longitude line plots (zonal cut)
 - Pressure level / Height vs Longitude plots
 - Pressure level / Height vs Latitude plots
 - Pressure level / Height vs Time plots
@@ -78,16 +80,19 @@ Mode: CLI
 
 GCMprocpy can also be used directly from the command line. The following plots can be made on the command line:
 
-- Latitude vs Longitude plots
-- Pressure level / Height vs Variable Value plots
-- Pressure level / Height vs Longitude plots
-- Pressure level / Height vs Latitude plots
-- Pressure level / Height vs Time plots
-- Latitude vs Time plots
-- Longitude vs Time plots
-- Variable vs Time plots
-- Satellite Track Interpolation plots
+- Latitude vs Longitude plots (``lat_lon``)
+- Pressure level / Height vs Variable Value plots (``lev_var``)
+- Variable vs Latitude line plots (``var_lat``)
+- Variable vs Longitude line plots (``var_lon``)
+- Pressure level / Height vs Longitude plots (``lev_lon``)
+- Pressure level / Height vs Latitude plots (``lev_lat``)
+- Pressure level / Height vs Time plots (``lev_time``)
+- Latitude vs Time plots (``lat_time``)
+- Longitude vs Time plots (``lon_time``)
+- Variable vs Time plots (``var_time``)
+- Satellite Track Interpolation plots (``sat_track``)
 
 Use ``-lt height`` to specify the level as height (km) or ``-ya height`` for height y-axis.
+For ``var_lat``/``var_lon``, the default for ``-lon``/``-lat`` is ``mean`` (zonal/meridional mean).
 
 Examples and detailed usage can be found in the plotting routines section.

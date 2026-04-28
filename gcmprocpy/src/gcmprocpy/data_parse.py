@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import dask
 from .convert_units import convert_units
-from .containers import ModelDataset, PlotData
+from .containers import ModelDataset, PlotData, cache_data_fn, resolve_derived
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -223,7 +223,7 @@ def dim_info(datasets, dimension):
         if dimension in ds.dims:
             # Gather dimension details
             dim_details = {
-                "size": ds.dims[dimension]
+                "size": ds.sizes[dimension]
             }
             
             # Check if the dimension is a coordinate and add more details if it is
@@ -237,6 +237,7 @@ def dim_info(datasets, dimension):
     
     return dimension_info
 
+@cache_data_fn
 def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, plot_mode=False):
     """
     Extracts and processes data for a given variable at a specific time from multiple datasets. 
@@ -317,6 +318,7 @@ def check_var_dims(ds, variable_name):
     else:
         return 'Variable not found in dataset'
 
+@cache_data_fn
 def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= None, log_level=True, plot_mode = False):
     """
     Extracts and processes data from the dataset based on a specific variable, time, and latitude.
@@ -386,6 +388,7 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
 
 
 
+@cache_data_fn
 def batch_arr_lat_lon(datasets, variable_names, time, selected_lev_ilev=None, selected_unit=None, plot_mode=False):
     """Extract multiple variables at once for the same time and level, avoiding redundant lookups.
 
@@ -469,6 +472,7 @@ def batch_arr_lat_lon(datasets, variable_names, time, selected_lev_ilev=None, se
     return None
 
 
+@cache_data_fn
 def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts data from the dataset based on the specified variable, time, and level (lev/ilev).
@@ -495,17 +499,17 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 str: Name of the dataset file from which data is extracted.
     """
 
-    if selected_lev_ilev != None and selected_lev_ilev != "mean":
+    if selected_lev_ilev is not None and selected_lev_ilev != "mean":
         selected_lev_ilev = float(selected_lev_ilev)
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
     first_pass = True
     for mds in datasets:
         ds = mds.ds
-        if first_pass == True:
+        if first_pass:
             lev_ilev = check_var_dims(ds, variable_name)
         if lev_ilev == 'lev':
-            first_pass == False
+            first_pass = False
             if mds.has_time(time):
                 if 'lev' not in ds[variable_name].dims:
                     raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'lev'")
@@ -518,7 +522,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                     lons = data.lon.values
                     lats = data.lat.values
                     variable_values = data.values
-                    if selected_unit != None:
+                    if selected_unit is not None:
                         variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 else:
@@ -527,7 +531,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                         lons = data.lon.values
                         lats = data.lat.values
                         variable_values = data.values
-                        if selected_unit != None:
+                        if selected_unit is not None:
                             variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                     else:
@@ -541,7 +545,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < lev_min:
                             logger.warning(f"Using minimum valid lev {lev_min}")
@@ -550,7 +554,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         else:
                             sorted_levs = sorted(ds['lev'].values, key=lambda x: abs(x - selected_lev_ilev))
@@ -565,7 +569,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             data2 = ds[variable_name].sel(time=time, lev=closest_lev2)
                             variable_values_2 = data2.values
                             variable_values = (variable_values_1 + variable_values_2) / 2
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                 if plot_mode:
                     return PlotData(values=variable_values, selected_lev=selected_lev_ilev, lats=lats, lons=lons,
@@ -575,7 +579,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                     return variable_values
 
         elif lev_ilev == 'ilev':
-            first_pass == False
+            first_pass = False
             if mds.has_time(time):
                 if 'ilev' not in ds[variable_name].dims:
                     raise ValueError("The variable "+variable_name+" doesn't use the dimensions 'lat', 'lon', 'ilev'")
@@ -584,11 +588,11 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 selected_mtime = get_mtime(ds, time)
 
                 if selected_lev_ilev == "mean":
-                    data = ds[variable_name].sel(time=time).mean(dim='lev')
+                    data = ds[variable_name].sel(time=time).mean(dim='ilev')
                     lons = data.lon.values
                     lats = data.lat.values
                     variable_values = data.values
-                    if selected_unit != None:
+                    if selected_unit is not None:
                         variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 else:
@@ -597,7 +601,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                         lons = data.lon.values
                         lats = data.lat.values
                         variable_values = data.values
-                        if selected_unit != None:
+                        if selected_unit is not None:
                             variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                     else:
@@ -611,7 +615,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         elif selected_lev_ilev < ilev_min:
                             logger.warning(f"Using minimum valid ilev {ilev_min}")
@@ -620,7 +624,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             lons = data.lon.values
                             lats = data.lat.values
                             variable_values = data.values
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
                         else:
                             sorted_levs = sorted(ds['ilev'].values, key=lambda x: abs(x - selected_lev_ilev))
@@ -635,7 +639,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                             data2 = ds[variable_name].sel(time=time, ilev=closest_lev2)
                             variable_values_2 = data2.values
                             variable_values = (variable_values_1 + variable_values_2) / 2
-                            if selected_unit != None:
+                            if selected_unit is not None:
                                 variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 if plot_mode:
@@ -645,8 +649,8 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 else:
                     return variable_values
 
-        elif lev_ilev == None:
-            first_pass == False
+        elif lev_ilev is None:
+            first_pass = False
             selected_lev_ilev = None
             if mds.has_time(time):
                 variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
@@ -656,7 +660,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
                 lons = data.lon.values
                 lats = data.lat.values
                 variable_values = data.values
-                if selected_unit != None:
+                if selected_unit is not None:
                     variable_values, variable_unit = convert_units(variable_values, variable_unit, selected_unit)
 
                 if plot_mode:
@@ -669,6 +673,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
 
 
     
+@cache_data_fn
 def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selected_unit= None, log_level=True, plot_mode = False):
     """
     Extracts data from the dataset for a given variable name, latitude, longitude, and time.
@@ -733,8 +738,119 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
     return None
 
 
+def _arr_horizontal_slice(datasets, variable_name, time, selected_lev_ilev, selected_unit):
+    """Fetch a (lat, lon) PlotData slice, dispatching derived variables."""
+    handler, is_derived = resolve_derived(variable_name)
+    if is_derived:
+        return handler(datasets, variable_name, time,
+                       selected_lev_ilev=selected_lev_ilev,
+                       selected_unit=selected_unit, plot_mode=True)
+    return arr_lat_lon(datasets, variable_name, time,
+                       selected_lev_ilev=selected_lev_ilev,
+                       selected_unit=selected_unit, plot_mode=True)
 
 
+@cache_data_fn
+def arr_var_lat(datasets, variable_name, time, selected_lev_ilev, selected_lon,
+                selected_unit=None, plot_mode=False):
+    """Extract a 1D meridional profile (variable vs latitude) at a fixed lon and level.
+
+    Args:
+        datasets: List of ModelDataset objects.
+        variable_name (str): Variable name with lat/lon/lev dimensions.
+        time (Union[str, numpy.datetime64]): Timestamp.
+        selected_lev_ilev (Union[float, str]): Level value, or 'mean'.
+        selected_lon (Union[float, str]): Longitude value, or 'mean' for zonal mean.
+        selected_unit (str, optional): Desired unit override.
+        plot_mode (bool): If True, return a PlotData; else a 1D ndarray.
+
+    Returns:
+        PlotData with shape (nlat,) when plot_mode=True; ndarray otherwise; None
+        if the requested time is not in any dataset.
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    result = _arr_horizontal_slice(datasets, variable_name, time,
+                                   selected_lev_ilev, selected_unit)
+    if result is None:
+        return None
+
+    lats = result.lats
+    lons = result.lons
+    values_2d = result.values  # shape (nlat, nlon)
+
+    if selected_lon == 'mean':
+        values_1d = np.nanmean(values_2d, axis=1)
+        resolved_lon = 'mean'
+    else:
+        lon_val = float(selected_lon)
+        lon_idx = int(np.argmin(np.abs(lons - lon_val)))
+        values_1d = values_2d[:, lon_idx]
+        resolved_lon = float(lons[lon_idx])
+
+    if plot_mode:
+        return PlotData(values=values_1d, lats=lats,
+                        selected_lon=resolved_lon,
+                        selected_lev=result.selected_lev,
+                        variable_unit=result.variable_unit,
+                        variable_long_name=result.variable_long_name,
+                        mtime=result.mtime, model=result.model,
+                        filename=result.filename)
+    return values_1d
+
+
+@cache_data_fn
+def arr_var_lon(datasets, variable_name, time, selected_lev_ilev, selected_lat,
+                selected_unit=None, plot_mode=False):
+    """Extract a 1D zonal profile (variable vs longitude) at a fixed lat and level.
+
+    Args:
+        datasets: List of ModelDataset objects.
+        variable_name (str): Variable name with lat/lon/lev dimensions.
+        time (Union[str, numpy.datetime64]): Timestamp.
+        selected_lev_ilev (Union[float, str]): Level value, or 'mean'.
+        selected_lat (Union[float, str]): Latitude value, or 'mean' for meridional mean.
+        selected_unit (str, optional): Desired unit override.
+        plot_mode (bool): If True, return a PlotData; else a 1D ndarray.
+
+    Returns:
+        PlotData with shape (nlon,) when plot_mode=True; ndarray otherwise; None
+        if the requested time is not in any dataset.
+    """
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    result = _arr_horizontal_slice(datasets, variable_name, time,
+                                   selected_lev_ilev, selected_unit)
+    if result is None:
+        return None
+
+    lats = result.lats
+    lons = result.lons
+    values_2d = result.values  # shape (nlat, nlon)
+
+    if selected_lat == 'mean':
+        values_1d = np.nanmean(values_2d, axis=0)
+        resolved_lat = 'mean'
+    else:
+        lat_val = float(selected_lat)
+        lat_idx = int(np.argmin(np.abs(lats - lat_val)))
+        values_1d = values_2d[lat_idx, :]
+        resolved_lat = float(lats[lat_idx])
+
+    if plot_mode:
+        return PlotData(values=values_1d, lons=lons,
+                        selected_lat=resolved_lat,
+                        selected_lev=result.selected_lev,
+                        variable_unit=result.variable_unit,
+                        variable_long_name=result.variable_long_name,
+                        mtime=result.mtime, model=result.model,
+                        filename=result.filename)
+    return values_1d
+
+
+@cache_data_fn
 def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None, log_level=True, plot_mode = False):
     """
     Extracts data from a dataset based on the specified variable name, timestamp, and longitude.
@@ -799,6 +915,7 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
 
 
 
+@cache_data_fn
 def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_unit = None, log_level = True, plot_mode = False):
     """
     This function extracts and processes data from multiple datasets based on specified parameters. It focuses on extracting 
@@ -904,6 +1021,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
     else:
         return variable_values_all
 
+@cache_data_fn
 def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts and processes data from the dataset based on the specified variable name, longitude, and level/ilev.
@@ -1000,6 +1118,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
         return variable_values_all
 
 
+@cache_data_fn
 def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts and processes data from the dataset based on the specified variable name, latitude, and level/ilev.
@@ -1088,6 +1207,7 @@ def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None
         return variable_values_all
 
 
+@cache_data_fn
 def arr_var_time(datasets, variable_name, selected_lat, selected_lon, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
     Extracts a 1D time series of a variable at a specific lat/lon/level location.
