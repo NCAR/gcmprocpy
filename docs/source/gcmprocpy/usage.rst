@@ -58,6 +58,8 @@ The following plots can be made with gcmprocpy:
 
 - Latitude vs Longitude plots
 - Pressure level / Height vs Variable Value plots
+- Variable vs Latitude line plots (meridional cut)
+- Variable vs Longitude line plots (zonal cut)
 - Pressure level / Height vs Longitude plots
 - Pressure level / Height vs Latitude plots
 - Pressure level / Height vs Time plots
