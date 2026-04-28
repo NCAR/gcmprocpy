@@ -841,6 +841,9 @@ def plt_var_lat(datasets, variable_name, level, time=None, mtime=None, longitude
         _original_height = float(level)
         level = height_to_pres_level(datasets, time, _original_height)
 
+    if longitude is None:
+        longitude = 'mean'
+
     result = arr_var_lat(datasets, variable_name, time, level, longitude,
                          selected_unit=variable_unit, plot_mode=True)
     variable_values = result.values
@@ -949,6 +952,9 @@ def plt_var_lon(datasets, variable_name, level, time=None, mtime=None, latitude=
     if level_type == 'height' and level is not None and level != 'mean':
         _original_height = float(level)
         level = height_to_pres_level(datasets, time, _original_height)
+
+    if latitude is None:
+        latitude = 'mean'
 
     result = arr_var_lon(datasets, variable_name, time, level, latitude,
                          selected_unit=variable_unit, plot_mode=True)
