@@ -187,7 +187,7 @@ def get_options():
     #
     # Setting variable type float if level value is numerical 
     #
-    if args.level != 'mean' and args.level != None:
+    if args.level != 'mean' and args.level is not None:
         try:
             args.level = float(args.level)
         except (ValueError, TypeError):
@@ -195,7 +195,7 @@ def get_options():
     #
     # Setting variable type float if latitude value is numerical 
     #
-    if args.latitude != 'mean' and args.latitude != None:
+    if args.latitude != 'mean' and args.latitude is not None:
         try:
             args.latitude = float(args.latitude)
         except (ValueError, TypeError):
@@ -203,7 +203,7 @@ def get_options():
     #
     # Setting variable type float if longitude value is numerical 
     #
-    if args.longitude != 'mean' and args.longitude != None:
+    if args.longitude != 'mean' and args.longitude is not None:
         try:
             args.longitude = float(args.longitude)
         except (ValueError, TypeError):

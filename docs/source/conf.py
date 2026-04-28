@@ -20,12 +20,14 @@ release = '2.0.0'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx.ext.viewcode','sphinxcontrib.autoprogram', 'sphinx.ext.mathjax']
+extensions = ['sphinx.ext.autodoc', 'sphinx.ext.napoleon', 'sphinx.ext.viewcode','sphinxcontrib.autoprogram', 'sphinx.ext.mathjax', 'nbsphinx']
+
+nbsphinx_execute = 'never'
 
 templates_path = ['_templates']
-exclude_patterns = []
+exclude_patterns = ['**.ipynb_checkpoints']
 
-autodoc_mock_imports = ["numpy","cartopy","matplotlib","xarray","ipython","geomag","netcdf4","mplcursors","PyQt5","dask","scipy"]
+autodoc_mock_imports = ["numpy","cartopy","matplotlib","xarray","ipython","geomag","netcdf4","mplcursors","PySide6","dask","scipy"]
 
 
 # -- Options for HTML output -------------------------------------------------

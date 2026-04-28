@@ -3,6 +3,77 @@ Data Parsing Functions
 
 gcmprocpy provides a range of functions for data extraction and manipulation. Below are the key plotting routines along with their detailed parameters and usage examples.
 
+.. note::
+   For live examples with output, see the :doc:`notebooks/01_data_exploration` and :doc:`notebooks/02_data_extraction` notebooks.
+
+.. currentmodule:: gcmprocpy.containers
+
+Data Containers
+--------------------------------------------------------------------------------------------------------------------
+
+These dataclasses are used throughout gcmprocpy to hold dataset metadata and extracted plot data.
+
+.. autoclass:: ModelDataset
+   :noindex:
+   :members:
+
+.. autoclass:: PlotData
+   :noindex:
+   :members:
+
+Model Defaults
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+``MODEL_DEFAULTS`` is a dictionary containing model-specific default variable names,
+species mappings, wind scale factors, and color scheme configurations for TIE-GCM and WACCM-X.
+
+.. autodata:: MODEL_DEFAULTS
+   :noindex:
+
+Example:
+    Access default wind variable names for a model.
+
+    .. code-block:: python
+
+        from gcmprocpy import MODEL_DEFAULTS
+
+        # TIE-GCM wind variables
+        print(MODEL_DEFAULTS['TIE-GCM']['wind_u'])  # 'UN'
+        print(MODEL_DEFAULTS['TIE-GCM']['wind_v'])  # 'VN'
+
+        # WACCM-X wind variables
+        print(MODEL_DEFAULTS['WACCM-X']['wind_u'])  # 'U'
+        print(MODEL_DEFAULTS['WACCM-X']['wind_v'])  # 'V'
+
+        # Species name mapping
+        print(MODEL_DEFAULTS['TIE-GCM']['species']['temp'])  # 'TN'
+        print(MODEL_DEFAULTS['WACCM-X']['species']['temp'])  # 'T'
+
+        # Wind unit scale factor (cm/s → m/s for TIE-GCM)
+        print(MODEL_DEFAULTS['TIE-GCM']['wind_scale'])  # 0.01
+
+Species Name Lookup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. autofunction:: get_species_names
+   :noindex:
+
+Example:
+    Get species variable names for a specific model.
+
+    .. code-block:: python
+
+        from gcmprocpy import get_species_names
+
+        sp = get_species_names('TIE-GCM')
+        print(sp['temp'])  # 'TN'
+        print(sp['o'])     # 'O1'
+        print(sp['o2'])    # 'O2'
+
+        sp = get_species_names('WACCM-X')
+        print(sp['temp'])  # 'T'
+        print(sp['o'])     # 'O'
+
 Data Exploration
 --------------------------------------------------------------------------------------------------------------------
 
@@ -242,6 +313,61 @@ Example:
         # Using local time instead of longitude
         data = gy.arr_lev_var(datasets, 'TN', latitude=0.0,
                               time='2022-01-01T12:00:00', local_time=12.0)
+
+
+Variable vs Latitude (Meridional 1D)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function extracts a 1D meridional profile of a variable along latitude at a fixed pressure level and longitude (or zonal mean).
+
+.. autofunction:: arr_var_lat
+   :noindex:
+
+Example:
+    Extract a 1D meridional slice at a specific level, time, and longitude.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # PlotData object with 1D values aligned to latitudes
+        result = gy.arr_var_lat(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lon=30.0,
+                                plot_mode=True)
+        print(result.lats, result.values)
+
+        # Zonal mean across all longitudes
+        result = gy.arr_var_lat(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lon='mean',
+                                plot_mode=True)
+
+Variable vs Longitude (Zonal 1D)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+This function extracts a 1D zonal profile of a variable along longitude at a fixed pressure level and latitude (or meridional mean).
+
+.. autofunction:: arr_var_lon
+   :noindex:
+
+Example:
+    Extract a 1D zonal slice at a specific level, time, and latitude.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # PlotData object with 1D values aligned to longitudes
+        result = gy.arr_var_lon(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lat=2.5,
+                                plot_mode=True)
+        print(result.lons, result.values)
+
+        # Meridional mean across all latitudes
+        result = gy.arr_var_lon(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lat='mean',
+                                plot_mode=True)
 
 
 Selected Time Latitude
@@ -494,6 +620,45 @@ Example:
             mt = gy.get_mtime(datasets, t)
             print(f'{t} -> mtime {mt}')
 
+Data Caching
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. currentmodule:: gcmprocpy.containers
+
+All ``arr_*`` data extraction functions (and derived-variable handlers) are transparently memoized
+by a bounded LRU cache. Repeated calls with the same ``(datasets, variable, time, level, ...)``
+tuple return the cached result in O(1), which speeds up timeline scrubbing, re-plotting, and
+composite plots that extract the same field multiple times.
+
+The cache is keyed on the Python identity (``id``) of the ``datasets`` list plus all positional
+and keyword arguments (lists are normalized to tuples so batch calls cache correctly). Unhashable
+arguments (e.g. raw numpy arrays in ``arr_sat_track``) transparently bypass the cache.
+
+.. autofunction:: clear_data_cache
+   :noindex:
+
+The default cache holds up to 128 entries and evicts least-recently-used results. Call
+``clear_data_cache()`` after reloading datasets or otherwise mutating them in place, so that
+stale results don't leak across sessions. The GUI does this automatically on dataset reload.
+
+``clear_derived_cache`` is kept as a backwards-compatible alias for ``clear_data_cache``.
+
+Example:
+    Invalidate the cache after reloading datasets.
+
+    .. code-block:: python
+
+        from gcmprocpy import clear_data_cache, load_datasets
+
+        datasets = load_datasets(directory, dataset_filter)
+        # ... use datasets ...
+
+        # Reload from disk — drop stale cached extractions
+        datasets = load_datasets(directory, dataset_filter)
+        clear_data_cache()
+
+.. currentmodule:: gcmprocpy.data_parse
+
 Height Interpolation
 ---------------------------------------------------------------------------------------------------------------------
 
@@ -560,3 +725,61 @@ Example:
         ne_result = gy.arr_lev_lat(datasets, 'NE', time, selected_lon=0.0, plot_mode=True)
         interp_ne, heights = gy.interpolate_to_height(
             datasets, ne_result.values, ne_result.levs, time, log_interp=True)
+
+Height in Plot Functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+All plot functions that accept a ``level`` parameter also accept ``level_type`` to specify
+whether the level value is a pressure level (default) or a height in km. When ``level_type='height'``,
+the height is automatically converted to the nearest pressure level using the model's geometric
+height field (``ZG`` for TIE-GCM, ``Z3`` for WACCM-X).
+
+All level-axis plots (``plt_lev_var``, ``plt_lev_lon``, ``plt_lev_lat``, ``plt_lev_time``) also
+accept ``y_axis='height'`` to display the vertical axis in km instead of pressure coordinates.
+
+Example:
+    Specify a level as height instead of pressure.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # Lat-lon plot at 300 km altitude (automatically finds nearest pressure level)
+        plot = gy.plt_lat_lon(datasets, 'TN', time='2022-01-01T12:00:00',
+                              level=300.0, level_type='height')
+
+        # Latitude vs time at 400 km altitude
+        plot = gy.plt_lat_time(datasets, 'TN', level=400.0, level_type='height',
+                               longitude=0.0)
+
+        # Longitude vs time at 250 km altitude
+        plot = gy.plt_lon_time(datasets, 'TN', latitude=0.0, level=250.0,
+                               level_type='height')
+
+        # Variable vs time at 300 km altitude
+        plot = gy.plt_var_time(datasets, 'TN', latitude=0.0, longitude=0.0,
+                               level=300.0, level_type='height')
+
+Example:
+    Plot vertical axis in km instead of pressure.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+
+        # Vertical profile with height axis
+        plot = gy.plt_lev_var(datasets, 'TN', latitude=0.0,
+                              time='2022-01-01T12:00:00', longitude=0.0,
+                              y_axis='height')
+
+        # Longitude cross-section with height axis
+        plot = gy.plt_lev_lon(datasets, 'TN', latitude=0.0,
+                              time='2022-01-01T12:00:00', y_axis='height')
+
+        # Latitude cross-section with height axis
+        plot = gy.plt_lev_lat(datasets, 'TN', time='2022-01-01T12:00:00',
+                              longitude=0.0, y_axis='height')
+
+        # Level vs time with height axis
+        plot = gy.plt_lev_time(datasets, 'TN', latitude=0.0, longitude=0.0,
+                               y_axis='height')
