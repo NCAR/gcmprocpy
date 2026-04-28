@@ -23,7 +23,8 @@ from matplotlib.backends.backend_qtagg import (
 import xarray as xr
 from datetime import datetime
 from ..plot_gen import (plt_lev_var, plt_lat_lon, plt_lev_lat, plt_lev_lon,
-                        plt_lev_time, plt_lat_time, plt_lon_time, plt_var_time)
+                        plt_lev_time, plt_lat_time, plt_lon_time, plt_var_time,
+                        plt_var_lat, plt_var_lon)
 from ..io import load_datasets, close_datasets, save_output
 from ..data_parse import time_list, var_list, level_list, lon_list, lat_list
 from ..containers import get_species_names, MODEL_DEFAULTS, clear_derived_cache
@@ -654,6 +655,8 @@ class MainWindow(QMainWindow):
             ("Lat vs Time", self._create_lat_time_page),
             ("Lon vs Time", self._create_lon_time_page),
             ("Var vs Time", self._create_var_time_page),
+            ("Var vs Lat",  self._create_var_lat_page),
+            ("Var vs Lon",  self._create_var_lon_page),
         ]
         for name, creator in creators:
             page = creator()
@@ -779,6 +782,30 @@ class MainWindow(QMainWindow):
         w.update(_add_level_group(layout))
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_mtime_bounds(layout))
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_var_lat_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w.update(_add_level_group(layout))
+        w.update(_add_time_group(layout))
+        w['longitude'] = _add_combo(layout, "Longitude (or 'mean'):")
+        w['_mean_combo'] = 'longitude'
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_lat_bounds(layout))
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_var_lon_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w.update(_add_level_group(layout))
+        w.update(_add_time_group(layout))
+        w['latitude'] = _add_combo(layout, "Latitude (or 'mean'):")
+        w['_mean_combo'] = 'latitude'
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_lon_bounds(layout))
         w['clean'] = _add_check(layout, "Clean Plot:", True)
         return {'widget': page, 'widgets': w}
 
@@ -919,6 +946,13 @@ class MainWindow(QMainWindow):
                 if key in w and isinstance(w[key], QComboBox):
                     w[key].clear()
                     w[key].addItems(items)
+            # For var_lat/var_lon pages, prepend 'mean' so the user can request a
+            # zonal/meridional mean instead of picking a specific longitude/latitude.
+            if w.get('_mean_combo'):
+                key = w['_mean_combo']
+                if key in w and isinstance(w[key], QComboBox):
+                    w[key].insertItem(0, 'mean')
+                    w[key].setCurrentIndex(0)
             # Set up filterable level combo and summary label
             if 'level' in w and isinstance(w['level'], QComboBox):
                 _setup_filterable(w['level'])
@@ -992,6 +1026,8 @@ class MainWindow(QMainWindow):
             "Lat vs Time": self._plot_lat_time,
             "Lon vs Time": self._plot_lon_time,
             "Var vs Time": self._plot_var_time,
+            "Var vs Lat":  self._plot_var_lat,
+            "Var vs Lon":  self._plot_var_lon,
         }
         handler = dispatch.get(plot_type)
         if handler is None:
@@ -1434,6 +1470,62 @@ class MainWindow(QMainWindow):
 
         fig, variable_unit = result
         w['unit'].setPlaceholderText(str(variable_unit))
+        return fig
+
+    def _plot_var_lat(self):
+        w = self._pages["Var vs Lat"]['widgets']
+        lon_text = w['longitude'].currentText().strip()
+        longitude = 'mean' if lon_text == 'mean' else _float_or_none(lon_text)
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "time": self._get_selected_time(w),
+            "longitude": longitude,
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "latitude_minimum": _float_or_none(w['lat_min'].text()),
+            "latitude_maximum": _float_or_none(w['lat_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+        }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = _float_or_none(level_val) if level_val else None
+        params["level_type"] = level_type
+        result = plt_var_lat(**params)
+
+        if not isinstance(result, tuple):
+            return result
+
+        fig, variable_unit, latitude_minimum, latitude_maximum = result
+        w['unit'].setPlaceholderText(str(variable_unit))
+        w['lat_min'].setPlaceholderText(str(latitude_minimum))
+        w['lat_max'].setPlaceholderText(str(latitude_maximum))
+        return fig
+
+    def _plot_var_lon(self):
+        w = self._pages["Var vs Lon"]['widgets']
+        lat_text = w['latitude'].currentText().strip()
+        latitude = 'mean' if lat_text == 'mean' else _float_or_none(lat_text)
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "time": self._get_selected_time(w),
+            "latitude": latitude,
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "longitude_minimum": _float_or_none(w['lon_min'].text()),
+            "longitude_maximum": _float_or_none(w['lon_max'].text()),
+            "clean_plot": w['clean'].isChecked(),
+        }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = _float_or_none(level_val) if level_val else None
+        params["level_type"] = level_type
+        result = plt_var_lon(**params)
+
+        if not isinstance(result, tuple):
+            return result
+
+        fig, variable_unit, longitude_minimum, longitude_maximum = result
+        w['unit'].setPlaceholderText(str(variable_unit))
+        w['lon_min'].setPlaceholderText(str(longitude_minimum))
+        w['lon_max'].setPlaceholderText(str(longitude_maximum))
         return fig
 
 MODERN_STYLESHEET = """

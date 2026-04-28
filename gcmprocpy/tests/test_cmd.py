@@ -379,3 +379,105 @@ class TestCmdSatTrack:
         assert call_kwargs['sat_lat'][0] == 30.0
         assert call_kwargs['sat_lon'][2] == 55.0
         mock_save.assert_called_once()
+
+
+class TestCmdVarLat:
+    """Tests for cmd_var_lat CLI."""
+
+    def test_parser_required_args(self):
+        from gcmprocpy.cmd.cmd_var_lat import cmd_parser
+        parser = cmd_parser()
+        args = parser.parse_args(['-o_file', 'test', '-o_format', 'png', '-var', 'TN', '-dir', '/tmp', '-lvl', '5.0'])
+        assert args.variable_name == 'TN'
+        assert args.level == 5.0
+
+    def test_parser_defaults(self):
+        from gcmprocpy.cmd.cmd_var_lat import cmd_parser
+        parser = cmd_parser()
+        args = parser.parse_args(['-o_file', 'test', '-o_format', 'png', '-var', 'TN', '-dir', '/tmp', '-lvl', '5.0'])
+        assert args.longitude == 'mean'
+        assert args.level_type == 'pressure'
+
+    def test_parser_height_mode(self):
+        from gcmprocpy.cmd.cmd_var_lat import cmd_parser
+        parser = cmd_parser()
+        args = parser.parse_args(['-o_file', 'test', '-o_format', 'png', '-var', 'TN', '-dir', '/tmp',
+                                  '-lvl', '300.0', '-lt', 'height', '-lon', '45.0'])
+        assert args.level == 300.0
+        assert args.level_type == 'height'
+        assert args.longitude == '45.0'
+
+    @patch('gcmprocpy.cmd.cmd_var_lat.save_output')
+    @patch('gcmprocpy.cmd.cmd_var_lat.plt_var_lat')
+    @patch('gcmprocpy.cmd.cmd_var_lat.load_datasets')
+    def test_cmd_zonal_mean_default(self, mock_load, mock_plot, mock_save):
+        from gcmprocpy.cmd.cmd_var_lat import cmd_plt_var_lat
+        mock_load.return_value = 'datasets'
+        mock_plot.return_value = 'figure'
+        with patch.object(sys, 'argv', ['var_lat', '-dir', '/tmp', '-o_file', 'out',
+                                         '-o_format', 'png', '-var', 'TN', '-lvl', '5.0']):
+            cmd_plt_var_lat()
+        call_kwargs = mock_plot.call_args[1]
+        assert call_kwargs['longitude'] == 'mean'
+        mock_save.assert_called_once()
+
+    @patch('gcmprocpy.cmd.cmd_var_lat.save_output')
+    @patch('gcmprocpy.cmd.cmd_var_lat.plt_var_lat')
+    @patch('gcmprocpy.cmd.cmd_var_lat.load_datasets')
+    def test_cmd_specific_longitude(self, mock_load, mock_plot, mock_save):
+        from gcmprocpy.cmd.cmd_var_lat import cmd_plt_var_lat
+        mock_load.return_value = 'datasets'
+        mock_plot.return_value = 'figure'
+        with patch.object(sys, 'argv', ['var_lat', '-dir', '/tmp', '-o_file', 'out',
+                                         '-o_format', 'png', '-var', 'TN', '-lvl', '5.0',
+                                         '-lon', '45.0']):
+            cmd_plt_var_lat()
+        call_kwargs = mock_plot.call_args[1]
+        assert call_kwargs['longitude'] == 45.0
+
+
+class TestCmdVarLon:
+    """Tests for cmd_var_lon CLI."""
+
+    def test_parser_required_args(self):
+        from gcmprocpy.cmd.cmd_var_lon import cmd_parser
+        parser = cmd_parser()
+        args = parser.parse_args(['-o_file', 'test', '-o_format', 'png', '-var', 'TN', '-dir', '/tmp', '-lvl', '5.0'])
+        assert args.variable_name == 'TN'
+        assert args.level == 5.0
+
+    def test_parser_defaults(self):
+        from gcmprocpy.cmd.cmd_var_lon import cmd_parser
+        parser = cmd_parser()
+        args = parser.parse_args(['-o_file', 'test', '-o_format', 'png', '-var', 'TN', '-dir', '/tmp', '-lvl', '5.0'])
+        assert args.latitude == 'mean'
+        assert args.level_type == 'pressure'
+
+    @patch('gcmprocpy.cmd.cmd_var_lon.save_output')
+    @patch('gcmprocpy.cmd.cmd_var_lon.plt_var_lon')
+    @patch('gcmprocpy.cmd.cmd_var_lon.load_datasets')
+    def test_cmd_meridional_mean_default(self, mock_load, mock_plot, mock_save):
+        from gcmprocpy.cmd.cmd_var_lon import cmd_plt_var_lon
+        mock_load.return_value = 'datasets'
+        mock_plot.return_value = 'figure'
+        with patch.object(sys, 'argv', ['var_lon', '-dir', '/tmp', '-o_file', 'out',
+                                         '-o_format', 'png', '-var', 'TN', '-lvl', '5.0']):
+            cmd_plt_var_lon()
+        call_kwargs = mock_plot.call_args[1]
+        assert call_kwargs['latitude'] == 'mean'
+        mock_save.assert_called_once()
+
+    @patch('gcmprocpy.cmd.cmd_var_lon.save_output')
+    @patch('gcmprocpy.cmd.cmd_var_lon.plt_var_lon')
+    @patch('gcmprocpy.cmd.cmd_var_lon.load_datasets')
+    def test_cmd_specific_latitude(self, mock_load, mock_plot, mock_save):
+        from gcmprocpy.cmd.cmd_var_lon import cmd_plt_var_lon
+        mock_load.return_value = 'datasets'
+        mock_plot.return_value = 'figure'
+        with patch.object(sys, 'argv', ['var_lon', '-dir', '/tmp', '-o_file', 'out',
+                                         '-o_format', 'png', '-var', 'TN', '-lvl', '5.0',
+                                         '-lat', '30.0']):
+            cmd_plt_var_lon()
+        call_kwargs = mock_plot.call_args[1]
+        assert call_kwargs['latitude'] == 30.0
+
