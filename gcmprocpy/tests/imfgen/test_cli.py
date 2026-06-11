@@ -20,7 +20,8 @@ def test_cli_omni_writes_file(fake_omni, patch_download, tmp_path, capsys):
     writer(2000, 1)
     writer(2001, 2)
     rc = main([
-        "--source", "omni", "--start", "2001-01-01", "--end", "2001-01-02",
+        "--source", "omni", "--omni-access", "asc",
+        "--start", "2001-01-01", "--end", "2001-01-02",
         "--cache-dir", cache_dir, "--no-download",
         "--output-dir", str(tmp_path), "--quiet",
     ])
@@ -35,7 +36,7 @@ def test_cli_no_write(fake_omni, patch_download, tmp_path):
     writer(2000, 1)
     writer(2001, 1)
     rc = main([
-        "--start", "2001-01-01", "--end", "2001-01-01",
+        "--omni-access", "asc", "--start", "2001-01-01", "--end", "2001-01-01",
         "--cache-dir", cache_dir, "--no-download",
         "--output-dir", str(tmp_path), "--no-write", "--quiet",
     ])
@@ -49,7 +50,8 @@ def test_cli_split_years_writes_one_per_year(fake_omni, patch_download, tmp_path
     writer(2001, 1)
     writer(2002, 1)
     main([
-        "--source", "omni", "--start", "2001-01-01", "--end", "2002-12-31",
+        "--source", "omni", "--omni-access", "asc",
+        "--start", "2001-01-01", "--end", "2002-12-31",
         "--split-years", "--cache-dir", cache_dir, "--no-download",
         "--output-dir", str(tmp_path), "--quiet",
     ])

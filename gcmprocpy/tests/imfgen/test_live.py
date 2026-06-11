@@ -25,7 +25,7 @@ def test_live_download_and_generate_small_slice(tmp_path):
     assert os.path.exists(omni_path(cache_dir, 2020))
 
     ds = generate_imf(start="2020-06-01", end="2020-06-02", source="omni",
-                      cache_dir=cache_dir, download=False)
+                      cache_dir=cache_dir, download=False, omni_access="asc")
     assert ds.sizes["ndata"] == 2 * 1440
     assert int(ds.attrs["yearday_beg"]) == 2020153   # 2020-06-01
     assert int(ds.attrs["yearday_end"]) == 2020154   # 2020-06-02

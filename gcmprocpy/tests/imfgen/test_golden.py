@@ -59,7 +59,7 @@ def test_omni_year_matches_golden(year, last_doy):
     _require(OMNI_CACHE)
     _require(gold)
     ds = generate_imf(start=f"{year}-01-01", end=f"{year}-12-31", source="omni",
-                      cache_dir=OMNI_CACHE, download=False)
+                      cache_dir=OMNI_CACHE, download=False, omni_access="asc")
     _assert_matches_golden(ds, gold)
 
 
@@ -73,7 +73,8 @@ def test_split_years_matches_per_year_goldens():
     import tempfile
     with tempfile.TemporaryDirectory() as out:
         for ds in generate_imf_years(start="1982-01-01", end="1983-12-31",
-                                     cache_dir=OMNI_CACHE, download=False):
+                                     cache_dir=OMNI_CACHE, download=False,
+                                     omni_access="asc"):
             save_imf(ds, output_dir=out)
         for gold in (g82, g83):
             me = xr.open_dataset(os.path.join(out, os.path.basename(gold)))
@@ -93,7 +94,7 @@ def test_continuous_multiyear_crosses_year_boundary():
     _require(g82)
     _require(g83)
     ds = generate_imf(start="1982-01-01", end="1983-12-31", source="omni",
-                      cache_dir=OMNI_CACHE, download=False)
+                      cache_dir=OMNI_CACHE, download=False, omni_access="asc")
     assert ds.sizes["ndata"] == 2 * 365 * 1440
     d = ds["date"].values
     assert d[365 * 1440 - 1] == 1982365.99930556   # last minute of 1982

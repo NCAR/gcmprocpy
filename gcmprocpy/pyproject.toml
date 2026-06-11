@@ -40,6 +40,7 @@ dependencies = [
     "scipy",
     "requests",
     "h5py",
+    "hapiclient",
 ]
 
 [project.urls]

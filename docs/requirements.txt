@@ -13,3 +13,4 @@ mplcursors
 nbsphinx
 requests
 h5py
+hapiclient
