@@ -13,7 +13,7 @@ pip install gcmprocpy
 ### Requirements
 
 - Python >= 3.8
-- cartopy, numpy, matplotlib, xarray, scipy, netcdf4, PySide6, mplcursors, dask, geomag, ipympl
+- cartopy, numpy, matplotlib, xarray, scipy, netcdf4, PySide6, mplcursors, dask, geomag, ipympl, requests, h5py
 
 ## Usage
 
@@ -45,6 +45,31 @@ Each plot type has a console command (`lat_lon`, `lev_var`, `lev_lon`, `lev_lat`
 ```bash
 lat_lon -dir /path/to/output -var TN -lvl 5.0 -t 2022-01-01T12:00:00 \
         -o_dir ./out -o_file tn_plot -o_format png
+```
+
+## Input File Generation
+
+GCMprocpy also builds the geophysical forcing / boundary-condition NetCDF files that
+drive a TIE-GCM run, via two console commands and a Python API:
+
+- **`gpigen`** — Geophysical Indices (GPI): daily/averaged 10.7 cm solar flux and the
+  3-hourly Kp index, from [GFZ Potsdam](https://kp.gfz-potsdam.de/).
+- **`imfgen`** — IMF / solar-wind boundary conditions (Bx/By/Bz, density, velocity),
+  from [OMNI](https://omniweb.gsfc.nasa.gov/ow_min.html) 1-minute data or a BCWIND HDF5 file.
+
+```bash
+gpigen --start 2024-01-01 --end 2024-06-01            # write a GPI .nc file
+imfgen --start 2020-01-01 --end 2020-12-31 --cache-dir ./omni_asc
+```
+
+```python
+from gcmprocpy import gpigen, imfgen
+
+gpi = gpigen.generate_gpi(start="2024-01-01")          # -> xarray.Dataset
+gpigen.save_gpi(gpi, output_dir=".")
+
+imf = imfgen.generate_imf(start="2020-01-01", end="2020-12-31", cache_dir="./omni_asc")
+imfgen.save_imf(imf, output_dir=".")
 ```
 
 ## Plot Types

@@ -15,3 +15,12 @@ from .data_density import (
     arr_density, convert_density_units, compute_barm, compute_pkt,
     get_species_molar_mass, SUPPORTED_DENSITY_UNITS,
 )
+
+# TIEGCM input-file generators (vendored from the gpigen / imfgen packages).
+# The submodules are exposed as gcmprocpy.gpigen / gcmprocpy.imfgen; the
+# non-colliding entry points are also re-exported at the top level. The
+# colliding helpers (build_dataset, gpi_filename, imf_filename) stay reachable
+# via the submodules, e.g. gcmprocpy.gpigen.build_dataset.
+from . import gpigen, imfgen
+from .gpigen import generate_gpi, save_gpi, make_plots
+from .imfgen import generate_imf, generate_imf_years, save_imf

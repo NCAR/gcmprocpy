@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
 
 setup(
     name='gcmprocpy',
-    version='1.4.1',
+    version='1.5.0',
     author = "Nikhil Rao",
     author_email = "nikhilr@ucar.edu",
     description='A Python3 post processing tool for TIE-GCM and WACCM-X',
@@ -26,6 +26,8 @@ setup(
         'PySide6',
         'dask',
         'scipy',
+        'requests',
+        'h5py',
     ],
     package_dir={'': 'src'},  
     packages=find_packages(where='src'), 
@@ -42,7 +44,9 @@ setup(
             'var_lat= gcmprocpy.cmd.cmd_var_lat:cmd_plt_var_lat',
             'var_lon= gcmprocpy.cmd.cmd_var_lon:cmd_plt_var_lon',
             'sat_track= gcmprocpy.cmd.cmd_sat_track:cmd_plt_sat_track',
-            'gcmprocpy= gcmprocpy.gui.gcmprocpy:main',     
+            'gcmprocpy= gcmprocpy.gui.gcmprocpy:main',
+            'gpigen= gcmprocpy.gpigen.cli:main',
+            'imfgen= gcmprocpy.imfgen.cli:main',
         ]
     }
 )
