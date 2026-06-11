@@ -22,8 +22,8 @@ import requests
 
 from .dates import ISO_FMT
 
-JSON_API = "https://kp.gfz-potsdam.de/app/json/"
-TEXT_URL = "https://kp.gfz-potsdam.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt"
+JSON_API = "https://kp.gfz.de/app/json/"
+TEXT_URL = "https://kp.gfz.de/app/files/Kp_ap_Ap_SN_F107_since_1932.txt"
 TEXT_FILENAME = "Kp_ap_Ap_SN_F107_since_1932.txt"
 
 

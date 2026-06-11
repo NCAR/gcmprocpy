@@ -298,6 +298,113 @@ def _omni_timestamps(rows):
     return out
 
 
+# --- OMNI via CDAWeb HAPI (server-side time subsetting) ------------------
+#
+# The 'asc' source above downloads whole-year omni_min<year>.asc files even for a
+# short request. CDAWeb's HAPI server subsets server-side, returning only the
+# requested window. OMNI_HRO_1MIN is the same King & Papitashvili high-res 1-min
+# product distributed as the SPDF omni_min ASCII, so the variables, fill values
+# and 1-minute UTC grid match -- the downstream processing is identical.
+
+HAPI_SERVER = "https://cdaweb.gsfc.nasa.gov/hapi"
+HAPI_DATASET = "OMNI_HRO_1MIN"
+# HAPI parameter name for each imfgen channel.
+HAPI_PARAMS = {
+    "bx": "BX_GSE",        # Bx is identical in GSE/GSM (no separate BX_GSM)
+    "by": "BY_GSM",
+    "bz": "BZ_GSM",
+    "swvel": "flow_speed",
+    "swden": "proton_density",
+}
+
+try:  # optional dependency; only needed for omni_access='hapi'
+    from hapiclient import hapi as _hapi
+except ImportError:  # pragma: no cover - exercised via monkeypatch in tests
+    _hapi = None
+
+
+def _hapi_stamp(dt):
+    """``datetime`` -> HAPI ISO-8601 UTC string (``YYYY-MM-DDTHH:MM:SSZ``)."""
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _parse_hapi_times(time_col):
+    """Parse a HAPI isotime column (bytes or str) into naive UTC ``datetime``s."""
+    out = []
+    for v in time_col:
+        s = (v.decode() if isinstance(v, (bytes, bytearray)) else str(v)).strip()
+        out.append(datetime.fromisoformat(s.rstrip("Z")))
+    return out
+
+
+def omni_samples_hapi(start_dt, end_dt, window=10, verbose=False):
+    """Assemble OMNI channels via CDAWeb HAPI for ``[start_dt, end_dt]``.
+
+    Queries ``OMNI_HRO_1MIN`` for only the requested window plus ``window``
+    lead-in minutes (so the trailing average is complete at ``start_dt``), using
+    the server's time subsetting -- no whole-year download. Returns the same dict
+    shape as :func:`omni_samples`. HAPI ``time.max`` is exclusive, so the request
+    upper bound is ``end_dt`` plus one minute to keep the final output minute.
+    """
+    if _hapi is None:
+        raise ImportError(
+            "OMNI access mode 'hapi' requires the 'hapiclient' package "
+            "(pip install hapiclient), or use omni_access='asc'."
+        )
+    params = ",".join(HAPI_PARAMS.values())
+    lead_start = start_dt - timedelta(minutes=window)
+    if verbose:
+        print(f"  HAPI {HAPI_DATASET}: {lead_start:%Y-%m-%dT%H:%M} -> "
+              f"{end_dt:%Y-%m-%dT%H:%M} ({params})")
+    data, _meta = _hapi(
+        HAPI_SERVER, HAPI_DATASET, params,
+        _hapi_stamp(lead_start), _hapi_stamp(end_dt + timedelta(minutes=1)),
+    )
+    if data is None or len(data) == 0:
+        raise ValueError(
+            f"CDAWeb HAPI returned no OMNI data for "
+            f"{start_dt:%Y-%m-%dT%H:%M} -> {end_dt:%Y-%m-%dT%H:%M}."
+        )
+
+    times = _parse_hapi_times(data["Time"])
+    start_idx = next((i for i, t in enumerate(times) if t >= start_dt), None)
+    if start_idx is None:
+        raise ValueError("No OMNI output minutes in the requested range.")
+    timestamps = times[start_idx:]
+    n_out = len(timestamps)
+
+    # Lead-in: the `window` minutes before `start_dt`. Fewer are available only at
+    # the very start of the OMNI record; left-pad those with NaN (shortened avg),
+    # matching the 'asc' path.
+    lead = start_idx
+    pad = window - lead
+    if pad > 0:
+        warnings.warn(
+            f"Only {lead} of {window} lead-in minutes available before "
+            f"{start_dt:%Y-%m-%dT%H:%M}; the first output minutes use a shortened "
+            f"trailing average.",
+            stacklevel=2,
+        )
+
+    channels = {}
+    for name, param in HAPI_PARAMS.items():
+        vals = np.asarray(data[param], dtype=float)
+        if pad > 0:
+            vals = np.concatenate([np.full(pad, np.nan), vals])
+        channels[name] = vals
+
+    if verbose:
+        print(f"  HAPI: {n_out} output minutes "
+              f"{timestamps[0]:%Y-%m-%dT%H:%M} -> {timestamps[-1]:%Y-%m-%dT%H:%M}")
+    return {
+        "channels": channels,
+        "timestamps": timestamps,
+        "window": window,
+        "interpolate": True,
+        "source_path": None,
+    }
+
+
 # --- BCWIND source -------------------------------------------------------
 
 BCWIND_KEYS = {"bx": "Bx", "by": "By", "bz": "Bz", "swden": "D", "swvel": "Va"}

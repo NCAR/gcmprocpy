@@ -20,9 +20,9 @@ post-processed before being written to NetCDF.
 
 .. note::
    These tools require network access to fetch the source data (the GFZ API for
-   ``gpigen``; the OMNI FTP server for ``imfgen``), or a local copy of the source
-   files. ``gpigen`` additionally depends on ``requests`` and ``imfgen`` on
-   ``h5py``; both are installed automatically with gcmprocpy.
+   ``gpigen``; CDAWeb / OMNI for ``imfgen``), or a local copy of the source files.
+   ``gpigen`` depends on ``requests``; ``imfgen`` depends on ``h5py`` (BCWIND) and
+   ``hapiclient`` (OMNI via CDAWeb). All are installed automatically with gcmprocpy.
 
 
 GPI (gpigen)
@@ -113,20 +113,34 @@ Each output file holds, on a per-minute grid (``ndata``):
 - ``date`` — ``YYYYDDD.frac`` (year, day-of-year, fractional day)
 - ``timestamp`` — ISO string ``YYYY-MM-DDTHH:MM:SS``
 
+OMNI access modes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The OMNI source can be fetched two ways (``--omni-access`` / ``omni_access=``):
+
+- ``hapi`` (**default**) — query CDAWeb's HAPI server for the ``OMNI_HRO_1MIN``
+  dataset, retrieving **only the requested window**. Best for short ranges: a
+  few-day request transfers a few days of data instead of whole-year files.
+- ``asc`` — download and parse the SPDF ``omni_min<year>.asc`` files (over FTP
+  into ``--cache-dir``). This reproduces the legacy per-year output exactly and
+  is preferable for bulk regeneration of the full archive.
+
+Both draw on the same underlying product (the same variables, fill values and
+1-minute UTC grid), so the processed output matches.
+
 Mode: CLI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
-    # Full OMNI series 1982-01-01 -> yesterday, 10-min trailing average (defaults).
-    # Fetches missing omni_min<year>.asc files over FTP into --cache-dir.
-    imfgen --cache-dir ./omni_asc
+    # A specific range — fetched window-only from CDAWeb HAPI (default access).
+    imfgen --start 2020-01-01 --end 2020-12-31
 
-    # A specific range, one continuous file
-    imfgen --start 2020-01-01 --end 2020-12-31 --cache-dir ./omni_asc
+    # Full series 1982-01-01 -> yesterday, 10-min trailing average (defaults).
+    imfgen
 
-    # Reproduce the legacy per-year files (imf_OMNI_YYYY001-YYYYddd.nc)
-    imfgen --split-years --cache-dir ./omni_asc --output-dir .
+    # Reproduce the legacy per-year files from the SPDF ASCII archive.
+    imfgen --split-years --omni-access asc --cache-dir ./omni_asc --output-dir .
 
     # Convert a BCWIND HDF5 file
     imfgen --source bcwind --bcwind-path bcwind.h5

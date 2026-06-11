@@ -119,6 +119,44 @@ def patch_download(monkeypatch):
     return calls
 
 
+@pytest.fixture
+def patch_hapi(monkeypatch):
+    """Stub the CDAWeb HAPI client with a synthetic 1-minute OMNI grid (offline).
+
+    Serves the same channel values as ``fake_omni`` so HAPI and ASC paths line up.
+    Returns a state dict: set ``state["missing"]`` to 0-based minute offsets (into
+    the fetched lead-in+window stream) to inject fill flags, and read
+    ``state["calls"]`` for the ``(start, stop)`` strings passed to ``hapi()``.
+    """
+    from gcmprocpy.imfgen import sources
+
+    state = {"missing": set(), "calls": []}
+    fill = {"BX_GSE": 9999.99, "BY_GSM": 9999.99, "BZ_GSM": 9999.99,
+            "flow_speed": 99999.9, "proton_density": 999.99}
+    rev = {v: k for k, v in sources.HAPI_PARAMS.items()}
+
+    def fake_hapi(server, dataset, params, start, stop):
+        state["calls"].append((start, stop))
+        t0 = datetime.fromisoformat(start.rstrip("Z"))
+        t1 = datetime.fromisoformat(stop.rstrip("Z"))
+        n = int((t1 - t0).total_seconds() // 60)
+        times = [t0 + timedelta(minutes=i) for i in range(n)]
+        names = params.split(",")
+        data = np.empty(n, dtype=[("Time", "S24")] + [(p, "f8") for p in names])
+        data["Time"] = [t.strftime("%Y-%m-%dT%H:%M:%S.000Z").encode() for t in times]
+        for p in names:
+            col = np.array([_channel_value(rev[p], i) for i in range(n)], dtype=float)
+            idx = [i for i in state["missing"] if 0 <= i < n]
+            if idx:
+                col[idx] = fill[p]
+            data[p] = col
+        meta = {"parameters": [{"name": "Time"}] + [{"name": p} for p in names]}
+        return data, meta
+
+    monkeypatch.setattr(sources, "_hapi", fake_hapi)
+    return state
+
+
 # The --run-live / --run-golden options and the live/golden skip logic are
 # registered once in the top-level tests/conftest.py (pytest only honours
 # pytest_addoption in the rootdir conftest), so this subpackage conftest only
