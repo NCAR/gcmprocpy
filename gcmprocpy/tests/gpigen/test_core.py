@@ -61,7 +61,7 @@ def test_generate_dataset_attrs_and_vars(patch_fetch, fake_gfz):
         assert var in ds
     assert ds.attrs["averaging_window_days"] == 81
     assert ds.attrs["averaging_kind"] == "centered"
-    assert ds.attrs["data_source_url"] == "https://kp.gfz-potsdam.de/"
+    assert ds.attrs["data_source_url"] == "https://kp.gfz.de/"
     assert "F107_missing" in ds.attrs
 
 

@@ -16,7 +16,13 @@ def build_parser():
     p.add_argument("--version", action="version", version=f"imfgen {__version__}")
     p.add_argument(
         "--source", choices=["omni", "bcwind"], default="omni",
-        help="Data source. Default: omni (OMNI 1-minute ASCII).",
+        help="Data source. Default: omni (OMNI 1-minute data).",
+    )
+    p.add_argument(
+        "--omni-access", choices=["hapi", "asc"], default="hapi",
+        help="How to fetch OMNI data: 'hapi' (default) pulls only the requested "
+             "window from CDAWeb (fast for short ranges); 'asc' downloads the "
+             "full omni_min<year>.asc files (reproduces legacy output exactly).",
     )
     p.add_argument(
         "--start", default=None,
@@ -32,7 +38,7 @@ def build_parser():
     )
     p.add_argument(
         "--cache-dir", default=None,
-        help="Directory for omni_min<year>.asc files (omni). Default: cwd.",
+        help="Directory for omni_min<year>.asc files (--omni-access asc). Default: cwd.",
     )
     p.add_argument(
         "--bcwind-path", default=None,
@@ -40,7 +46,8 @@ def build_parser():
     )
     p.add_argument(
         "--no-download", action="store_true",
-        help="Do not fetch missing OMNI files over FTP; use local files only.",
+        help="Do not fetch missing OMNI files over FTP; use local files only "
+             "(--omni-access asc).",
     )
     p.add_argument(
         "--output-dir", default=".",
@@ -83,7 +90,7 @@ def main(argv=None):
             for ds in generate_imf_years(
                 start=args.start, end=args.end, window=args.window,
                 cache_dir=args.cache_dir, download=not args.no_download,
-                verbose=verbose,
+                omni_access=args.omni_access, verbose=verbose,
             ):
                 if not args.no_write:
                     written.append(save_imf(ds, output_dir=args.output_dir,
@@ -102,6 +109,7 @@ def main(argv=None):
             cache_dir=args.cache_dir,
             bcwind_path=args.bcwind_path,
             download=not args.no_download,
+            omni_access=args.omni_access,
             verbose=verbose,
         )
 

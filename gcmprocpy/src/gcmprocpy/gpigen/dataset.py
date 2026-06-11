@@ -34,7 +34,7 @@ def build_dataset(year_day, f107d, f107a, kp, window, centered, missing_dates):
     ds.attrs["yearday_beg"] = year_day[0]
     ds.attrs["yearday_end"] = year_day[-1]
     ds.attrs["ncar_mss_path"] = "/TGCM/data/gpi_1960001-2015365.nc"
-    ds.attrs["data_source_url"] = "https://kp.gfz-potsdam.de/"
+    ds.attrs["data_source_url"] = "https://kp.gfz.de/"
     ds.attrs["hao_file_write_source"] = "https://github.com/AnonNick/GPI"
     ds.attrs["info"] = (
         "Yearly ascii data files obtained from data_source_url; "
