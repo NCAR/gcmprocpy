@@ -89,28 +89,32 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     verbose = not args.quiet
 
-    ds = generate_gpi(
-        start=args.start,
-        end=args.end,
-        source=args.source,
-        window=args.window,
-        centered=not args.trailing,
-        status=args.status,
-        cache_dir=args.cache_dir,
-        verbose=verbose,
-    )
-
-    if not args.no_write:
-        path = save_gpi(
-            ds, output_dir=args.output_dir, prefix=args.prefix, path=args.output
+    try:
+        ds = generate_gpi(
+            start=args.start,
+            end=args.end,
+            source=args.source,
+            window=args.window,
+            centered=not args.trailing,
+            status=args.status,
+            cache_dir=args.cache_dir,
+            verbose=verbose,
         )
-        print(f"NetCDF file written: {path}")
 
-    if args.plots:
-        from .plotting import make_plots
+        if not args.no_write:
+            path = save_gpi(
+                ds, output_dir=args.output_dir, prefix=args.prefix, path=args.output
+            )
+            print(f"NetCDF file written: {path}")
 
-        written = make_plots(ds, output_dir=args.plots_dir)
-        print(f"Wrote {len(written)} plot(s) to {args.plots_dir}/")
+        if args.plots:
+            from .plotting import make_plots
+
+            written = make_plots(ds, output_dir=args.plots_dir)
+            print(f"Wrote {len(written)} plot(s) to {args.plots_dir}/")
+    except (ValueError, RuntimeError, FileNotFoundError) as exc:
+        # Turn expected pipeline errors into a clean CLI message, not a traceback.
+        raise SystemExit(f"gpigen: {exc}")
 
     return 0
 

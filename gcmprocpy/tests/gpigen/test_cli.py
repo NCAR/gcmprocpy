@@ -53,6 +53,16 @@ def test_cli_trailing_prefix(patch_fetch, fake_gfz, tmp_path):
     assert any(f.startswith("gpi_27avg_") for f in files)
 
 
+def test_cli_clean_error_on_empty_data(patch_fetch):
+    # Unavailable range -> clean "gpigen: ..." SystemExit, not a raw traceback.
+    patch_fetch(({"datetime": [], "Fobs": []}, {"datetime": [], "Kp": []}))
+    with pytest.raises(SystemExit) as exc:
+        main(["--start", "2099-01-01", "--end", "2099-02-01", "--quiet"])
+    msg = str(exc.value)
+    assert msg.startswith("gpigen:")
+    assert "No GPI data available" in msg
+
+
 def test_cli_plots(patch_fetch, fake_gfz, tmp_path):
     pytest.importorskip("matplotlib")
     patch_fetch(fake_gfz(start="2023-11-22", n_days=161))

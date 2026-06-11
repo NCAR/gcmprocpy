@@ -68,6 +68,14 @@ def generate_gpi(
         source, fetch_start, end_dt, status=status, cache_dir=cache_dir, verbose=verbose
     )
 
+    if not fobs_data["Fobs"] or not kp_data["Kp"]:
+        raise ValueError(
+            f"No GPI data available for {start_dt.date()} -> {end_dt.date()} "
+            f"(source={source!r}): the GFZ {source} source returned no records for "
+            f"this range. Check the dates fall within the published archive and are "
+            f"not in the future."
+        )
+
     year_day, f107d, missing_dates = fill_fobs(fobs_data)
     if verbose and missing_dates:
         print(f"Filled {len(missing_dates)} missing F10.7 day(s): {missing_dates}")
@@ -87,6 +95,14 @@ def generate_gpi(
             "Array length mismatch after trimming "
             f"(year_day={len(year_day)}, f107d={len(f107d)}, "
             f"f107a={len(f107a)}, kp={len(kp)})."
+        )
+
+    if len(year_day) == 0:
+        kind = "centered" if centered else "trailing"
+        raise ValueError(
+            f"No GPI output days for {start_dt.date()} -> {end_dt.date()}: the "
+            f"available data is shorter than the {window}-day {kind} averaging "
+            f"window. Request a wider date range or a smaller window."
         )
 
     ds = build_dataset(year_day, f107d, f107a, kp, window, centered, missing_dates)

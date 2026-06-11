@@ -78,3 +78,19 @@ def test_generate_all_grids_equal_length(patch_fetch, fake_gfz):
     ds = generate_gpi(start="2024-01-01", end="2024-04-30")
     n = ds.sizes["ndays"]
     assert ds["f107d"].size == n == ds["f107a"].size == ds["kp"].shape[0]
+
+
+def test_generate_raises_on_empty_data(patch_fetch):
+    # GFZ source returns no records (e.g. a future / out-of-archive range):
+    # a clear error, not an opaque numpy failure deeper in the pipeline.
+    patch_fetch(({"datetime": [], "Fobs": []}, {"datetime": [], "Kp": []}))
+    with pytest.raises(ValueError, match="No GPI data available"):
+        generate_gpi(start="2099-01-01", end="2099-02-01", verbose=False)
+
+
+def test_generate_raises_when_shorter_than_window(patch_fetch, fake_gfz):
+    # Far fewer days than the 81-day centered window -> everything trims away.
+    # Expect a clear message rather than an empty-dataset crash downstream.
+    patch_fetch(fake_gfz(start="2024-01-01", n_days=10))
+    with pytest.raises(ValueError, match="shorter than the 81-day"):
+        generate_gpi(start="2024-01-05", end="2024-01-09", verbose=False)
