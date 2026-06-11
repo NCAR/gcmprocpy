@@ -5,6 +5,33 @@ import pytest
 from gcmprocpy.containers import ModelDataset
 
 
+# --- opt-in network / golden test gating (shared by the gpigen & imfgen suites) --
+# pytest only honours pytest_addoption in the rootdir conftest, so the live/golden
+# plumbing for the vendored gpigen/imfgen suites is registered here once.
+
+def pytest_addoption(parser):
+    parser.addoption(
+        "--run-live", action="store_true", default=False,
+        help="Run tests marked 'live' that hit real network endpoints "
+             "(GFZ for gpigen, OMNI FTP for imfgen).",
+    )
+    parser.addoption(
+        "--run-golden", action="store_true", default=False,
+        help="Run 'golden' tests that compare imfgen output against on-disk "
+             "reference NetCDF files (needs the NCAR data dir).",
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    for opt, mark in (("--run-live", "live"), ("--run-golden", "golden")):
+        if config.getoption(opt):
+            continue
+        skip = pytest.mark.skip(reason=f"needs {opt}")
+        for item in items:
+            if mark in item.keywords:
+                item.add_marker(skip)
+
+
 @pytest.fixture
 def tiegcm_dataset():
     """Create a minimal TIE-GCM-like xarray dataset for testing."""

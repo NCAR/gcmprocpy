@@ -11,3 +11,5 @@ datetime
 ipympl
 mplcursors
 nbsphinx
+requests
+h5py

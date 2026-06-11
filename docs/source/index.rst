@@ -19,6 +19,7 @@ Contents
    gcmprocpy/movie_functions
    gcmprocpy/data_functions
    gcmprocpy/postproc_functions
+   gcmprocpy/input_generation
    gcmprocpy/file_structure
 
 .. toctree::
