@@ -277,3 +277,52 @@ def resolve_derived(variable_name):
         if key.endswith('*') and vn_upper.startswith(key[:-1]):
             return _wrap_cached(entry['handler']), True
     return None, False
+
+
+# ---------------------------------------------------------------------------
+# Derivable-dependency registry
+# ---------------------------------------------------------------------------
+#
+# DERIVED_VARIABLES (above) holds user-facing *output* quantities (emissions,
+# OH bands, EP flux) whose handlers compute a single time/level slice and return
+# a PlotData. DERIVABLE_VARIABLES is a separate, lower-level registry of
+# *implicit intermediate fields* that the model often does not write to the
+# history file (e.g. ``N2 = 1 - O2 - O1``, species ratios, total density). Each
+# is computed on the FULL native grid as an ``xarray.DataArray`` from other
+# fields, so it can be (a) sliced by the ordinary arr_* extractors after being
+# injected into the in-memory dataset, and (b) written back to NetCDF for reuse.
+#
+# Entry: {'formula': fn(inputs_by_role, mds) -> DataArray, 'inputs': [roles],
+#         'units': str, 'long_name': str, 'models': set|None}
+# ``inputs`` are canonical role names (resolved per-model via get_species_names,
+# e.g. 'o2'->'O2', 'n2'->'N2') or literal field/derivable names.
+DERIVABLE_VARIABLES = {}
+
+
+def register_derivable(name, formula, inputs, units='', long_name=None, models=None):
+    """Register a derivable intermediate field (computed when absent from a file).
+
+    Args:
+        name (str): Output field name (the name a user/handler requests, e.g.
+            ``'N2'`` or ``'O/N2'``).
+        formula (callable): ``fn(inputs_by_role: dict, mds) -> xarray.DataArray``
+            operating on full-grid DataArrays.
+        inputs (list[str]): Canonical role names (``'o2'``, ``'o'``, ``'n2'``,
+            ...) or literal field names this field is built from.
+        units (str): Units to stamp on the result.
+        long_name (str): Long name; defaults to *name*.
+        models (set, optional): Restrict to these model types; *None* = any.
+    """
+    DERIVABLE_VARIABLES[name.upper()] = {
+        'name': name,
+        'formula': formula,
+        'inputs': list(inputs),
+        'units': units,
+        'long_name': long_name or name,
+        'models': set(models) if models else None,
+    }
+
+
+def resolve_derivable(variable_name):
+    """Return the DERIVABLE_VARIABLES entry for *variable_name*, or ``None``."""
+    return DERIVABLE_VARIABLES.get(variable_name.upper())

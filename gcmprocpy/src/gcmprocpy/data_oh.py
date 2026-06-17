@@ -7,6 +7,7 @@ Solves the coupled steady-state rate equations for 10 vibrational levels
 import numpy as np
 from .containers import PlotData, get_species_names, register_derived
 from .data_parse import batch_arr_lat_lon
+from .data_derived import _ensure_derivable_fields
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -274,13 +275,17 @@ def arr_mkoh_band(datasets, variable_name, time,
     """
     names = get_species_names(datasets[0].model)
 
-    # Check which species are available
+    required = [names['temp'], names['o'], names['o2'], names['n2'],
+                names['h'], names['o3'], names['ho2']]
+    # Auto-derive any missing-but-derivable inputs (notably N2 = 1 - O2 - O1)
+    # so the model runs on histories that omit them.
+    _ensure_derivable_fields(datasets, required)
+
+    # Check which species are available (after derivation)
     available = set()
     for mds in datasets:
         available.update(mds.ds.variables)
 
-    required = [names['temp'], names['o'], names['o2'], names['n2'],
-                names['h'], names['o3'], names['ho2']]
     missing = [r for r in required if r not in available]
     if missing:
         raise ValueError(

@@ -6,7 +6,29 @@ import xarray as xr
 import dask
 from .convert_units import convert_units
 from .containers import ModelDataset, PlotData, cache_data_fn, resolve_derived
+from .data_derived import _ensure_derivable_fields
 import datetime
+import functools
+
+
+def derive_aware(fn):
+    """Decorator: inject any missing-but-derivable field(s) into the datasets
+    before the wrapped extractor runs.
+
+    This is what makes the ``arr_*`` extractors and ``batch_arr_lat_lon``
+    transparently support derivable quantities (e.g. ``N2`` residual,
+    composition ratios) as if they were stored in the file — the field is
+    computed on the full grid and injected, then the ordinary slicing logic
+    handles it unchanged. Raw fields present in the file always take priority.
+    """
+    @functools.wraps(fn)
+    def wrapped(datasets, *args, **kwargs):
+        names = args[0] if args else kwargs.get('variable_names', kwargs.get('variable_name'))
+        if names is not None:
+            name_list = list(names) if isinstance(names, (list, tuple)) else [names]
+            _ensure_derivable_fields(datasets, name_list)
+        return fn(datasets, *args, **kwargs)
+    return wrapped
 
 logger = logging.getLogger(__name__)
 
@@ -237,6 +259,7 @@ def dim_info(datasets, dimension):
     
     return dimension_info
 
+@derive_aware
 @cache_data_fn
 def arr_var(datasets, variable_name, time, selected_unit=None, log_level=True, plot_mode=False):
     """
@@ -318,6 +341,7 @@ def check_var_dims(ds, variable_name):
     else:
         return 'Variable not found in dataset'
 
+@derive_aware
 @cache_data_fn
 def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= None, log_level=True, plot_mode = False):
     """
@@ -388,6 +412,7 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
 
 
 
+@derive_aware
 @cache_data_fn
 def batch_arr_lat_lon(datasets, variable_names, time, selected_lev_ilev=None, selected_unit=None, plot_mode=False):
     """Extract multiple variables at once for the same time and level, avoiding redundant lookups.
@@ -472,6 +497,7 @@ def batch_arr_lat_lon(datasets, variable_names, time, selected_lev_ilev=None, se
     return None
 
 
+@derive_aware
 @cache_data_fn
 def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
@@ -673,6 +699,7 @@ def arr_lat_lon(datasets, variable_name, time, selected_lev_ilev = None, selecte
 
 
     
+@derive_aware
 @cache_data_fn
 def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selected_unit= None, log_level=True, plot_mode = False):
     """
@@ -750,6 +777,7 @@ def _arr_horizontal_slice(datasets, variable_name, time, selected_lev_ilev, sele
                        selected_unit=selected_unit, plot_mode=True)
 
 
+@derive_aware
 @cache_data_fn
 def arr_var_lat(datasets, variable_name, time, selected_lev_ilev, selected_lon,
                 selected_unit=None, plot_mode=False):
@@ -800,6 +828,7 @@ def arr_var_lat(datasets, variable_name, time, selected_lev_ilev, selected_lon,
     return values_1d
 
 
+@derive_aware
 @cache_data_fn
 def arr_var_lon(datasets, variable_name, time, selected_lev_ilev, selected_lat,
                 selected_unit=None, plot_mode=False):
@@ -850,6 +879,7 @@ def arr_var_lon(datasets, variable_name, time, selected_lev_ilev, selected_lat,
     return values_1d
 
 
+@derive_aware
 @cache_data_fn
 def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None, log_level=True, plot_mode = False):
     """
@@ -915,6 +945,7 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
 
 
 
+@derive_aware
 @cache_data_fn
 def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_unit = None, log_level = True, plot_mode = False):
     """
@@ -1021,6 +1052,7 @@ def arr_lev_time (datasets, variable_name, selected_lat, selected_lon, selected_
     else:
         return variable_values_all
 
+@derive_aware
 @cache_data_fn
 def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
@@ -1118,6 +1150,7 @@ def arr_lat_time(datasets, variable_name, selected_lon,selected_lev_ilev = None,
         return variable_values_all
 
 
+@derive_aware
 @cache_data_fn
 def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
@@ -1207,6 +1240,7 @@ def arr_lon_time(datasets, variable_name, selected_lat, selected_lev_ilev = None
         return variable_values_all
 
 
+@derive_aware
 @cache_data_fn
 def arr_var_time(datasets, variable_name, selected_lat, selected_lon, selected_lev_ilev = None, selected_unit = None, plot_mode = False):
     """
@@ -1582,6 +1616,7 @@ def get_mtime(ds, time):
     return mtime
 
 
+@derive_aware
 def arr_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
                   selected_lev_ilev=None, selected_unit=None, plot_mode=False):
     """

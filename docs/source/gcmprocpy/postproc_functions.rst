@@ -446,3 +446,88 @@ Example: Register a custom derived variable
         return result
 
     register_derived('MY_VAR', my_custom_var)
+
+
+Derivable Fields (auto-derive if missing)
+--------------------------------------------------------------------------------------------------------------------
+.. currentmodule:: gcmprocpy.containers
+
+In addition to the derived *output* registry above, gcmprocpy has a lower-level
+**derivable-field** layer for intermediate quantities the model often does not
+write to the history file. When a plot or data-extraction function asks for a
+field that is absent from the dataset, it is computed on the full native grid
+from the fields that *are* present and injected transparently — so it can be
+sliced and plotted like any stored variable. A real field in the file always
+takes priority over the derived form.
+
+Currently registered derivables:
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Definition
+     - Inputs
+   * - ``N2``
+     - molecular nitrogen mixing-ratio residual ``max(1e-5, 1 - O2 - O)``
+     - O2, O
+   * - ``O/N2`` (alias ``O_N2``)
+     - atomic oxygen / molecular nitrogen ratio
+     - O, N2
+   * - ``N2/O`` (alias ``N2_O``)
+     - molecular nitrogen / atomic oxygen ratio
+     - N2, O
+   * - ``O/O2`` (alias ``O_O2``)
+     - atomic oxygen / molecular oxygen ratio
+     - O, O2
+   * - ``O/O2+N2`` (alias ``O_O2pN2``)
+     - atomic oxygen / (O2 + N2) ratio
+     - O, O2, N2
+
+This is what lets the full OH model and the ``OH83`` emission run on histories
+that omit ``N2`` (it is derived from ``O2``/``O`` automatically). Derivables can
+also depend on other derivables (e.g. ``O/N2`` builds on the derived ``N2``).
+
+Register a custom derivable:
+
+.. code-block:: python
+
+    from gcmprocpy import register_derivable
+
+    # formula receives a dict of input DataArrays keyed by canonical role
+    register_derivable('O/O', lambda inp, mds: inp['o'] / inp['o2'],
+                        inputs=['o', 'o2'], units='ratio',
+                        long_name='O / O2 ratio')
+
+.. autofunction:: register_derivable
+   :noindex:
+
+.. autofunction:: resolve_derivable
+   :noindex:
+
+
+Persisting Derived Quantities to NetCDF
+--------------------------------------------------------------------------------------------------------------------
+.. currentmodule:: gcmprocpy.io
+
+Calculated derivable fields can be written back into their source NetCDF file so
+that subsequent loads read them directly instead of recomputing. The variable is
+computed on the full grid and **appended in place** to the file.
+
+.. code-block:: python
+
+    import gcmprocpy as gy
+
+    datasets = gy.load_datasets('/path/to/output', dataset_filter='sech')
+    gy.save_derived(datasets, ['N2', 'O/N2'])   # append once
+    # next session: N2 and O/N2 are already in the file, read like any variable
+
+.. note::
+   This appends to the original file in place, so the file must be writable —
+   read-only archive histories raise ``PermissionError`` (persist into a writable
+   copy instead). NetCDF cannot delete a variable in place, so a field already
+   present is skipped. Only derivable intermediate fields are persisted this way;
+   slice-based derived outputs (emissions, OH bands, EP flux) are not.
+
+.. autofunction:: save_derived
+   :noindex:
