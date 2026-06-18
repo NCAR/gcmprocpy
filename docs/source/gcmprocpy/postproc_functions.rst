@@ -301,16 +301,21 @@ Cross-unit conversions require the mean air molar mass (``BARM``) and the air nu
 (``pkt``), both derived from the model's temperature and O / O\ :sub:`2` fields.  Formulas::
 
     BARM = 1 / (O₂/32 + O/16 + (1 − O₂ − O)/28)
-    pkt  = p / (k_B · T)                           [CGS]
+    pkt  = pressure / (k_B · T)                    [CGS]
 
     MMR → CM3     :   f · pkt · BARM / W
     MMR → CM3-MR  :   f · BARM / W
     MMR → GM/CM3  :   f · pkt · BARM · 1.66e-24
 
+The source unit is read from each field's ``units`` attribute (``kg/kg`` → MMR,
+``mol/mol`` → CM3-MR, ``cm-3`` → CM3, …), so conversion works whether a history stores
+species as mass mixing ratio, volume mixing ratio, or number density.
+
 .. note::
-   Currently supports TIE-GCM only (log-pressure coordinate).  WACCM-X support for
-   the hybrid-sigma pressure coordinate is pending; :func:`arr_density` raises
-   ``NotImplementedError`` for WACCM-X datasets.
+   Both **TIE-GCM and WACCM-X** are supported.  The only model-specific step is how pressure
+   is recovered from the vertical coordinate: TIE-GCM uses log-pressure ``p = p₀·exp(−ζ)``;
+   WACCM-X uses the CAM hybrid sigma-pressure ``p = hyam·P0 + hybm·PS`` (so the file must carry
+   ``hyam``/``hybm``/``PS``).
 
 Example: Convert atomic oxygen from MMR to number density
 

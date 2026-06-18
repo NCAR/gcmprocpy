@@ -16,15 +16,16 @@ model's temperature and O / O₂ fields.
 Reference formulas (tgcmproc ``denconv.F``)::
 
     BARM = 1 / (O₂/32 + O/16 + (1 − O₂ − O)/28)
-    pkt  = p₀ · exp(−ζ) / (k_B · T)                [CGS]
+    pkt  = pressure / (k_B · T)                    [CGS]
 
     MMR → CM3     :   f · pkt · BARM / W
     MMR → CM3-MR  :   f · BARM / W
     MMR → GM/CM3  :   f · pkt · BARM · 1.66e-24
 
-Currently TIE-GCM only.  WACCM-X uses a hybrid-pressure coordinate and
-needs a different pressure expression; calling :func:`arr_density` with
-a WACCM-X dataset raises :class:`NotImplementedError`.
+The only model-specific piece is how *pressure* is recovered from the
+vertical coordinate (see :func:`compute_pkt`): TIE-GCM uses log-pressure
+``p = p₀·exp(−ζ)``; WACCM-X uses the CAM hybrid sigma-pressure
+``p = hyam·P0 + hybm·PS``.  Both are supported.
 """
 import logging
 import numpy as np
@@ -135,29 +136,63 @@ def compute_barm(o_mmr, o2_mmr):
     return 1.0 / (o2_mmr / 32.0 + o_mmr / 16.0 + residual / 28.0)
 
 
-def compute_pkt(levs, temperature, model='TIE-GCM'):
-    """Air number density (cm⁻³) on TIE-GCM log-pressure levels.
+def compute_pkt(levs, temperature, model='TIE-GCM', *,
+                hyam=None, hybm=None, p0=None, ps=None):
+    """Air number density (cm⁻³) = pressure / (k_B · T), in CGS.
 
-    ``pkt = p₀ · exp(−ζ) / (k_B · T)`` in CGS, where *ζ* is the log-
-    pressure coordinate (``lev``) and ``p₀ = 5 × 10⁻⁴`` dyn cm⁻².
+    The pressure is recovered from the model's vertical coordinate, which
+    differs by model:
+
+    - **TIE-GCM** (log-pressure ``lev = ζ = ln(p₀/p)``)::
+
+          p = p₀ · exp(−ζ),   p₀ = 5 × 10⁻⁴ dyn cm⁻²
+
+      ``temperature`` lev axis must be axis 0 when multi-dimensional;
+      ``lev`` broadcasts across the remaining axes.
+
+    - **WACCM-X** (CAM hybrid sigma-pressure)::
+
+          p(k,j,i) = hyam(k) · P0 + hybm(k) · PS(j,i)     [Pa]
+
+      converted to dyn cm⁻² (×10).  Requires ``hyam``/``hybm`` (on the
+      field's vertical coordinate) and surface pressure ``ps`` (lat, lon);
+      ``p0`` defaults to 1 × 10⁵ Pa if not supplied.  Returns a full
+      ``(nlev, nlat, nlon)`` field since pressure varies horizontally.
 
     Args:
-        levs: Log-pressure level values, shape ``(nlev,)``.
-        temperature: Temperature in K.  Lev axis must be axis 0 when
-            the array is multi-dimensional.
-        model: Currently ``'TIE-GCM'`` only.
+        levs: Vertical coordinate values, shape ``(nlev,)``.
+        temperature: Temperature in K.
+        model: ``'TIE-GCM'`` or ``'WACCM-X'``.
+        hyam, hybm: Hybrid A/B coefficients on the field's level coordinate
+            (WACCM-X only), shape ``(nlev,)``.
+        p0: Reference pressure in Pa (WACCM-X only; default 1e5).
+        ps: Surface pressure in Pa, shape ``(nlat, nlon)`` (WACCM-X only).
     """
-    if model != 'TIE-GCM':
-        raise NotImplementedError(
-            f"compute_pkt supports TIE-GCM only (got '{model}')."
-        )
-    levs = np.asarray(levs, dtype=float)
     t = np.asarray(temperature, dtype=float)
-    # Broadcast lev (axis 0) across temperature's remaining axes.
-    shape = [1] * max(t.ndim, 1)
-    if t.ndim >= 1:
-        shape[0] = len(levs)
-    p = _P0_TIEGCM_CGS * np.exp(-levs.reshape(shape))
+    if model == 'TIE-GCM':
+        levs = np.asarray(levs, dtype=float)
+        # Broadcast lev (axis 0) across temperature's remaining axes.
+        shape = [1] * max(t.ndim, 1)
+        if t.ndim >= 1:
+            shape[0] = len(levs)
+        p = _P0_TIEGCM_CGS * np.exp(-levs.reshape(shape))
+    elif model == 'WACCM-X':
+        if hyam is None or hybm is None or ps is None:
+            raise ValueError(
+                "WACCM-X compute_pkt needs hyam, hybm, and ps (surface "
+                "pressure); pass them from the dataset."
+            )
+        hyam = np.asarray(hyam, dtype=float)
+        hybm = np.asarray(hybm, dtype=float)
+        ps = np.asarray(ps, dtype=float)
+        p0 = 1.0e5 if p0 is None else float(p0)
+        # p(lev, lat, lon) in Pa, then Pa -> dyn cm⁻² (1 Pa = 10 dyn cm⁻²).
+        p_pa = hyam[:, None, None] * p0 + hybm[:, None, None] * ps[None, :, :]
+        p = p_pa * 10.0
+    else:
+        raise NotImplementedError(
+            f"compute_pkt supports TIE-GCM and WACCM-X (got '{model}')."
+        )
     return p / (_BOLTZ_CGS * t)
 
 
@@ -247,9 +282,9 @@ def arr_density(datasets, variable_name, time, *,
         if no dataset contains *time*.
 
     Raises:
-        NotImplementedError: For non-TIE-GCM datasets (WACCM-X pending).
-        ValueError: If the species / temperature / O / O₂ fields are
-            missing, or the source unit cannot be determined.
+        ValueError: If required species/temperature/O/O₂ fields are missing,
+            the source unit cannot be determined, or (WACCM-X) the hybrid
+            pressure coefficients (hyam/hybm/PS) are absent.
     """
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
@@ -258,13 +293,6 @@ def arr_density(datasets, variable_name, time, *,
         if not mds.has_time(time):
             continue
         ds = mds.ds
-
-        if mds.model != 'TIE-GCM':
-            raise NotImplementedError(
-                f"arr_density currently supports TIE-GCM only "
-                f"(got '{mds.model}'). WACCM-X pressure-coordinate port "
-                f"pending."
-            )
 
         sp = get_species_names(mds.model)
         t_name, o_name, o2_name = sp['temp'], sp['o'], sp['o2']
@@ -305,7 +333,25 @@ def arr_density(datasets, variable_name, time, *,
             )
 
         barm = compute_barm(o_mmr, o2_mmr)
-        pkt = compute_pkt(levs, temp, model=mds.model)
+        if mds.model == 'WACCM-X':
+            # Hybrid sigma-pressure: pressure (hence pkt) varies horizontally.
+            vdim = 'lev' if 'lev' in da.dims else 'ilev'
+            am, bm = ('hyam', 'hybm') if vdim == 'lev' else ('hyai', 'hybi')
+            for req in (am, bm, 'PS'):
+                if req not in ds.variables:
+                    raise ValueError(
+                        f"WACCM-X density conversion needs '{req}' in "
+                        f"{mds.filename!r} (hybrid-pressure coordinate)."
+                    )
+            p0 = float(ds_t['P0'].values) if 'P0' in ds.variables else None
+            pkt = compute_pkt(
+                levs, temp, model='WACCM-X',
+                hyam=ds_t[am].values.astype(float),
+                hybm=ds_t[bm].values.astype(float),
+                p0=p0, ps=ds_t['PS'].values.astype(float),
+            )
+        else:
+            pkt = compute_pkt(levs, temp, model=mds.model)
 
         converted = convert_density_units(
             field, src_unit, to_unit,

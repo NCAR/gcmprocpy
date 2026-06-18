@@ -64,9 +64,24 @@ class TestComputePkt:
         pkt = compute_pkt(levs, t, model='TIE-GCM')
         assert np.all(np.diff(pkt[:, 0, 0]) < 0)
 
-    def test_raises_for_waccmx(self):
+    def test_waccmx_needs_hybrid_coeffs(self):
+        # WACCM-X path requires hyam/hybm/ps.
+        with pytest.raises(ValueError):
+            compute_pkt(np.array([0.5]), np.array([[[273.0]]]), model='WACCM-X')
+
+    def test_waccmx_hybrid_pressure(self):
+        # p = hyam*P0 + hybm*PS (Pa) -> dyn/cm2 (x10); pkt = p / (kB T).
+        t = np.array([[[300.0]]])
+        pkt = compute_pkt(np.array([0.5]), t, model='WACCM-X',
+                          hyam=np.array([1e-3]), hybm=np.array([0.0]),
+                          p0=1.0e5, ps=np.array([[1.0e5]]))
+        p_pa = 1e-3 * 1.0e5 + 0.0 * 1.0e5          # 100 Pa
+        expected = (p_pa * 10.0) / (_BOLTZ_CGS * 300.0)
+        assert pkt[0, 0, 0] == pytest.approx(expected, rel=1e-6)
+
+    def test_raises_for_unknown_model(self):
         with pytest.raises(NotImplementedError):
-            compute_pkt(np.array([0.0]), np.array([[[273.0]]]), model='WACCM-X')
+            compute_pkt(np.array([0.0]), np.array([[[273.0]]]), model='MARS')
 
 
 class TestGetSpeciesMolarMass:
@@ -209,11 +224,26 @@ class TestArrDensity:
                                    ds['O2'].values.astype(float),
                                    rtol=1e-12)
 
-    def test_raises_for_waccmx(self, waccmx_datasets):
+    def test_waccmx_without_hybrid_coeffs_raises(self, waccmx_datasets):
+        # WACCM-X needs hyam/hybm/PS; the bare fixture lacks them.
         t = np.datetime64('2003-03-20T00:00:00', 'ns')
-        with pytest.raises(NotImplementedError, match="TIE-GCM only"):
-            arr_density(waccmx_datasets, 'O2', t, to_unit='MMR',
-                        from_unit='CM3')
+        with pytest.raises(ValueError, match="hybrid"):
+            arr_density(waccmx_datasets, 'O2', t, to_unit='MMR', from_unit='CM3')
+
+    def test_waccmx_hybrid_density_runs(self, waccmx_datasets):
+        # With hybrid-pressure coefficients present, the WACCM-X path computes.
+        mds = waccmx_datasets[0]
+        ds = mds.ds
+        nlev = ds.sizes['lev']
+        ds['hyam'] = ('lev', np.linspace(1e-5, 0.05, nlev))
+        ds['hybm'] = ('lev', np.linspace(0.0, 0.5, nlev))
+        ds['PS'] = (('time', 'lat', 'lon'),
+                    np.full((ds.sizes['time'], ds.sizes['lat'], ds.sizes['lon']), 1.0e5))
+        ds['P0'] = ((), 1.0e5)
+        t = ds['time'].values[0]
+        pd = arr_density([mds], 'O2', t, to_unit='MMR', from_unit='CM3')
+        assert np.all(np.isfinite(pd.values))
+        assert pd.values.shape == (nlev, ds.sizes['lat'], ds.sizes['lon'])
 
     def test_missing_time_returns_none(self, tiegcm_datasets):
         bogus = np.datetime64('1999-01-01T00:00:00', 'ns')
