@@ -84,6 +84,27 @@ def test_not_present_not_derivable_returns_false():
     assert ensure_field(mds, 'NONEXISTENT') is False
 
 
+def test_derivation_error_names_missing_leaf():
+    # N2 needs O2 and O1; with O1 absent (and not derivable) the error must
+    # name the missing field, not fail opaquely.
+    from gcmprocpy import DerivationError
+    mds = ModelDataset(ds=_tiegcm_ds(include=('O2', 'TN')), filename='t.nc',
+                       model='TIE-GCM')
+    with pytest.raises(DerivationError, match=r"O1"):
+        ensure_field(mds, 'N2')
+
+
+def test_derivation_error_reports_full_chain():
+    # Request O/N2 with O2 absent: O/N2 -> N2 -> O2, and O2 is the missing leaf.
+    from gcmprocpy import DerivationError
+    mds = ModelDataset(ds=_tiegcm_ds(include=('O1', 'TN')), filename='t.nc',
+                       model='TIE-GCM')
+    with pytest.raises(DerivationError) as exc:
+        gy.arr_lat_lon([mds], 'O_N2', TIME, selected_lev_ilev=1.0, plot_mode=True)
+    msg = str(exc.value)
+    assert 'O2' in msg and 'N2' in msg and 'chain' in msg.lower()
+
+
 # --- derive-if-missing through the extractors ----------------------------
 
 def test_arr_lat_lon_derives_missing_n2():

@@ -31,47 +31,70 @@ logger = logging.getLogger(__name__)
 _MMR_FLOOR = 1.0e-5
 
 
-def compute_derivable_da(mds, name, _stack=None):
+class DerivationError(ValueError):
+    """A registered derivable cannot be computed because a required input —
+    possibly deep in the dependency chain — is unavailable.
+
+    Subclasses :class:`ValueError` so existing ``except ValueError`` handling
+    (e.g. the CLI error wrappers) still catches it.
+    """
+
+
+def compute_derivable_da(mds, name, _chain=None):
     """Compute a derivable field for *mds* as a full-grid ``xarray.DataArray``.
 
     Recursively resolves inputs (a missing derivable input is computed and
     injected first), so derived-on-derived chains work (e.g. ``O/N2`` -> ``N2``).
-    Returns ``None`` if *name* is not a registered derivable, if it is not
-    supported for this model, or if a required input field is unavailable.
+
+    Returns ``None`` ONLY when *name* is not a registered derivable. If *name*
+    IS derivable but a required input (or a chain of inputs) is unavailable —
+    or the model is unsupported — raises :class:`DerivationError` with a message
+    naming the missing field and the full derivation chain.
 
     Args:
         mds: A :class:`gcmprocpy.containers.ModelDataset`.
         name (str): Field name to derive.
-        _stack (set, optional): Internal recursion guard (cycle detection).
+        _chain (list, optional): Internal derivation path (cycle detection +
+            diagnostics).
 
     Raises:
-        ValueError: On a cyclic derivation chain.
+        DerivationError: Cyclic chain, unsupported model, or a missing input.
     """
     entry = resolve_derivable(name)
     if entry is None:
         return None
-    if entry['models'] is not None and mds.model not in entry['models']:
-        return None
 
-    _stack = set() if _stack is None else _stack
-    key = name.upper()
-    if key in _stack:
-        raise ValueError(
-            f"cyclic derivation detected: {' -> '.join(list(_stack) + [key])}"
+    _chain = list(_chain or [])
+    if name.upper() in (c.upper() for c in _chain):
+        raise DerivationError("cyclic derivation: " + " -> ".join(_chain + [name]))
+    _chain = _chain + [name]
+    root = _chain[0]
+    via = f" (via {' -> '.join(_chain)})" if len(_chain) > 1 else ""
+
+    if entry['models'] is not None and mds.model not in entry['models']:
+        raise DerivationError(
+            f"Cannot derive '{root}'{via}: '{name}' is not available for "
+            f"model {mds.model}."
         )
-    _stack = _stack | {key}
 
     species = get_species_names(mds.model)
     inputs = {}
     for role in entry['inputs']:
         var_name = species.get(role, role)  # role -> dataset var name, else literal
-        if var_name not in mds.ds.variables:
-            sub = compute_derivable_da(mds, var_name, _stack)
-            if sub is None:
-                logger.debug("cannot derive %s: input %s unavailable", name, var_name)
-                return None
-            mds.ds[var_name] = sub  # inject the intermediate so it is reused
-        inputs[role] = mds.ds[var_name]
+        if var_name in mds.ds.variables:
+            inputs[role] = mds.ds[var_name]
+            continue
+        # Input absent: derive it, or report exactly what is missing and why.
+        if resolve_derivable(var_name) is None:
+            chain_str = " -> ".join(_chain + [var_name])
+            raise DerivationError(
+                f"Cannot derive '{root}': requires '{var_name}', which is not "
+                f"in the dataset and is not a derivable quantity "
+                f"(chain: {chain_str})."
+            )
+        sub = compute_derivable_da(mds, var_name, _chain)  # raises on deeper failure
+        mds.ds[var_name] = sub  # inject the intermediate so it is reused
+        inputs[role] = sub
 
     da = entry['formula'](inputs, mds)
     da = da.rename(entry['name'])
@@ -88,29 +111,30 @@ def compute_derivable_da(mds, name, _stack=None):
 def ensure_field(mds, name):
     """Ensure *name* is present in ``mds.ds``, computing+injecting it if derivable.
 
-    Returns ``True`` if the field is present (already or after derivation),
-    ``False`` if it is neither present nor derivable for this dataset.
+    Returns ``True`` if the field is present (already, or after derivation),
+    ``False`` if *name* is not a registered derivable.  Raises
+    :class:`DerivationError` if *name* is derivable but its inputs are missing.
     """
     if name in mds.ds.variables:
         return True
-    da = compute_derivable_da(mds, name)
-    if da is None:
+    if resolve_derivable(name) is None:
         return False
-    mds.ds[name] = da
+    mds.ds[name] = compute_derivable_da(mds, name)
     return True
 
 
 def _ensure_derivable_fields(datasets, names):
-    """Inject any missing-but-derivable *names* into each dataset (best effort)."""
+    """Inject missing-but-derivable *names* into each dataset.
+
+    A name that is simply not derivable is left untouched (the caller's normal
+    not-found handling applies).  A name that IS derivable but whose inputs are
+    unavailable raises :class:`DerivationError` with the dependency chain, so
+    the user gets a precise reason rather than an opaque downstream failure.
+    """
     for mds in datasets:
         for name in names:
             if name is not None and name not in mds.ds.variables:
-                try:
-                    ensure_field(mds, name)
-                except ValueError:
-                    raise
-                except Exception as exc:  # pragma: no cover - defensive
-                    logger.debug("derive %s skipped: %s", name, exc)
+                ensure_field(mds, name)
 
 
 # ---------------------------------------------------------------------------
