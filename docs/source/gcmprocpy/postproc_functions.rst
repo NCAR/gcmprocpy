@@ -88,6 +88,15 @@ Simple Emissions Plots
 
 gcmprocpy provides functions for computing airglow and infrared emissions from model output.
 
+.. note::
+   The emission rate equations operate on **number densities (cm⁻³)**.  Species
+   inputs are converted automatically via the density machinery, reading each
+   field's ``units`` attribute — so emissions are correct whether a history
+   stores species as mass mixing ratio (``kg/kg``), volume mixing ratio
+   (``mol/mol``), or number density (``cm-3``).  ``N2`` is derived as
+   ``1 − O2 − O`` when absent.  (TIE-GCM thermosphere histories typically lack
+   the mesospheric chemistry — H, O3, HO2 — the full OH model needs.)
+
 Example 1: Plotting 5.3 micron NO emission
 
 .. code-block:: python

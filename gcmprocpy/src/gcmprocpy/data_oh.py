@@ -6,8 +6,9 @@ Solves the coupled steady-state rate equations for 10 vibrational levels
 """
 import numpy as np
 from .containers import PlotData, get_species_names, register_derived
-from .data_parse import batch_arr_lat_lon
+from .data_parse import batch_arr_lat_lon, arr_lat_lon
 from .data_derived import _ensure_derivable_fields
+from .data_density import arr_density
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -292,28 +293,21 @@ def arr_mkoh_band(datasets, variable_name, time,
             f"Full OH model requires {required} but dataset is missing: {missing}"
         )
 
-    # Extract all species at the requested time/level
-    var_names = [names['temp'], names['o'], names['o2'], names['n2'],
-                 names['h'], names['o3'], names['ho2']]
-    results = batch_arr_lat_lon(datasets, var_names, time,
-                                selected_lev_ilev, selected_unit, plot_mode)
+    # Temperature in K; every species as number density (cm-3), converted from
+    # whatever the history stores (MMR/VMR/cm-3).  ohrad's rate equations are in
+    # cm-3, so this is required for physically correct populations.
+    r_temp = arr_lat_lon(datasets, names['temp'], time, selected_lev_ilev,
+                         plot_mode=True)
+    if r_temp is None:
+        return None
 
-    r_temp = results[names['temp']]
-    r_o = results[names['o']]
-    r_o2 = results[names['o2']]
-    r_n2 = results[names['n2']]
-    r_h = results[names['h']]
-    r_o3 = results[names['o3']]
-    r_ho2 = results[names['ho2']]
-
-    if plot_mode:
-        vals = lambda r: r.values
-    else:
-        vals = lambda r: r
+    def _cm3(role):
+        return arr_density(datasets, names[role], time,
+                           selected_lev_ilev=selected_lev_ilev, to_unit='CM3').values
 
     vib_pop, band_em = ohrad(
-        vals(r_temp), vals(r_o2), vals(r_o), vals(r_n2),
-        vals(r_h), vals(r_o3), vals(r_ho2),
+        r_temp.values, _cm3('o2'), _cm3('o'), _cm3('n2'),
+        _cm3('h'), _cm3('o3'), _cm3('ho2'),
     )
 
     # Parse variable_name to select output

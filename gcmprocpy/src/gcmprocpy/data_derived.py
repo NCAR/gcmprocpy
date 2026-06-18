@@ -75,7 +75,12 @@ def compute_derivable_da(mds, name, _stack=None):
 
     da = entry['formula'](inputs, mds)
     da = da.rename(entry['name'])
-    da.attrs['units'] = entry['units']
+    # entry['units'] overrides only when set; otherwise the formula's own unit
+    # (e.g. N2 inheriting O2's MMR/VMR convention) is preserved.
+    if entry['units']:
+        da.attrs['units'] = entry['units']
+    elif 'units' not in da.attrs:
+        da.attrs['units'] = ''
     da.attrs['long_name'] = entry['long_name']
     return da
 
@@ -113,9 +118,14 @@ def _ensure_derivable_fields(datasets, names):
 # ---------------------------------------------------------------------------
 
 def _derive_n2(inp, mds):
-    """N2 mixing-ratio residual: ``max(1e-5, 1 - O2 - O1)`` (tgcmproc convention)."""
-    n2 = 1.0 - inp['o2'] - inp['o']
-    return n2.clip(min=_MMR_FLOOR)
+    """N2 mixing-ratio residual: ``max(1e-5, 1 - O2 - O1)`` (tgcmproc convention).
+
+    Inherits O2's mixing-ratio unit (``kg/kg`` / ``mol/mol``) so the residual
+    carries the correct convention for downstream density conversion.
+    """
+    n2 = (1.0 - inp['o2'] - inp['o']).clip(min=_MMR_FLOOR)
+    n2.attrs['units'] = inp['o2'].attrs.get('units', 'MMR')
+    return n2
 
 
 def _ratio(num_role, den_role):
@@ -132,7 +142,7 @@ def _register_all():
     # N2 = 1 - O2 - O1 (mixing-ratio residual). WACCM-X usually writes N2
     # natively, so this only fires when it is genuinely absent.
     register_derivable(
-        'N2', _derive_n2, inputs=['o2', 'o'], units='MMR',
+        'N2', _derive_n2, inputs=['o2', 'o'], units='',  # inherits O2's unit
         long_name='molecular nitrogen (derived: 1 - O2 - O)',
     )
     # Composition ratios (dimensionless; numerator and denominator share the

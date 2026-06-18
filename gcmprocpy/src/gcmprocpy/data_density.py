@@ -36,7 +36,7 @@ from .containers import (
     get_species_names,
     cache_data_fn,
 )
-from .data_parse import get_mtime, level_log_transform
+from .data_parse import get_mtime, level_log_transform, derive_aware
 
 logger = logging.getLogger(__name__)
 
@@ -256,9 +256,36 @@ def convert_density_units(values, from_unit, to_unit, *,
         return mmr * pkt * barm * _AMU_G
 
 
+def _select_level(values, coord_vals, selected_lev_ilev):
+    """Select a level from a ``(nlev, ...)`` array, mirroring batch_arr_lat_lon.
+
+    ``'mean'`` averages over the level axis; an exact coordinate value selects
+    it; an out-of-range value clamps to the nearest end; otherwise the two
+    nearest levels are averaged.  Done *after* unit conversion so a level mean
+    is the mean of the converted field (not a converted mean).
+    """
+    if selected_lev_ilev is None:
+        return values
+    if selected_lev_ilev == 'mean':
+        return values.mean(axis=0)
+    sel = float(selected_lev_ilev)
+    coord_vals = np.asarray(coord_vals, dtype=float)
+    exact = np.where(coord_vals == sel)[0]
+    if exact.size:
+        return values[int(exact[0])]
+    if sel >= coord_vals.max():
+        return values[int(np.argmax(coord_vals))]
+    if sel <= coord_vals.min():
+        return values[int(np.argmin(coord_vals))]
+    order = np.argsort(np.abs(coord_vals - sel))
+    return (values[int(order[0])] + values[int(order[1])]) / 2.0
+
+
+@derive_aware
 @cache_data_fn
 def arr_density(datasets, variable_name, time, *,
-                to_unit='CM3', from_unit=None, log_level=True, **kwargs):
+                to_unit='CM3', from_unit=None, selected_lev_ilev=None,
+                log_level=True, **kwargs):
     """Extract a species field and convert it to the requested density unit.
 
     Reads the species, temperature, and O / O₂ fields from the first
@@ -274,11 +301,15 @@ def arr_density(datasets, variable_name, time, *,
             (aliases accepted).  Default ``'CM3'``.
         from_unit (str): Source unit.  If ``None`` (default), reads it
             from the dataset variable's ``units`` attribute.
+        selected_lev_ilev (float | str, optional): If given, return only this
+            level (or ``'mean'`` over levels), selected *after* conversion.
+            ``None`` (default) returns the full vertical grid.
         log_level (bool): Whether to log-transform level coordinates for
             the returned :class:`PlotData`.
 
     Returns:
-        PlotData: Shape ``(nlev, nlat, nlon)`` in *to_unit*.  ``None``
+        PlotData: full ``(nlev, nlat, nlon)`` field in *to_unit*, or a
+        ``(nlat, nlon)`` slice if *selected_lev_ilev* is given.  ``None``
         if no dataset contains *time*.
 
     Raises:
@@ -332,35 +363,56 @@ def arr_density(datasets, variable_name, time, *,
                 f"conversion."
             )
 
-        barm = compute_barm(o_mmr, o2_mmr)
-        if mds.model == 'WACCM-X':
-            # Hybrid sigma-pressure: pressure (hence pkt) varies horizontally.
-            vdim = 'lev' if 'lev' in da.dims else 'ilev'
-            am, bm = ('hyam', 'hybm') if vdim == 'lev' else ('hyai', 'hybi')
-            for req in (am, bm, 'PS'):
-                if req not in ds.variables:
-                    raise ValueError(
-                        f"WACCM-X density conversion needs '{req}' in "
-                        f"{mds.filename!r} (hybrid-pressure coordinate)."
-                    )
-            p0 = float(ds_t['P0'].values) if 'P0' in ds.variables else None
-            pkt = compute_pkt(
-                levs, temp, model='WACCM-X',
-                hyam=ds_t[am].values.astype(float),
-                hybm=ds_t[bm].values.astype(float),
-                p0=p0, ps=ds_t['PS'].values.astype(float),
-            )
+        # BARM/pkt are only needed when the unit actually changes.  An identity
+        # conversion (e.g. an already-cm-3 field requested as CM3) skips them —
+        # so it never requires WACCM-X hybrid coefficients for a no-op.
+        if _normalize_unit(src_unit) == _normalize_unit(to_unit):
+            barm = pkt = None
         else:
-            pkt = compute_pkt(levs, temp, model=mds.model)
+            barm = compute_barm(o_mmr, o2_mmr)
+            if mds.model == 'WACCM-X':
+                # Hybrid sigma-pressure: pressure (hence pkt) varies horizontally.
+                vdim = 'lev' if 'lev' in da.dims else 'ilev'
+                am, bm = ('hyam', 'hybm') if vdim == 'lev' else ('hyai', 'hybi')
+                for req in (am, bm, 'PS'):
+                    if req not in ds.variables:
+                        raise ValueError(
+                            f"WACCM-X density conversion needs '{req}' in "
+                            f"{mds.filename!r} (hybrid-pressure coordinate)."
+                        )
+                p0 = float(ds_t['P0'].values) if 'P0' in ds.variables else None
+                pkt = compute_pkt(
+                    levs, temp, model='WACCM-X',
+                    hyam=ds_t[am].values.astype(float),
+                    hybm=ds_t[bm].values.astype(float),
+                    p0=p0, ps=ds_t['PS'].values.astype(float),
+                )
+            else:
+                pkt = compute_pkt(levs, temp, model=mds.model)
 
         converted = convert_density_units(
             field, src_unit, to_unit,
             barm=barm, pkt=pkt, molar_mass=molar_mass,
         )
-
-        levs_display = level_log_transform(levs.copy(), mds.model, log_level)
         long_name = ds[variable_name].attrs.get('long_name', variable_name)
 
+        if selected_lev_ilev is not None:
+            # Select the level AFTER conversion (so a 'mean' is the mean of the
+            # converted field, not a conversion of the mean).
+            sliced = _select_level(converted, levs, selected_lev_ilev)
+            return PlotData(
+                values=sliced,
+                variable_unit=_normalize_unit(to_unit),
+                variable_long_name=long_name,
+                model=mds.model,
+                filename=mds.filename,
+                lats=ds_t.lat.values.astype(float),
+                lons=ds_t.lon.values.astype(float),
+                selected_lev=selected_lev_ilev,
+                mtime=selected_mtime,
+            )
+
+        levs_display = level_log_transform(levs.copy(), mds.model, log_level)
         return PlotData(
             values=converted,
             variable_unit=_normalize_unit(to_unit),

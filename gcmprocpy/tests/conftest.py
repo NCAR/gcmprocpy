@@ -32,6 +32,19 @@ def pytest_collection_modifyitems(config, items):
                 item.add_marker(skip)
 
 
+@pytest.fixture(autouse=True)
+def _clear_data_cache():
+    """Clear the arr_* / derived-variable LRU before each test.
+
+    The cache keys on ``id(datasets)``; across tests a garbage-collected list's
+    id can be reused, so a fresh per-test clear keeps results deterministic
+    (production code calls ``clear_data_cache()`` on dataset reload).
+    """
+    from gcmprocpy.containers import clear_data_cache
+    clear_data_cache()
+    yield
+
+
 @pytest.fixture
 def tiegcm_dataset():
     """Create a minimal TIE-GCM-like xarray dataset for testing."""

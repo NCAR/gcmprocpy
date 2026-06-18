@@ -120,6 +120,25 @@ def test_full_oh_model_runs_without_n2(tiegcm_dataset):
     assert pd is not None and pd.values.shape == ds['TN'].isel(time=0, lev=0).shape
 
 
+def test_emission_inputs_converted_to_cm3():
+    # On an MMR-stored history, NO53 must be computed from cm-3 species (routed
+    # through arr_density), not from the raw mixing ratios.
+    from gcmprocpy.data_emissions import mkeno53
+    ds = _tiegcm_ds(include=('O2', 'O1', 'TN'))
+    rng = np.random.default_rng(1)
+    ds['NO'] = (['time', 'lev', 'lat', 'lon'],
+                rng.uniform(1e-6, 1e-4, (1, 3, 3, 3)), {'units': 'mmr'})
+    mds = ModelDataset(ds=ds, filename='t.nc', model='TIE-GCM')
+    no53 = gy.arr_mkeno53([mds], 'NO53', TIME, selected_lev_ilev=1.0, plot_mode=True).values
+    # Reference: convert species to cm-3 ourselves, then apply the formula.
+    o_cm3 = gy.arr_density([mds], 'O1', TIME, selected_lev_ilev=1.0, to_unit='CM3').values
+    no_cm3 = gy.arr_density([mds], 'NO', TIME, selected_lev_ilev=1.0, to_unit='CM3').values
+    tn = gy.arr_lat_lon([mds], 'TN', TIME, selected_lev_ilev=1.0, plot_mode=True).values
+    assert np.allclose(no53, mkeno53(tn, o_cm3, no_cm3))
+    # cm-3 values are far larger than the raw MMRs -> conversion is real, not a no-op.
+    assert np.nanmedian(o_cm3) > 1e6 > np.nanmax(ds['O1'].values)
+
+
 # --- persistence (in-place append) ---------------------------------------
 
 def test_save_derived_appends_and_reloads(tmp_path):
