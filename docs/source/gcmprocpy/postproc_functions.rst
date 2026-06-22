@@ -506,13 +506,30 @@ Currently registered derivables:
    * - ``TNFP``
      - frost-point temperature (K) — requires ``H2O``
      - TN, O, O2, H2O
+   * - ``OX``
+     - odd oxygen ``O + O3`` (additive group, members' unit)
+     - O, O3
+   * - ``NOZ``
+     - odd nitrogen ``NO + NO2``
+     - NO, NO2
+   * - ``HOX``
+     - odd hydrogen ``OH + HO2 + H``
+     - OH, HO2, H
+   * - ``O/CO2`` (alias ``O_CO2``)
+     - atomic oxygen / CO2 ratio
+     - O, CO2
 
 This is what lets the full OH model and the ``OH83`` emission run on histories
 that omit ``N2`` (it is derived from ``O2``/``O`` automatically). Derivables can
 also depend on other derivables (e.g. ``O/N2`` builds on the derived ``N2``).
 The ``RHO``/``PMB``/``TNFP`` fields reuse the density machinery, so they are
 unit-aware (MMR / VMR / cm⁻³) and work for both TIE-GCM and WACCM-X; ``TNFP``
-raises a chain-aware error on histories without ``H2O``.
+raises a chain-aware error on histories without ``H2O``.  The composition groups
+``OX``/``NOZ``/``HOX`` are summed from their members in the file's shared unit
+(exact — densities are additive; tgcmproc writes the group field natively and
+gcmprocpy reconstructs it when absent), require the members to share a unit, and
+raise a chain-aware error when a member is absent (e.g. ``OH``/``NO2`` are not on
+standard TIE-GCM histories).
 
 Register a custom derivable:
 
@@ -632,6 +649,14 @@ formula can be traced back to the Fortran.
      - ``mkderived.F`` :: ``mkderived`` (L803)
      - tgcmproc
      - frost point ``T − 6077.4/(28.548 − ln(p_H2O[mb]))``; requires ``H2O``
+   * - ``OX`` / ``NOZ`` / ``HOX`` groups
+     - ``fset_known.F`` (native fields; ``fcomponents`` + group ``%wt`` 16/30/17)
+     - tgcmproc
+     - odd O/N/H groups (O+O3, NO+NO2, OH+HO2+H); summed from members when absent
+   * - ``O/CO2`` ratio
+     - ``mkderived.F`` :: ``mkderived`` (L618)
+     - tgcmproc
+     - atomic oxygen / CO2 ratio (terrestrial branch); unit-invariant
 
 Scientific references
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

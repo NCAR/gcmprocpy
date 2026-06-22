@@ -173,6 +173,40 @@ def _derive_o_o2n2(inp, mds):
     return inp['o'] / (inp['o2'] + inp['n2'])
 
 
+def _sum_group(roles):
+    """Composition group computed by summing its member fields (OX/NOZ/HOX).
+
+    tgcmproc reads OX/NOZ/HOX as *native* history fields (the model writes the
+    combined group) and uses their ``fcomponents`` only to weight the
+    density-unit conversion (``getflds.F`` L405; ``denconv.F``).  gcmprocpy
+    instead *computes* the group when it is absent by summing the members, which
+    is exact because mass / number / mole densities are additive — the sum
+    equals the model's native group field in that representation.
+
+    Members must share a unit (every TIE-GCM/WACCM-X history stores all species
+    in one convention); a genuine mismatch raises :class:`DerivationError`
+    rather than silently adding incompatible fields.  For density-unit
+    conversion the group carries tgcmproc's effective weight (``OX``=16,
+    ``NOZ``=30, ``HOX``=17 in ``data_density._SPECIES_MOLAR_MASS``); tgcmproc
+    additionally applies a member-composition rescale, which is not reproduced.
+    """
+    def _f(inp, mds):
+        from .data_density import _normalize_unit  # lazy: avoid an import cycle
+        seen = {u for r in roles
+                for u in (_normalize_unit(inp[r].attrs.get('units')),) if u}
+        if len(seen) > 1:
+            raise DerivationError(
+                "cannot sum group members with mismatched units "
+                f"{sorted(seen)}; convert them to a common unit first."
+            )
+        total = inp[roles[0]].copy()   # copy so a single-member group never
+        for r in roles[1:]:            # mutates the shared input's attrs
+            total = total + inp[r]
+        total.attrs['units'] = inp[roles[0]].attrs.get('units', '')
+        return total
+    return _f
+
+
 # ---------------------------------------------------------------------------
 # Mass density / pressure / frost point (tgcmproc mkderived.F)
 # ---------------------------------------------------------------------------
@@ -327,6 +361,24 @@ def _register_all():
         'TNFP', _derive_tnfp, inputs=['temp', 'o', 'o2', 'H2O'], units='K',
         long_name='frost-point temperature (derived; requires H2O)',
     )
+    # Odd-species composition groups (tgcmproc OX/NOZ/HOX, fset_known.F): tgcmproc
+    # reads these as native group fields; gcmprocpy computes them by summing the
+    # members in their shared unit (exact — densities are additive) when absent.
+    # Members must be present (else a chain-aware DerivationError names the missing
+    # one, e.g. OH/NO2 on standard TIE-GCM).  Group weights for density conversion
+    # live in data_density._SPECIES_MOLAR_MASS (OX=16, NOZ=30, HOX=17).
+    groups = [
+        ('OX', ['o', 'o3'], 'odd oxygen (O + O3)'),
+        ('NOZ', ['no', 'no2'], 'odd nitrogen (NO + NO2)'),
+        ('HOX', ['oh', 'ho2', 'h'], 'odd hydrogen (OH + HO2 + H)'),
+    ]
+    for key, roles, long_name in groups:
+        register_derivable(key, _sum_group(roles), inputs=roles, units='',
+                           long_name=long_name)
+    # O/CO2 ratio (tgcmproc mkderived.F L618, terrestrial branch); unit-invariant.
+    for key in ('O/CO2', 'O_CO2'):
+        register_derivable(key, _ratio('o', 'co2'), inputs=['o', 'co2'],
+                           units='ratio', long_name='atomic oxygen / CO2 ratio')
 
 
 _register_all()

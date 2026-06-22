@@ -53,9 +53,12 @@ SUPPORTED_DENSITY_UNITS = ('MMR', 'CM3', 'CM3-MR', 'GM/CM3')
 # Role → molar mass (g/mol).  Role keys match MODEL_DEFAULTS['species'].
 # Species molar masses (g/mol).  Ported from tgcmproc ``fset_known.F``
 # (subroutine ``fset_known``), which registers each species' ``flds_known(n)%wt``:
-# O2=32, O (O1)=16, NO=30, CO2=44, O3=48, HO2=33, and N2=28 (a real table row,
-# flagged derived from O2/O1).  H is the standard atomic weight 1.008 here vs the
-# Fortran's rounded 1.  These weights are the MMR -> number-density divisors.
+# O2=32, O (O1)=16, NO=30, CO2=44, O3=48, HO2=33, NO2=46, OH=17, and N2=28 (a real
+# table row, flagged derived from O2/O1).  H is the standard atomic weight 1.008
+# here vs the Fortran's rounded 1.  These weights are the MMR -> number-density
+# divisors.  OX/NOZ/HOX are tgcmproc's effective *group* weights (fset_known.F
+# %wt) for unit-converting the composition groups; they are NOT member-mass sums
+# (e.g. NOZ=30 is NO's mass, not NO+NO2).
 _SPECIES_MOLAR_MASS = {
     'o':   16.00,
     'o2':  32.00,
@@ -65,6 +68,11 @@ _SPECIES_MOLAR_MASS = {
     'h':    1.008,
     'o3':  48.00,
     'ho2': 33.00,
+    'no2': 46.00,
+    'oh':  17.00,
+    'ox':  16.00,   # group weight (tgcmproc fset_known.F)
+    'noz': 30.00,   # group weight (NO's mass, not NO + NO2)
+    'hox': 17.00,   # group weight
 }
 
 

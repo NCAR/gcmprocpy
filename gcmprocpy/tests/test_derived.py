@@ -285,3 +285,94 @@ def test_tnfp_formula_on_mmr_history():
     x = h2o * barm / 18.0
     expected = tn - 6077.4 / (28.548 - np.log(x * press_mb))
     np.testing.assert_allclose(tnfp.isel(time=0).values, expected, rtol=1e-9)
+
+
+# --- composition groups (OX/NOZ/HOX) + O/CO2 (tgcmproc fcomponents/mkderived) ---
+
+def _with_species(**fields):
+    """_tiegcm_ds (MMR O2/O1/TN) plus extra MMR species fields (name -> (lo, hi))."""
+    ds = _tiegcm_ds()
+    rng = np.random.default_rng(11)
+    for name, (lo, hi) in fields.items():
+        ds[name] = (['time', 'lev', 'lat', 'lon'],
+                    rng.uniform(lo, hi, (1, 3, 3, 3)), {'units': 'MMR'})
+    return ds
+
+
+def test_registry_has_groups_and_oco2():
+    for name in ('OX', 'NOZ', 'HOX', 'O/CO2', 'O_CO2'):
+        assert resolve_derivable(name) is not None
+
+
+def test_molar_masses_no2_oh_added():
+    from gcmprocpy.data_density import get_species_molar_mass
+    assert get_species_molar_mass('TIE-GCM', 'NO2') == 46.0
+    assert get_species_molar_mass('TIE-GCM', 'OH') == 17.0
+
+
+def test_ox_sums_o_and_o3():
+    ds = _with_species(O3=(1e-3, 1e-2))
+    mds = ModelDataset(ds=ds, filename='ox.nc', model='TIE-GCM')
+    assert ensure_field(mds, 'OX') is True
+    ox = mds.ds['OX']
+    assert np.allclose(ox.values, ds['O1'].values + ds['O3'].values)
+    assert ox.attrs['units'] == 'MMR'   # inherits the members' unit
+
+
+def test_noz_requires_no2():
+    from gcmprocpy import DerivationError
+    mds = ModelDataset(ds=_with_species(NO=(1e-6, 1e-4)), filename='noz.nc',
+                       model='TIE-GCM')   # NO present, NO2 absent
+    with pytest.raises(DerivationError, match='NO2'):
+        ensure_field(mds, 'NOZ')
+
+
+def test_noz_sums_no_and_no2():
+    ds = _with_species(NO=(1e-6, 1e-4), NO2=(1e-7, 1e-5))
+    mds = ModelDataset(ds=ds, filename='noz.nc', model='TIE-GCM')
+    ensure_field(mds, 'NOZ')
+    assert np.allclose(mds.ds['NOZ'].values, ds['NO'].values + ds['NO2'].values)
+
+
+def test_hox_requires_oh():
+    from gcmprocpy import DerivationError
+    mds = ModelDataset(ds=_with_species(HO2=(1e-7, 1e-5), H=(1e-6, 1e-4)),
+                       filename='hox.nc', model='TIE-GCM')   # OH absent
+    with pytest.raises(DerivationError, match='OH'):
+        ensure_field(mds, 'HOX')
+
+
+def test_hox_sums_oh_ho2_h():
+    ds = _with_species(OH=(1e-6, 1e-4), HO2=(1e-7, 1e-5), H=(1e-6, 1e-4))
+    mds = ModelDataset(ds=ds, filename='hox.nc', model='TIE-GCM')
+    ensure_field(mds, 'HOX')
+    expect = ds['OH'].values + ds['HO2'].values + ds['H'].values
+    assert np.allclose(mds.ds['HOX'].values, expect)
+
+
+def test_o_co2_ratio():
+    ds = _with_species(CO2=(1e-3, 1e-1))
+    mds = ModelDataset(ds=ds, filename='oco2.nc', model='TIE-GCM')
+    pd = gy.arr_lat_lon([mds], 'O_CO2', TIME, selected_lev_ilev=1.0, plot_mode=True)
+    o = mds.ds['O1'].sel(time=TIME, lev=1.0).values
+    co2 = mds.ds['CO2'].sel(time=TIME, lev=1.0).values
+    assert np.allclose(pd.values, o / co2)
+
+
+def test_group_rejects_mismatched_member_units():
+    # O1 is MMR (from _tiegcm_ds); force O3 to cm-3 -> incompatible sum must raise.
+    from gcmprocpy import DerivationError
+    ds = _with_species(O3=(1e-3, 1e-2))
+    ds['O3'].attrs['units'] = 'cm-3'
+    mds = ModelDataset(ds=ds, filename='ox.nc', model='TIE-GCM')
+    with pytest.raises(DerivationError, match='unit'):
+        ensure_field(mds, 'OX')
+
+
+def test_group_density_conversion_resolves_weight():
+    # arr_density on a group must resolve the group weight (OX=16), not raise.
+    ds = _with_species(O3=(1e-3, 1e-2))
+    mds = ModelDataset(ds=ds, filename='ox.nc', model='TIE-GCM')
+    pd = gy.arr_density([mds], 'OX', TIME, selected_lev_ilev=1.0, to_unit='CM3')
+    assert pd is not None and pd.variable_unit == 'CM3'
+    assert np.all(np.isfinite(pd.values))

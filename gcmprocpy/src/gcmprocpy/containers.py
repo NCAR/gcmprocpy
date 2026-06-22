@@ -37,6 +37,8 @@ MODEL_DEFAULTS = {
         'species': {
             'temp': 'TN', 'o': 'O1', 'o2': 'O2', 'n2': 'N2',
             'no': 'NO', 'co2': 'CO2', 'h': 'H', 'o3': 'O3', 'ho2': 'HO2',
+            'no2': 'NO2', 'oh': 'OH',
+            'ox': 'OX', 'noz': 'NOZ', 'hox': 'HOX',   # group density-conversion weights
         },
     },
     'WACCM-X': {
@@ -79,6 +81,8 @@ MODEL_DEFAULTS = {
         'species': {
             'temp': 'T', 'o': 'O', 'o2': 'O2', 'n2': 'N2',
             'no': 'NO', 'co2': 'CO2', 'h': 'H', 'o3': 'O3', 'ho2': 'HO2',
+            'no2': 'NO2', 'oh': 'OH',
+            'ox': 'OX', 'noz': 'NOZ', 'hox': 'HOX',   # group density-conversion weights
         },
     },
 }
