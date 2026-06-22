@@ -15,6 +15,7 @@ import logging
 import numpy as np
 from .containers import PlotData, MODEL_DEFAULTS, get_species_names, register_derived
 from .data_parse import get_mtime, level_log_transform
+from .data_density import arr_density
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,6 @@ _OMEGA = 2.0 * np.pi / 86400.0      # Earth rotation rate (rad s⁻¹)
 _R = 287.0                           # gas constant for dry air (J kg⁻¹ K⁻¹)
 _D2R = np.pi / 180.0                # degrees → radians
 _H = _R * _TS / _G                  # reference scale height (m) ≈ 8786
-_AMU = 1.66053907e-27               # atomic mass unit (kg)
-_M_O, _M_O2, _M_N2 = 16.0, 32.0, 28.0  # atomic / molecular masses (u)
 
 
 def _interp_ilev_to_lev(w_ilev, ilev_vals, lev_vals):
@@ -57,6 +56,33 @@ def _interp_ilev_to_lev(w_ilev, ilev_vals, lev_vals):
     return w_lev
 
 
+def _total_mass_density_kg_m3(mds, time):
+    """Total air mass density (kg m⁻³) on the full grid for one dataset + time.
+
+    Mirrors tgcmproc ``mkrhokg`` (``mkderived.F``): each major species (O, O₂,
+    N₂) is converted to mass density with :func:`~gcmprocpy.data_density.arr_density`
+    (``to_unit='GM/CM3'``) and summed, then g cm⁻³ → kg m⁻³ (×1000).  Routing
+    through ``arr_density`` means the conversion is unit-aware (MMR / VMR / cm⁻³,
+    read from each field's ``units`` attribute) and model-aware (TIE-GCM
+    log-pressure, WACCM-X hybrid pressure), so the density correctly carries the
+    ``pkt = p/(k_B·T)`` vertical falloff.  ``N2`` is auto-derived if absent.
+
+    Raises:
+        ValueError: if *time* is absent or a required species / hybrid-pressure
+            coefficient is missing — the caller then falls back to the
+            ideal-gas proxy.
+    """
+    sp = get_species_names(mds.model)
+    rho_gcm3 = None
+    for role in ('o', 'o2', 'n2'):
+        pd = arr_density([mds], sp[role], time, to_unit='GM/CM3', log_level=False)
+        if pd is None:
+            raise ValueError(f"no data for species '{sp[role]}' at {time}")
+        contrib = np.asarray(pd.values, dtype=float)
+        rho_gcm3 = contrib if rho_gcm3 is None else rho_gcm3 + contrib
+    return rho_gcm3 * 1.0e3  # g cm⁻³ → kg m⁻³
+
+
 def epflux(temp, u, v, lats, levs, w=None, rho=None):
     """Compute Eliassen-Palm flux components.
 
@@ -82,6 +108,13 @@ def epflux(temp, u, v, lats, levs, w=None, rho=None):
     where primes denote deviations from the zonal mean, overbars are
     zonal means, *γ* is the static stability, and *f* the Coriolis
     parameter.
+
+    Ported from tgcmproc ``epflux.F`` (module ``epflux``; subroutines
+    ``epfluxy``/``epfluxz``/``epfluxdiv`` with zonal-mean, ``gamma`` and
+    ``zpht`` setup in ``save_epv``; B. Foster & H. Liu, 2-4/98).  EPVY, EPVZ,
+    γ, the reference scale height ``H = r·ts/g``, and the 3/12/98 sign fix
+    (``Sy = -u'v' + (v'T'/γ)·∂u/∂z``, **plus** sign) follow the Fortran.  The
+    EPVDIV mass density is supplied by :func:`arr_epflux` (see its note).
 
     Args:
         temp: Temperature (K), shape ``(nlev, nlat, nlon)``.
@@ -242,6 +275,16 @@ def arr_epflux(datasets, component, time, log_level=True):
         PlotData: Result with shape ``(nlev, nlat)`` suitable for
         :func:`plt_lev_lat`.
 
+    Note:
+        EPVDIV needs the zonal-mean total mass density ``rhozm``.  Following
+        tgcmproc ``mkrhokg`` (``mkderived.F``), it is built by summing the major
+        species (O, O₂, N₂) converted to mass density via :func:`arr_density`
+        (``to_unit='GM/CM3'``, ×1000 → kg m⁻³), so it carries the
+        ``pkt = p/(k_B·T)`` vertical falloff — for both TIE-GCM and WACCM-X and
+        for any source unit (MMR / VMR / cm⁻³).  If the required species (or, for
+        WACCM-X, the hybrid-pressure coefficients ``hyam``/``hybm``/``PS``) are
+        unavailable, it falls back to the ideal-gas proxy ``ρ ∝ exp(-lev)/T``.
+
     Raises:
         ValueError: If *component* is invalid or required variables
             are missing from the datasets.
@@ -334,22 +377,20 @@ def arr_epflux(datasets, component, time, log_level=True):
                 w_si = w_raw
 
         # ---- Mass density (kg m⁻³) for EPVDIV (matches tgcmproc mkrhokg) ----
+        # Sum the major species converted to GM/CM3 via arr_density, which is
+        # unit-aware (MMR / VMR / cm⁻³) and model-aware (TIE-GCM log-pressure,
+        # WACCM-X hybrid pressure), so rho carries the pkt = p/(k_B·T) vertical
+        # falloff.  Fall back to epflux's ideal-gas proxy if it cannot be built.
         rho_si = None
         if component == 'EPVDIV':
-            o_name, o2_name, n2_name = sp['o'], sp['o2'], sp['n2']
-            if all(n in ds.variables for n in (o_name, o2_name, n2_name)):
-                n_o = ds_t[o_name].values.astype(float)
-                n_o2 = ds_t[o2_name].values.astype(float)
-                n_n2 = ds_t[n2_name].values.astype(float)
-                # Number density (cm⁻³) → mass density (kg m⁻³):
-                # ρ = Σ Mᵢ · nᵢ · m_u · 1e6 (cm³→m³)
-                rho_full = (_M_O * n_o + _M_O2 * n_o2 + _M_N2 * n_n2) * _AMU * 1.0e6
+            try:
+                rho_full = _total_mass_density_kg_m3(mds, time)
                 rho_si = rho_full[not_nan]
-            else:
+            except (ValueError, KeyError) as exc:
                 logger.warning(
-                    "EPVDIV: %s missing one of (%s, %s, %s); using ideal-gas "
-                    "ρ ∝ exp(-lev)/T proxy (results may differ from tgcmproc).",
-                    mds.filename, o_name, o2_name, n2_name,
+                    "EPVDIV: could not build mass density for %s (%s); using "
+                    "ideal-gas ρ ∝ exp(-lev)/T proxy (may differ from tgcmproc).",
+                    mds.filename, exc,
                 )
 
         # ---- Compute EP flux ----
