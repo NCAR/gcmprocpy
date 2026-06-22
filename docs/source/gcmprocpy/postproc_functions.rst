@@ -497,10 +497,22 @@ Currently registered derivables:
    * - ``O/O2+N2`` (alias ``O_O2pN2``)
      - atomic oxygen / (O2 + N2) ratio
      - O, O2, N2
+   * - ``RHO``
+     - total air mass density ``O2 + O + N2`` (g cm⁻³)
+     - TN, O, O2, N2
+   * - ``PMB``
+     - pressure in millibars (from the model vertical coordinate)
+     - TN (+ ``PS`` for WACCM-X)
+   * - ``TNFP``
+     - frost-point temperature (K) — requires ``H2O``
+     - TN, O, O2, H2O
 
 This is what lets the full OH model and the ``OH83`` emission run on histories
 that omit ``N2`` (it is derived from ``O2``/``O`` automatically). Derivables can
 also depend on other derivables (e.g. ``O/N2`` builds on the derived ``N2``).
+The ``RHO``/``PMB``/``TNFP`` fields reuse the density machinery, so they are
+unit-aware (MMR / VMR / cm⁻³) and work for both TIE-GCM and WACCM-X; ``TNFP``
+raises a chain-aware error on histories without ``H2O``.
 
 Register a custom derivable:
 
@@ -608,6 +620,18 @@ formula can be traced back to the Fortran.
      - ``mkderived.F`` :: ``mkderived``
      - tgcmproc
      - composition ratios; unit-invariant, formed on the source fields
+   * - ``RHO`` derivable
+     - ``mkderived.F`` :: ``mkderived`` (L222) / ``mkrhokg``
+     - tgcmproc
+     - total mass density ``O2+O+N2`` → GM/CM3 (carries the ``pkt`` falloff)
+   * - ``PMB`` derivable
+     - ``mkderived.F`` :: ``mkderived`` (L798)
+     - tgcmproc
+     - ``(n_O2+n_O+n_N2)·k_B·T·1e-3`` = ``p·1e-3`` (mb)
+   * - ``TNFP`` derivable
+     - ``mkderived.F`` :: ``mkderived`` (L803)
+     - tgcmproc
+     - frost point ``T − 6077.4/(28.548 − ln(p_H2O[mb]))``; requires ``H2O``
 
 Scientific references
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

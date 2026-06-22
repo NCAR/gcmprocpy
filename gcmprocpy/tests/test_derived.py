@@ -208,3 +208,80 @@ def test_save_derived_rejects_non_derivable(tmp_path):
     datasets = load_datasets(path)
     with pytest.raises(ValueError):
         save_derived(datasets, 'TOTALLY_MADE_UP')
+
+
+# --- RHO / PMB / TNFP derivables (tgcmproc mkderived.F) ------------------
+
+def test_registry_has_rho_pmb_tnfp():
+    assert resolve_derivable('RHO') is not None
+    assert resolve_derivable('PMB') is not None
+    assert resolve_derivable('TNFP') is not None
+
+
+def test_rho_matches_pkt_barm_amu():
+    # MMR history (N2 omitted → derived residual, so O+O2+N2 sum to 1):
+    # RHO = Σ species(MMR→GM/CM3) = pkt·barm·m_u  [g cm⁻³].
+    from gcmprocpy.data_density import compute_pkt, compute_barm, _AMU_G
+    mds = ModelDataset(ds=_tiegcm_ds(), filename='rho.nc', model='TIE-GCM')
+    assert ensure_field(mds, 'RHO') is True
+    rho = mds.ds['RHO']
+    assert rho.attrs['units'] == 'GM/CM3'
+    assert rho.shape == mds.ds['TN'].shape
+    tn = mds.ds['TN'].isel(time=0).values
+    o1 = mds.ds['O1'].isel(time=0).values
+    o2 = mds.ds['O2'].isel(time=0).values
+    lev = mds.ds['lev'].values
+    expected = compute_pkt(lev, tn, 'TIE-GCM') * compute_barm(o1, o2) * _AMU_G
+    np.testing.assert_allclose(rho.isel(time=0).values, expected, rtol=1e-9)
+
+
+def test_rho_via_extractor_slice():
+    mds = ModelDataset(ds=_tiegcm_ds(), filename='rho.nc', model='TIE-GCM')
+    pd = gy.arr_lat_lon([mds], 'RHO', TIME, selected_lev_ilev=1.0, plot_mode=True)
+    assert pd is not None
+    assert pd.variable_unit == 'GM/CM3'
+    assert np.all(pd.values > 0)
+
+
+def test_pmb_is_pressure_in_mb():
+    from gcmprocpy.data_density import _P0_TIEGCM_CGS
+    mds = ModelDataset(ds=_tiegcm_ds(), filename='pmb.nc', model='TIE-GCM')
+    assert ensure_field(mds, 'PMB') is True
+    pmb = mds.ds['PMB']
+    assert pmb.attrs['units'] == 'mb'
+    lev = mds.ds['lev'].values
+    expected = _P0_TIEGCM_CGS * np.exp(-lev) * 1.0e-3   # mb, constant over lat/lon
+    np.testing.assert_allclose(
+        pmb.isel(time=0, lat=0, lon=0).values, expected, rtol=1e-12)
+    # pressure decreases monotonically with increasing lev (ζ)
+    assert np.all(np.diff(pmb.isel(time=0, lat=0, lon=0).values) < 0)
+
+
+def test_tnfp_requires_h2o():
+    from gcmprocpy import DerivationError
+    mds = ModelDataset(ds=_tiegcm_ds(), filename='tnfp.nc', model='TIE-GCM')  # no H2O
+    with pytest.raises(DerivationError, match='H2O'):
+        ensure_field(mds, 'TNFP')
+
+
+def test_tnfp_formula_on_mmr_history():
+    from gcmprocpy.data_density import compute_barm, _P0_TIEGCM_CGS
+    ds = _tiegcm_ds()
+    rng = np.random.default_rng(3)
+    ds['H2O'] = (['time', 'lev', 'lat', 'lon'],
+                 rng.uniform(1e-7, 1e-5, (1, 3, 3, 3)), {'units': 'mmr'})
+    mds = ModelDataset(ds=ds, filename='tnfp.nc', model='TIE-GCM')
+    assert ensure_field(mds, 'TNFP') is True
+    tnfp = mds.ds['TNFP']
+    assert tnfp.attrs['units'] == 'K'
+    assert np.all(np.isfinite(tnfp.values))
+    tn = ds['TN'].isel(time=0).values
+    o1 = ds['O1'].isel(time=0).values
+    o2 = ds['O2'].isel(time=0).values
+    h2o = ds['H2O'].isel(time=0).values
+    lev = ds['lev'].values
+    barm = compute_barm(o1, o2)
+    press_mb = (_P0_TIEGCM_CGS * np.exp(-lev))[:, None, None] * 1.0e-3
+    x = h2o * barm / 18.0
+    expected = tn - 6077.4 / (28.548 - np.log(x * press_mb))
+    np.testing.assert_allclose(tnfp.isel(time=0).values, expected, rtol=1e-9)
