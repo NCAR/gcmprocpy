@@ -381,6 +381,9 @@ def arr_lev_lon (datasets, variable_name, time, selected_lat, selected_unit= Non
             # Data selection based on latitude
             if selected_lat == "mean":
                 data = mds.ds[variable_name].sel(time=time).mean(dim='lat')
+            elif selected_lat == "wmean":
+                data = _coslat_weighted_mean(
+                    mds.ds[variable_name].sel(time=time), 'lat')
             else:
                 data = mds.ds[variable_name].sel(time=time, lat=selected_lat, method='nearest')
             lons = data.lon.values
@@ -726,20 +729,32 @@ def arr_lev_var(datasets, variable_name, time, selected_lat, selected_lon, selec
                 numpy.ndarray: Array containing Day, Hour, Min of the model run.
                 str: Name of the dataset file from which data is extracted.
     """
+    # Convert time from string to numpy datetime64 format (as the sibling
+    # arr_* extractors do; arr_lev_var previously lacked this and silently
+    # failed to match a string timestamp).
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
 
-    
-    
     for mds in datasets:
         if mds.has_time(time):
             ds = mds.ds
-            if selected_lon == "mean" and selected_lat == "mean":
-                data = ds[variable_name].sel(time=time).mean(dim=['lon', 'lat'])
-            elif selected_lon == "mean":
-                data = ds[variable_name].sel(time=time, lat=selected_lat, method="nearest").mean(dim='lon')
-            elif selected_lat == "mean":
-                data = ds[variable_name].sel(time=time, lon=selected_lon).mean(dim='lat')
+            lon_collapse = selected_lon in ("mean", "wmean")
+            lat_collapse = selected_lat in ("mean", "wmean")
+            lat_weighted = selected_lat == "wmean"
+            da_t = ds[variable_name].sel(time=time)
+            if lon_collapse and lat_collapse:
+                # Global mean; cos-lat weighting applies to the latitude axis only.
+                data = (_coslat_weighted_mean(da_t, ['lon', 'lat']) if lat_weighted
+                        else da_t.mean(dim=['lon', 'lat']))
+            elif lon_collapse:
+                # Collapse longitude at a fixed latitude (weighting is a no-op).
+                data = da_t.sel(lat=selected_lat, method="nearest").mean(dim='lon')
+            elif lat_collapse:
+                sub = da_t.sel(lon=selected_lon)
+                data = (_coslat_weighted_mean(sub, 'lat') if lat_weighted
+                        else sub.mean(dim='lat'))
             else:
-                data = ds[variable_name].sel(time=time, lat=selected_lat, lon=selected_lon, method="nearest")
+                data = da_t.sel(lat=selected_lat, lon=selected_lon, method="nearest")
 
             variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
             selected_mtime = get_mtime(ds, time)
@@ -777,6 +792,29 @@ def _arr_horizontal_slice(datasets, variable_name, time, selected_lev_ilev, sele
                        selected_unit=selected_unit, plot_mode=True)
 
 
+def _coslat_weighted_mean(da, dims):
+    """cos(lat)-weighted mean of an ``xarray.DataArray`` over *dims*.
+
+    The ``'wmean'`` reduction.  Area weighting only affects a **latitude**
+    collapse — cells around a longitude circle are equal-area — so for a pure
+    longitude mean this reduces to a plain mean.  NaN-aware: ``xarray``'s
+    ``weighted`` skips NaNs and renormalises the weights; pole rows (cos→0)
+    carry ~zero weight, as they should for an area average.
+    """
+    weights = np.cos(np.deg2rad(da['lat']))
+    return da.weighted(weights).mean(dim=dims)
+
+
+def _coslat_weighted_nanmean_lat(values_2d, lats):
+    """cos(lat)-weighted, NaN-aware mean over axis 0 (latitude) of a (nlat, nlon) array."""
+    w = np.cos(np.deg2rad(np.asarray(lats, dtype=float)))[:, None]
+    valid = np.isfinite(values_2d)
+    num = np.nansum(np.where(valid, values_2d, 0.0) * w, axis=0)
+    den = np.sum(np.where(valid, w, 0.0), axis=0)
+    with np.errstate(invalid='ignore', divide='ignore'):
+        return num / den
+
+
 @derive_aware
 @cache_data_fn
 def arr_var_lat(datasets, variable_name, time, selected_lev_ilev, selected_lon,
@@ -808,9 +846,10 @@ def arr_var_lat(datasets, variable_name, time, selected_lev_ilev, selected_lon,
     lons = result.lons
     values_2d = result.values  # shape (nlat, nlon)
 
-    if selected_lon == 'mean':
+    if selected_lon in ('mean', 'wmean'):
+        # Collapsing longitude: cos-lat weighting is a no-op (constant latitude).
         values_1d = np.nanmean(values_2d, axis=1)
-        resolved_lon = 'mean'
+        resolved_lon = selected_lon
     else:
         lon_val = float(selected_lon)
         lon_idx = int(np.argmin(np.abs(lons - lon_val)))
@@ -862,6 +901,9 @@ def arr_var_lon(datasets, variable_name, time, selected_lev_ilev, selected_lat,
     if selected_lat == 'mean':
         values_1d = np.nanmean(values_2d, axis=0)
         resolved_lat = 'mean'
+    elif selected_lat == 'wmean':
+        values_1d = _coslat_weighted_nanmean_lat(values_2d, lats)
+        resolved_lat = 'wmean'
     else:
         lat_val = float(selected_lat)
         lat_idx = int(np.argmin(np.abs(lats - lat_val)))
@@ -914,7 +956,8 @@ def arr_lev_lat (datasets, variable_name, time, selected_lon, selected_unit=None
             ds = mds.ds
             variable_unit, variable_long_name, selected_unit = _extract_var_attrs(ds, variable_name, selected_unit)
             selected_mtime = get_mtime(ds, time)
-            if selected_lon == "mean":
+            if selected_lon in ("mean", "wmean"):
+                # Collapsing longitude: cos-lat weighting is a no-op (constant latitude).
                 data = ds[variable_name].sel(time=time).mean(dim='lon')
             else:
                 selected_lon = float(selected_lon)

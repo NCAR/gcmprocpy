@@ -218,7 +218,7 @@ Example:
 Variable vs Longitude Line Plot (Zonal)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-This function generates a 1D zonal line plot of a variable along longitude at a fixed latitude and pressure level (or height). Pass ``latitude='mean'`` for a meridional-mean profile.
+This function generates a 1D zonal line plot of a variable along longitude at a fixed latitude and pressure level (or height). Pass ``latitude='mean'`` for a meridional-mean profile, or ``latitude='wmean'`` for a cos(lat) area-weighted meridional mean (the unweighted ``'mean'`` over-weights the poles).
 
 .. autofunction:: plt_var_lon
    :noindex:

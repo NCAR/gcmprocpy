@@ -369,6 +369,22 @@ Example:
                                 selected_lev_ilev=4.0, selected_lat='mean',
                                 plot_mode=True)
 
+        # Area-weighted meridional mean (cos-lat) — see note below
+        result = gy.arr_var_lon(datasets, 'TN',
+                                time='2022-01-01T12:00:00',
+                                selected_lev_ilev=4.0, selected_lat='wmean',
+                                plot_mode=True)
+
+.. note::
+   **``'mean'`` vs ``'wmean'``.** Anywhere a ``selected_lat`` / ``selected_lon``
+   accepts ``'mean'`` (an unweighted average over that axis), it also accepts
+   ``'wmean'`` for a **cos(lat) area-weighted** average.  Weighting only changes
+   the result when **latitude** is the collapsed axis (cells around a longitude
+   circle are equal-area), so ``'wmean'`` matters for meridional and global means
+   — where a plain mean over-weights the poles — and is identical to ``'mean'``
+   for a zonal (longitude) mean.  For a true global mean use
+   ``selected_lat='wmean', selected_lon='mean'`` in :func:`arr_lev_var`.
+
 
 Selected Time Latitude
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
