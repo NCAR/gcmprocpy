@@ -128,6 +128,13 @@ def ohrad(temp, o2, o, n2, h, o3, ho2, oh=None):
         Quenching rates — Adler-Golden (1997)
         Production branching — Klenerman & Smith (H+O3), Kaye (O+HO2)
 
+    The 10×10 rate matrix ``A`` and production vector ``b`` mirror tgcmproc
+    ``ohrad.F`` (subroutine ``ohrad``; Fortran ``DECOMP``/``SOLVE`` →
+    :func:`numpy.linalg.solve`); band rate ``= [OH(v)] · A(v→v')`` in
+    photons cm⁻³ s⁻¹ (the Fortran ``iwatts=0`` branch).  With ``oh=None`` the
+    v=0 self-recycling term ``2·rk8·[OH]`` is omitted (tgcmproc always supplies
+    it from the model).
+
     Args:
         temp: Temperature (K).  Any shape ``(...)``.
         o2:   O2 number density (cm⁻³), same shape.

@@ -186,7 +186,7 @@ OH Meinel Band Model
 
 The full OH Meinel band vibrational emission model solves coupled steady-state rate equations
 for 10 vibrational levels (v=0 through v=9) and computes emission rates for all 39 Meinel bands.
-Ported from tgcmproc ``ohrad.F`` (B. Foster, U. B. Makhlouf, SDL/Stewart Radiance Lab).
+Ported from tgcmproc ``ohrad.F`` (subroutine ``ohrad``; B. Foster, U. B. Makhlouf, SDL/Stewart Radiance Lab).
 
 Variable names use the pattern ``OH_<upper>_<lower>`` for specific bands (e.g. ``OH_8_3``),
 ``OH_VIB_<v>`` for vibrational populations, and ``OH_TOTAL`` for the total emission rate.
@@ -245,7 +245,7 @@ Eliassen-Palm Flux
 
 Eliassen-Palm (EP) flux diagnostics quantify wave-mean flow interaction in the atmosphere.
 gcmprocpy computes three components from 3-D wind and temperature fields, ported from
-tgcmproc ``epflux.F`` (B. Foster and Hanli Liu):
+tgcmproc ``epflux.F`` (subroutines ``epfluxy``/``epfluxz``/``epfluxdiv``; B. Foster and Hanli Liu, 1998):
 
 - **EPVY** — meridional EP flux component (m\ :sup:`2` s\ :sup:`-2`)
 - **EPVZ** — vertical EP flux component (m\ :sup:`2` s\ :sup:`-2`)
@@ -299,7 +299,7 @@ Species-Aware Density Conversions
 .. currentmodule:: gcmprocpy.data_density
 
 gcmprocpy converts atmospheric species fields among the four density representations used by
-tgcmproc, ported from ``denconv.F`` (B. Foster):
+tgcmproc, ported from ``denconv.F`` (subroutines ``mkdenparms``/``denconv``; B. Foster):
 
 - **MMR** — mass mixing ratio (dimensionless, mass fraction)
 - **CM3** — number density (molecules cm\ :sup:`-3`)
@@ -545,3 +545,83 @@ computed on the full grid and **appended in place** to the file.
 
 .. autofunction:: save_derived
    :noindex:
+
+
+tgcmproc Provenance & References
+--------------------------------------------------------------------------------------------------------------------
+
+The physics routines documented above are ports of NCAR's legacy ``tgcmproc``
+Fortran post-processor. Each formula was cross-referenced against its original
+source and verified for numerical equivalence; the table records the provenance
+— source file, subroutine, and original author/attribution — so every ported
+formula can be traced back to the Fortran.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 24 26 22 28
+
+   * - gcmprocpy function
+     - tgcmproc source
+     - Attribution
+     - Notes
+   * - ``mkeno53`` (``NO53``)
+     - ``mkemiss.F`` :: ``mkeno53``
+     - John Wise
+     - 5.3 µm NO emission; cgs number densities → photons cm⁻³ s⁻¹
+   * - ``mkeco215`` (``CO215``)
+     - ``mkemiss.F`` :: ``mkeco215``
+     - John Wise
+     - 15 µm CO₂ emission (O–CO₂ collisional term)
+   * - ``mkeoh83`` (``OH83``)
+     - ``mkemiss.F`` :: ``mkeoh83``
+     - tgcmproc (6/95)
+     - OH v(8,3) band emission
+   * - ``ohrad`` (OH Meinel model)
+     - ``ohrad.F`` :: ``ohrad``
+     - B. Foster, U. B. Makhlouf (SDL/Stewart Radiance Lab)
+     - 10-level steady-state OH(v) model; 39 Meinel bands
+   * - ``epflux`` (``EPVY``/``EPVZ``/``EPVDIV``)
+     - ``epflux.F`` :: ``epfluxy``/``epfluxz``/``epfluxdiv``/``save_epv``
+     - B. Foster & Hanli Liu (1998)
+     - Eliassen–Palm flux & divergence; see EPVDIV caveat below
+   * - ``compute_barm``
+     - ``denconv.F`` :: ``mkdenparms``
+     - B. Foster
+     - mean air molar mass ``1/(o2/32+o1/16+max(.00001,1-o2-o1)/28)`` (TIE-GCM branch)
+   * - ``compute_pkt``
+     - ``denconv.F`` :: ``mkdenparms``
+     - B. Foster
+     - air number density ``p0·exp(-ζ)/(boltz·TN)``; WACCM-X hybrid-pressure branch is a gcmprocpy extension
+   * - ``convert_density_units``
+     - ``denconv.F`` :: ``denconv``
+     - B. Foster
+     - MMR ↔ CM3 / CM3-MR / GM-CM3 (reverse paths are algebraic inversions)
+   * - ``get_species_molar_mass``
+     - ``fset_known.F`` :: ``fset_known``
+     - tgcmproc
+     - species molar masses (``flds_known(n)%wt``)
+   * - ``N2`` derivable
+     - ``mkderived.F`` :: ``mkderived``
+     - tgcmproc
+     - residual ``fn2 = max(.00001, 1-o2-o1)``
+   * - ``O/N2``, ``N2/O``, ``O/O2``, ``O/O2+N2`` ratios
+     - ``mkderived.F`` :: ``mkderived``
+     - tgcmproc
+     - composition ratios; unit-invariant, formed on the source fields
+
+Scientific references
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- **EP flux** — Volland, H. (1988), *Atmospheric Tidal and Planetary Waves*, Kluwer Academic Publishers, §2.7.
+- **OH Meinel model** — Einstein A coefficients: Nelson et al. (1990), updated Makhlouf (1999); quenching rates: Adler-Golden (1997); production branching: Klenerman & Smith (H + O₃), Kaye (O + HO₂).
+- **NO 5.3 µm / CO₂ 15 µm emissions** — formulations from John Wise (via tgcmproc ``mkemiss.F``).
+
+.. note::
+   **EPVDIV mass density.** Following tgcmproc ``mkrhokg`` (``mkderived.F``),
+   ``arr_epflux`` builds the zonal-mean mass density for EPVDIV by summing the
+   major species (O, O₂, N₂) converted to ``GM/CM3`` via ``arr_density``
+   (×1000 → kg m⁻³), so it carries the ``pkt = p/(k_B·T)`` vertical falloff for
+   both TIE-GCM and WACCM-X and for any source unit (MMR / VMR / cm⁻³). If the
+   required species — or, for WACCM-X, the hybrid-pressure coefficients
+   (``hyam``/``hybm``/``PS``) — are unavailable, it falls back to the ideal-gas
+   proxy ``ρ ∝ exp(-lev)/T``.

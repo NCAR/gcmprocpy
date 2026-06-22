@@ -51,6 +51,11 @@ _P0_TIEGCM_CGS = 5.0e-4          # dyn cm⁻²  (TIE-GCM log-pressure reference)
 SUPPORTED_DENSITY_UNITS = ('MMR', 'CM3', 'CM3-MR', 'GM/CM3')
 
 # Role → molar mass (g/mol).  Role keys match MODEL_DEFAULTS['species'].
+# Species molar masses (g/mol).  Ported from tgcmproc ``fset_known.F``
+# (subroutine ``fset_known``), which registers each species' ``flds_known(n)%wt``:
+# O2=32, O (O1)=16, NO=30, CO2=44, O3=48, HO2=33, and N2=28 (a real table row,
+# flagged derived from O2/O1).  H is the standard atomic weight 1.008 here vs the
+# Fortran's rounded 1.  These weights are the MMR -> number-density divisors.
 _SPECIES_MOLAR_MASS = {
     'o':   16.00,
     'o2':  32.00,
@@ -122,13 +127,15 @@ def get_species_molar_mass(model, variable_name):
 def compute_barm(o_mmr, o2_mmr):
     """Mean air molar mass (g/mol) from atomic-O and molecular-O₂ MMRs.
 
-    Mirrors ``denconv.F``::
+    Ported from tgcmproc ``denconv.F`` (subroutine ``mkdenparms``, module
+    ``den_convert``, standard/TIE-GCM branch)::
 
-        BARM = 1 / (O₂/32 + O/16 + max(1e-5, 1 − O₂ − O) / 28)
+        barm = 1 / (o2/32. + o1/16. + max(.00001, 1.-o2-o1) / 28.)
 
-    The residual ``(1 − O₂ − O)`` is treated as N₂.  A 1e-5 floor
-    guards against the pathological case where O₂ + O ≈ 1 in the upper
-    thermosphere.
+    The residual ``(1 − O₂ − O)`` is treated as N₂ (molar mass 28); the
+    ``.00001`` floor is the original Fortran guard for the upper thermosphere
+    where O₂ + O ≈ 1.  (The planetary jtgcm/mtgcm/vtgcm barm variants are not
+    ported.)
     """
     o_mmr = np.asarray(o_mmr, dtype=float)
     o2_mmr = np.asarray(o2_mmr, dtype=float)
@@ -139,6 +146,16 @@ def compute_barm(o_mmr, o2_mmr):
 def compute_pkt(levs, temperature, model='TIE-GCM', *,
                 hyam=None, hybm=None, p0=None, ps=None):
     """Air number density (cm⁻³) = pressure / (k_B · T), in CGS.
+
+    Ported from tgcmproc ``denconv.F`` (subroutine ``mkdenparms``; pkt formula
+    at line 68)::
+
+        pkt(:,k) = p0 * exp(-(zpb + (k-1)*dz)) / (boltz * TN),   boltz = 1.3805e-16
+
+    The TIE-GCM log-pressure coordinate gives ``p = p0·exp(-ζ)`` with
+    ``p0 = 5e-4`` (cgs; ``proc.F`` labels it "mb" but the value matches the
+    microbar = dyn cm⁻² convention).  The WACCM-X hybrid-pressure branch below
+    is a gcmprocpy extension with no tgcmproc counterpart.
 
     The pressure is recovered from the model's vertical coordinate, which
     differs by model:
@@ -200,8 +217,18 @@ def convert_density_units(values, from_unit, to_unit, *,
                           barm, pkt, molar_mass):
     """Convert a density field between MMR / CM3 / CM3-MR / GM/CM3.
 
-    Uses MMR as the pivot.  All formulas mirror ``denconv.F``; the
-    reverse (non-MMR → MMR) direction is algebraic inversion.
+    Uses MMR as the pivot.  Ported from tgcmproc ``denconv.F`` (subroutine
+    ``denconv``, module ``den_convert``)::
+
+        MMR→CM3    = mmr * pkt * barm / w
+        MMR→CM3-MR = mmr * barm / w
+        MMR→GM/CM3 = mmr * pkt * barm * 1.66e-24
+        CM3→MMR    = f   * w / (pkt * barm)
+
+    where ``barm`` is the mean air molar mass and ``pkt`` the air number
+    density (:func:`compute_barm` / :func:`compute_pkt`), and ``w`` the species
+    molar mass.  The reverse (non-MMR → MMR) directions are algebraic
+    inversions of the above (not written verbatim in the Fortran).
 
     Args:
         values: Array-like field to convert.

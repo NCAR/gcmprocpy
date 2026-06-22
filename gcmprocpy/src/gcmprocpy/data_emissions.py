@@ -14,11 +14,16 @@ _META = {
 def mkeno53(arr_temp, arr_o, arr_no):
     """
     Calucates 5.3 micron NO emission (from John Wise).
-    The formula used is:
 
-    N(5.3 mic) = (2.63E-22) * exp[-2715 / Tk] * [O] * [NO]
-                 -----------------------------------------
-                   (4 * Pi) * (10.78 + 6.5E-11 * [O])
+    Ported from tgcmproc ``mkemiss.F`` (subroutine ``mkeno53``). cgs units:
+    Tk in K, [O]/[NO] as number density (cm⁻³), result in photons cm⁻³ s⁻¹.
+    (The Fortran used a truncated ``pi=3.14156``; here ``np.pi``.)
+
+    The formula used is::
+
+        N(5.3 mic) = (2.63E-22) * exp[-2715 / Tk] * [O] * [NO]
+                     -----------------------------------------
+                       (4 * Pi) * (10.78 + 6.5E-11 * [O])
 
     Where:
     
@@ -49,11 +54,15 @@ def mkeco215(arr_temp, arr_o, arr_co2):
     """
     Calucates 15 micron CO2 emission (from John Wise).
 
-    The formula used is:
+    Ported from tgcmproc ``mkemiss.F`` (subroutine ``mkeco215``). cgs units:
+    Tk in K, [O]/[CO2] as number density (cm⁻³), result in photons cm⁻³ s⁻¹.
+    (The Fortran used a truncated ``pi=3.14156``; here ``np.pi``.)
 
-    N(15 mic) = (5.94E-26) * sqrt(Tk) * exp[-960 / Tk] * [O] * [CO2]
-                 ---------------------------------------------------
-                     (4 * Pi) * (1.28 + 3.5E-13 * sqrt(Tk) * [O])
+    The formula used is::
+
+        N(15 mic) = (5.94E-26) * sqrt(Tk) * exp[-960 / Tk] * [O] * [CO2]
+                     ---------------------------------------------------
+                         (4 * Pi) * (1.28 + 3.5E-13 * sqrt(Tk) * [O])
 
     Where:
 
@@ -86,6 +95,15 @@ def mkeco215(arr_temp, arr_o, arr_co2):
 def mkeoh83(arr_temp, arr_o, arr_o2, arr_n2):
     """
     Calculate OH emission for the v(8,3) band.
+
+    Ported from tgcmproc ``mkemiss.F`` (subroutine ``mkeoh83``, "6/95: Return
+    Oh emission v(8,3) band")::
+
+        fout = f8*[O]*[O2]*(pk6n2*[N2] + pk6o2*[O2]) / (260 + 2e-11*[O2])
+
+    with ``f8=0.29``, ``pk6n2=5.70e-34*(300/T)**2.62``,
+    ``pk6o2=5.96e-34*(300/T)**2.37``. cgs units: T in K, densities in cm⁻³,
+    emission in photons cm⁻³ s⁻¹.
     
     Args:
         arr_temp (numpy.ndarray): Array of temperatures (K).

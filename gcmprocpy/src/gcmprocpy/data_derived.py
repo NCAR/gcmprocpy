@@ -144,6 +144,11 @@ def _ensure_derivable_fields(datasets, names):
 def _derive_n2(inp, mds):
     """N2 mixing-ratio residual: ``max(1e-5, 1 - O2 - O1)`` (tgcmproc convention).
 
+    Ported from tgcmproc ``mkderived.F`` (subroutine ``mkderived``): for tgcm
+    histories "otherwise (tgcm) n2=1-o2-o", i.e.
+    ``fn2 = max(.00001, 1.-flat(:,:,ixo2)-flat(:,:,ixo1))`` (line 112), formed
+    in mixing-ratio units before any density conversion.
+
     Inherits O2's mixing-ratio unit (``kg/kg`` / ``mol/mol``) so the residual
     carries the correct convention for downstream density conversion.
     """
@@ -171,6 +176,11 @@ def _register_all():
     )
     # Composition ratios (dimensionless; numerator and denominator share the
     # source field's units, so the ratio is representation-independent).
+    # Ported from tgcmproc mkderived.F (subroutine mkderived, field-name
+    # dispatch, lines 653-667): O/N2 = fo1/fn2, N2/O = fn2/fo1, O/O2 = fo1/fo2,
+    # O/(O2+N2) = fo1/(fo2+fn2). tgcmproc converts each operand to the requested
+    # density unit first; since both operands share that unit the ratio is
+    # invariant, so gcmprocpy forms it directly on the source fields.
     # (key, formula, input roles, long_name)
     ratios = [
         ('O/N2', _ratio('o', 'n2'), ['o', 'n2'], 'atomic oxygen / molecular nitrogen ratio'),
