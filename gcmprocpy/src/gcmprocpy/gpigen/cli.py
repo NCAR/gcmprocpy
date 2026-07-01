@@ -31,6 +31,14 @@ def build_parser():
         help="Data source. Default: json (GFZ JSON API).",
     )
     p.add_argument(
+        "--model",
+        choices=["tiegcm", "waccmx"],
+        default="tiegcm",
+        help="Target model input format. Default: tiegcm. 'waccmx' emits the "
+             "WACCM-X 3-hourly solar-parameters format (date/datesec, f107/f107a/"
+             "kp/ap, unlimited time, WACCMX filename tag).",
+    )
+    p.add_argument(
         "--window",
         type=int,
         default=81,
@@ -99,6 +107,7 @@ def main(argv=None):
             status=args.status,
             cache_dir=args.cache_dir,
             verbose=verbose,
+            model=args.model,
         )
 
         if not args.no_write:

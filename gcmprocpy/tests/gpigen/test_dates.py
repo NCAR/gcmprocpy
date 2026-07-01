@@ -43,3 +43,10 @@ def test_coerce_datetime_invalid():
 def test_yesterday_is_end_of_day():
     y = yesterday()
     assert (y.hour, y.minute, y.second) == (23, 59, 59)
+
+
+def test_yearday_to_yyyymmdd():
+    from gcmprocpy.gpigen.dates import yearday_to_yyyymmdd
+    assert yearday_to_yyyymmdd(2024001) == 20240101
+    assert yearday_to_yyyymmdd(2024060) == 20240229   # leap day (2024 doy 60)
+    assert yearday_to_yyyymmdd(2023060) == 20230301   # non-leap

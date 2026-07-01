@@ -60,3 +60,68 @@ def test_save_gpi_roundtrip(tmp_path):
     assert list(reloaded["year_day"].values) == list(ds["year_day"].values)
     assert reloaded["kp"].shape == (5, 8)
     reloaded.close()
+
+
+# --- WACCM-X model format ------------------------------------------------
+
+def _sample_waccmx_ds(window=81, centered=True):
+    n = 5
+    year_day = np.array([2024001 + i for i in range(n)])
+    f107d = np.linspace(150.0, 160.0, n)          # first day = 150.0
+    f107a = np.linspace(155.0, 156.0, n)
+    kp = np.tile(np.arange(8.0), (n, 1))          # Kp = 0,1,...,7 each day
+    return build_dataset(year_day, f107d, f107a, kp, window, centered, [2024003],
+                         model="waccmx")
+
+
+def test_build_dataset_waccmx_3hourly_flatten():
+    ds = _sample_waccmx_ds()
+    assert ds.sizes["time"] == 40                        # 5 days x 8
+    assert "ndays" not in ds.dims and "nkp" not in ds.dims
+    assert {"date", "datesec", "f107", "f107a", "kp", "ap"} == set(ds.data_vars)
+    assert list(ds["datesec"].values[:8]) == [i * 10800.0 for i in range(8)]
+    assert ds["datesec"].values[0] == 0.0                # not NaN (fixes ref bug)
+    assert (ds["date"].values[:8] == 20240101.0).all()   # YYYYMMDD, repeated 8x/day
+    assert (ds["f107"].values[:8] == 150.0).all()        # daily value repeated
+    assert "units" not in ds["kp"].attrs                 # kp is dimensionless (ref bug fixed)
+    assert ds.attrs["model"] == "waccmx"
+
+
+def test_build_dataset_waccmx_ap_from_kp():
+    from gcmprocpy.gpigen.indices import kp_to_ap
+    ds = _sample_waccmx_ds()
+    np.testing.assert_array_equal(ds["ap"].values,
+                                  kp_to_ap(ds["kp"].values).astype(float))
+    # spot-check the official table
+    assert kp_to_ap(0) == 0 and kp_to_ap(1.0) == 4 and kp_to_ap(9.0) == 400
+
+
+def test_gpi_filename_waccmx_tag():
+    assert gpi_filename(_sample_waccmx_ds()) == "gpi_WACCMX_2024001-2024005.nc"
+
+
+def test_gpi_tiegcm_output_unchanged_no_model_attr():
+    assert "model" not in _sample_ds().attrs
+
+
+def test_save_gpi_waccmx_unlimited_time(tmp_path):
+    import netCDF4 as nc
+    path = save_gpi(_sample_waccmx_ds(), output_dir=str(tmp_path))
+    assert path.endswith("gpi_WACCMX_2024001-2024005.nc")
+    d = nc.Dataset(path)
+    assert d.dimensions["time"].isunlimited()
+    d.close()
+
+
+def test_waccmx_is_reformat_of_tiegcm():
+    # Same inputs -> the WACCM-X 3-hourly series is the exact flatten of the
+    # TIE-GCM daily arrays: daily f107/f107a repeated across the 8 slots, kp
+    # flattened row-major, ap = kp_to_ap(kp).
+    from gcmprocpy.gpigen.indices import kp_to_ap
+    tg = _sample_ds()
+    wx = _sample_waccmx_ds()
+    nkp = tg["kp"].shape[1]
+    assert np.array_equal(wx["f107"].values, np.repeat(tg["f107d"].values, nkp))
+    assert np.array_equal(wx["f107a"].values, np.repeat(tg["f107a"].values, nkp))
+    assert np.array_equal(wx["kp"].values, tg["kp"].values.reshape(-1))
+    assert np.array_equal(wx["ap"].values, kp_to_ap(tg["kp"].values.reshape(-1)).astype(float))

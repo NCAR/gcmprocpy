@@ -22,6 +22,7 @@ def generate_gpi(
     status="def",
     cache_dir=None,
     verbose=False,
+    model="tiegcm",
 ):
     """Generate a GPI ``xarray.Dataset`` for ``[start, end]``.
 
@@ -105,7 +106,8 @@ def generate_gpi(
             f"window. Request a wider date range or a smaller window."
         )
 
-    ds = build_dataset(year_day, f107d, f107a, kp, window, centered, missing_dates)
+    ds = build_dataset(year_day, f107d, f107a, kp, window, centered, missing_dates,
+                       model=model)
     if verbose:
         print(
             f"Built GPI dataset: {ds.attrs['yearday_beg']} -> "

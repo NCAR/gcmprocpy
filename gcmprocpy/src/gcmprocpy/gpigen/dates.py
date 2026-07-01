@@ -20,6 +20,11 @@ def yearday_to_date(yearday):
     return datetime.strptime(str(yearday), "%Y%j")
 
 
+def yearday_to_yyyymmdd(yearday):
+    """``YYYYDDD`` (int or str) -> ``YYYYMMDD`` integer (the WACCM-X ``date``)."""
+    return int(yearday_to_date(yearday).strftime("%Y%m%d"))
+
+
 def coerce_datetime(value, end_of_day=False):
     """Coerce a user-supplied date into a ``datetime``.
 
