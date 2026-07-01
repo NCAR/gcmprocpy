@@ -30,8 +30,13 @@ setup(
         'h5py',
         'hapiclient',
     ],
-    package_dir={'': 'src'},  
-    packages=find_packages(where='src'), 
+    extras_require={
+        # Geographic<->magnetic (Quasi-Dipole/Apex) conversion for plt_mag_lat_lon;
+        # only needed to reproject geographic fields onto a magnetic grid.
+        'magnetic': ['apexpy>=2.0'],
+    },
+    package_dir={'': 'src'},
+    packages=find_packages(where='src'),
     entry_points={
         'console_scripts': [
             'lat_lon= gcmprocpy.cmd.cmd_lat_lon:cmd_plt_lat_lon',
@@ -45,6 +50,7 @@ setup(
             'var_lat= gcmprocpy.cmd.cmd_var_lat:cmd_plt_var_lat',
             'var_lon= gcmprocpy.cmd.cmd_var_lon:cmd_plt_var_lon',
             'sat_track= gcmprocpy.cmd.cmd_sat_track:cmd_plt_sat_track',
+            'mag_lat_lon= gcmprocpy.cmd.cmd_mag_lat_lon:cmd_plt_mag_lat_lon',
             'gcmprocpy= gcmprocpy.gui.gcmprocpy:main',
             'gpigen= gcmprocpy.gpigen.cli:main',
             'imfgen= gcmprocpy.imfgen.cli:main',
