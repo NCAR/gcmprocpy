@@ -22,6 +22,7 @@ def generate_imf(
     download=True,
     omni_access="hapi",
     verbose=False,
+    model="tiegcm",
 ):
     """Generate an IMF ``xarray.Dataset``.
 
@@ -52,6 +53,10 @@ def generate_imf(
         ``bcwind``.
     verbose : bool
         Print progress.
+    model : {"tiegcm", "waccmx"}
+        Target model input format (default ``"tiegcm"``). ``"waccmx"`` emits the
+        WACCM-X format (unlimited ``time``; ``date`` as ``YYYYMMDD`` plus
+        ``datefrac``/``datesec``; a ``WACCMX`` filename tag).
 
     Returns
     -------
@@ -98,7 +103,8 @@ def generate_imf(
     dates = np.array([date_value(t) for t in timestamps])
     iso = np.array([iso_timestamp(t) for t in timestamps])
 
-    ds = build_dataset(processed, dates, iso, source=source, source_path=source_path)
+    ds = build_dataset(processed, dates, iso, source=source,
+                       source_path=source_path, model=model, datetimes=timestamps)
     if verbose:
         print(f"Built IMF dataset: {ds.attrs['yearday_beg']} -> "
               f"{ds.attrs['yearday_end']} ({n_out} minutes)")
@@ -106,7 +112,8 @@ def generate_imf(
 
 
 def generate_imf_years(start=None, end=None, window=10, cache_dir=None,
-                       download=True, omni_access="hapi", verbose=False):
+                       download=True, omni_access="hapi", verbose=False,
+                       model="tiegcm"):
     """Yield one OMNI ``Dataset`` per calendar year in ``[start, end]``.
 
     Each year is generated **independently** (its own within-year interpolation),
@@ -124,5 +131,5 @@ def generate_imf_years(start=None, end=None, window=10, cache_dir=None,
         yield generate_imf(
             start=y_start, end=y_end, source="omni", window=window,
             cache_dir=cache_dir, download=download, omni_access=omni_access,
-            verbose=verbose,
+            verbose=verbose, model=model,
         )

@@ -12,6 +12,7 @@ from datetime import datetime
 import numpy as np
 import xarray as xr
 
+from .dates import datesec_of_day, to_yyyymmdd
 from .processing import CHANNELS
 
 # data-variable name + mask-variable name for each channel
@@ -40,35 +41,67 @@ _SOURCE_ATTRS = {
 }
 
 
-def build_dataset(processed, dates, timestamps, source="omni", source_path=None):
+def build_dataset(processed, dates, timestamps, source="omni", source_path=None,
+                  model="tiegcm", datetimes=None):
     """Build the IMF ``xarray.Dataset``.
 
     ``processed`` maps each channel in :data:`CHANNELS` to ``(values, mask)``.
     ``dates`` is the ``YYYYDDD.frac`` float array; ``timestamps`` the ISO strings.
+
+    ``model`` selects the target model's input format:
+
+    - ``"tiegcm"`` (default): the TIE-GCM format on the ``ndata`` dimension, with
+      ``date`` (``YYYYDDD.frac``) and the ISO ``timestamp`` -- reproduced exactly
+      (see the module docstring).
+    - ``"waccmx"``: the WACCM-X (CESM) format on an (unlimited-on-write) ``time``
+      dimension, with ``date`` (``YYYYMMDD`` int), ``datefrac`` (the old
+      ``YYYYDDD.frac``) and ``datesec`` (seconds of day). Requires ``datetimes``
+      (the source ``datetime`` objects); there is no ISO ``timestamp`` variable.
     """
     dates = np.asarray(dates)
     ndata = len(dates)
+    dim = "time" if model == "waccmx" else "ndata"
     data_vars = {}
     for name in CHANNELS:
         values, mask = processed[name]
         data_vars[VAR_NAMES[name]] = (
-            "ndata", np.asarray(values, dtype=float),
+            dim, np.asarray(values, dtype=float),
             {"units": UNITS[name], "long_name": LONG_NAMES[name]},
         )
         data_vars[MASK_NAMES[name]] = (
-            "ndata", np.asarray(mask, dtype="int8"),
+            dim, np.asarray(mask, dtype="int8"),
             {"units": "boolean", "long_name": MASK_LONG_NAME},
         )
-    data_vars["date"] = (
-        "ndata", dates,
-        {"long_name": "year-day plus fractional day: yyyyddd.frac"},
-    )
-    data_vars["timestamp"] = (
-        "ndata", np.asarray(timestamps),
-        {"long_name": "Timestamp of the data: YYYY-MM-DDTHH:MM:SS"},
-    )
 
-    ds = xr.Dataset(data_vars, coords={"ndata": np.arange(ndata)})
+    if model == "waccmx":
+        if datetimes is None:
+            raise ValueError(
+                "model='waccmx' requires datetimes= (the source datetime list)."
+            )
+        data_vars["date"] = (
+            dim, np.array([to_yyyymmdd(t) for t in datetimes], dtype="int32"),
+            {"long_name": "Current date (YYYYMMDD)", "units": ""},
+        )
+        data_vars["datefrac"] = (
+            dim, dates.astype("float64"),
+            {"long_name": "year-day plus fractional day: yyyyddd.frac", "units": ""},
+        )
+        data_vars["datesec"] = (
+            dim, np.array([datesec_of_day(t) for t in datetimes], dtype="int32"),
+            {"long_name": "Seconds of current date", "units": ""},
+        )
+        # 'time' is a bare dimension (no coordinate variable), as WACCM-X expects.
+        ds = xr.Dataset(data_vars)
+    else:
+        data_vars["date"] = (
+            dim, dates,
+            {"long_name": "year-day plus fractional day: yyyyddd.frac"},
+        )
+        data_vars["timestamp"] = (
+            dim, np.asarray(timestamps),
+            {"long_name": "Timestamp of the data: YYYY-MM-DDTHH:MM:SS"},
+        )
+        ds = xr.Dataset(data_vars, coords={"ndata": np.arange(ndata)})
 
     attrs = dict(_SOURCE_ATTRS[source])
     if source == "bcwind" and source_path:
@@ -77,6 +110,8 @@ def build_dataset(processed, dates, timestamps, source="omni", source_path=None)
     attrs["Version"] = "1.0.0"
     attrs["CreatedBy"] = "nikhilr"
     attrs["data_source"] = source
+    if model != "tiegcm":
+        attrs["model"] = model      # only stamped for non-default formats
     attrs["yearday_beg"] = int(dates[0])
     attrs["yearday_end"] = int(dates[-1])
     # url_reference last, matching the originals' ordering
@@ -86,9 +121,15 @@ def build_dataset(processed, dates, timestamps, source="omni", source_path=None)
 
 
 def imf_filename(ds, prefix=None):
-    """``<prefix>_<begYYYYDDD>-<endYYYYDDD>.nc`` from the dataset's bounds."""
+    """``<prefix>_<begYYYYDDD>-<endYYYYDDD>.nc`` from the dataset's bounds.
+
+    For ``model='waccmx'`` datasets the default prefix gains a ``WACCMX`` tag
+    (e.g. ``imf_OMNI_WACCMX_...``); an explicit *prefix* is used verbatim.
+    """
     if prefix is None:
         prefix = DEFAULT_PREFIX.get(ds.attrs.get("data_source", "omni"), "imf")
+        if ds.attrs.get("model") == "waccmx":
+            prefix = f"{prefix}_WACCMX"
     beg = int(ds.attrs["yearday_beg"])
     end = int(ds.attrs["yearday_end"])
     return f"{prefix}_{beg}-{end}.nc"
@@ -108,5 +149,6 @@ def save_imf(ds, output_dir=".", prefix=None, path=None):
         parent = os.path.dirname(path)
         if parent:
             os.makedirs(parent, exist_ok=True)
-    ds.to_netcdf(path=path)
+    unlimited = ["time"] if ds.attrs.get("model") == "waccmx" else None
+    ds.to_netcdf(path=path, unlimited_dims=unlimited)
     return path

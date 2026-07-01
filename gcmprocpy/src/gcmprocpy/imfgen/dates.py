@@ -35,6 +35,16 @@ def to_yearday(dt):
     return int(dt.strftime("%Y%j"))
 
 
+def to_yyyymmdd(dt):
+    """``datetime`` -> ``YYYYMMDD`` integer (the WACCM-X ``date`` field)."""
+    return int(dt.strftime("%Y%m%d"))
+
+
+def datesec_of_day(dt):
+    """``datetime`` -> seconds elapsed since 00:00 UT (the WACCM-X ``datesec``)."""
+    return dt.hour * 3600 + dt.minute * 60 + dt.second
+
+
 def iso_timestamp(dt):
     """``datetime`` -> ``YYYY-MM-DDTHH:MM:SS`` string."""
     return dt.strftime(ISO_FMT)

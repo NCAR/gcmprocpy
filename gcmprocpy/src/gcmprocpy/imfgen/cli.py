@@ -19,6 +19,12 @@ def build_parser():
         help="Data source. Default: omni (OMNI 1-minute data).",
     )
     p.add_argument(
+        "--model", choices=["tiegcm", "waccmx"], default="tiegcm",
+        help="Target model input format. Default: tiegcm. 'waccmx' emits the "
+             "WACCM-X format (date as YYYYMMDD + datefrac/datesec, unlimited "
+             "time dim, WACCMX filename tag).",
+    )
+    p.add_argument(
         "--omni-access", choices=["hapi", "asc"], default="hapi",
         help="How to fetch OMNI data: 'hapi' (default) pulls only the requested "
              "window from CDAWeb (fast for short ranges); 'asc' downloads the "
@@ -90,7 +96,7 @@ def main(argv=None):
             for ds in generate_imf_years(
                 start=args.start, end=args.end, window=args.window,
                 cache_dir=args.cache_dir, download=not args.no_download,
-                omni_access=args.omni_access, verbose=verbose,
+                omni_access=args.omni_access, verbose=verbose, model=args.model,
             ):
                 if not args.no_write:
                     written.append(save_imf(ds, output_dir=args.output_dir,
@@ -111,6 +117,7 @@ def main(argv=None):
             download=not args.no_download,
             omni_access=args.omni_access,
             verbose=verbose,
+            model=args.model,
         )
 
         if not args.no_write:

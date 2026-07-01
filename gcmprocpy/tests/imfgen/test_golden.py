@@ -23,6 +23,8 @@ DATA_DIR = "/glade/work/nikhilr/tiegcm3.0/data/IMF"
 OMNI_CACHE = os.path.join(DATA_DIR, "omni_asc")
 BCWIND_H5 = "/glade/work/nikhilr/imf_bcwind/bcwind.h5"
 BCWIND_GOLD = "/glade/work/nikhilr/imf_bcwind/imf_2024130-2024133.nc"
+WACCMX_REF = ("/glade/campaign/cesm/development/wawg/joemci/inputdata/solar/"
+              "solar_wind_imf_OMNI_WACCMX_2000001-2025214_c251028.nc")
 
 pytestmark = pytest.mark.golden
 
@@ -113,3 +115,27 @@ def test_bcwind_matches_golden():
     ds = generate_imf(source="bcwind", bcwind_path=BCWIND_H5)
     # swvel is preserved from Va (mostly NaN) -- compare it NaN-aware too.
     _assert_matches_golden(ds, BCWIND_GOLD)
+
+
+def test_waccmx_imf_schema_matches_reference():
+    """model='waccmx' output matches joemci's reference WACCM-X IMF schema.
+
+    The reference additionally carries a legacy ``missing`` variable, which the
+    generator intentionally omits; everything else (variables, dtypes,
+    long_names, unlimited ``time`` dim) matches.
+    """
+    _require(OMNI_CACHE)
+    _require(WACCMX_REF)
+    ds = generate_imf(start="1982-01-01", end="1982-01-02", source="omni",
+                      cache_dir=OMNI_CACHE, download=False, omni_access="asc",
+                      model="waccmx")
+    g = xr.open_dataset(WACCMX_REF, decode_times=False)
+    try:
+        assert set(ds.data_vars) == set(g.data_vars) - {"missing"}
+        for v in ds.data_vars:
+            assert str(ds[v].dtype) == str(g[v].dtype), f"dtype {v}"
+            assert ds[v].attrs.get("long_name") == g[v].attrs.get("long_name"), \
+                f"long_name {v}"
+        assert "time" in ds.dims and "ndata" not in ds.dims
+    finally:
+        g.close()

@@ -77,3 +77,72 @@ def test_save_imf_roundtrip(tmp_path):
     assert list(reloaded["timestamp"].values) == list(ds["timestamp"].values)
     assert reloaded["bxMask"].dtype == np.int8
     reloaded.close()
+
+
+# --- WACCM-X model format ------------------------------------------------
+
+def _sample_waccmx_ds(n=5):
+    from datetime import datetime
+    dates = np.array([1982001.0 + i / 1440 for i in range(n)])
+    iso = np.array([f"1982-01-01T00:0{i}:00" for i in range(n)])
+    dts = [datetime(1982, 1, 1, 0, i, 0) for i in range(n)]
+    return build_dataset(_processed(n), dates, iso, source="omni",
+                         model="waccmx", datetimes=dts)
+
+
+def test_build_dataset_waccmx_format():
+    ds = _sample_waccmx_ds()
+    assert "time" in ds.dims and "ndata" not in ds.dims
+    assert "timestamp" not in ds.data_vars           # WACCM-X drops the ISO string
+    assert {"date", "datefrac", "datesec"} <= set(ds.data_vars)
+    assert ds["date"].dtype == np.int32 and ds["datesec"].dtype == np.int32
+    assert ds["datefrac"].dtype == np.float64
+    assert ds["date"].values[0] == 19820101          # YYYYMMDD int
+    assert list(ds["datesec"].values[:3]) == [0, 60, 120]   # exact seconds-of-day
+    assert abs(ds["datefrac"].values[0] - 1982001.0) < 1e-9  # preserves yyyyddd.frac
+    assert ds.attrs["model"] == "waccmx"
+
+
+def test_build_dataset_waccmx_requires_datetimes():
+    with pytest.raises(ValueError, match="datetimes"):
+        build_dataset(_processed(3), np.array([1982001.0, 1982001.001, 1982001.002]),
+                      np.array(["x", "y", "z"]), source="omni", model="waccmx")
+
+
+def test_imf_filename_waccmx_tag():
+    assert imf_filename(_sample_waccmx_ds()) == "imf_OMNI_WACCMX_1982001-1982001.nc"
+    # an explicit prefix is used verbatim (no auto WACCMX tag)
+    assert imf_filename(_sample_waccmx_ds(), prefix="myimf") == "myimf_1982001-1982001.nc"
+
+
+def test_tiegcm_output_unchanged_no_model_attr():
+    # TIE-GCM output must stay attr-identical (no new 'model' attr) for fidelity.
+    assert "model" not in _sample_ds().attrs
+
+
+def test_save_imf_waccmx_unlimited_time(tmp_path):
+    import netCDF4 as nc
+    path = save_imf(_sample_waccmx_ds(), output_dir=str(tmp_path))
+    assert path.endswith("imf_OMNI_WACCMX_1982001-1982001.nc")
+    d = nc.Dataset(path)
+    assert d.dimensions["time"].isunlimited()
+    d.close()
+
+
+def test_waccmx_is_reformat_of_tiegcm():
+    # Same inputs -> the two formats carry identical channel/mask values; only the
+    # date encoding and dimension differ (so waccmx is a faithful reformat of the
+    # golden-validated tiegcm output).
+    from datetime import datetime
+    n = 5
+    processed = _processed(n)
+    dates = np.array([1982001.0 + i / 1440 for i in range(n)])
+    iso = np.array([f"1982-01-01T00:0{i}:00" for i in range(n)])
+    dts = [datetime(1982, 1, 1, 0, i, 0) for i in range(n)]
+    tg = build_dataset(processed, dates, iso, source="omni")
+    wx = build_dataset(processed, dates, iso, source="omni",
+                       model="waccmx", datetimes=dts)
+    for name in CHANNELS:
+        assert np.array_equal(tg[name].values, wx[name].values)      # channels identical
+    assert np.array_equal(wx["datefrac"].values, tg["date"].values)  # datefrac == tiegcm date
+    assert list(wx["date"].values) == [19820101] * n

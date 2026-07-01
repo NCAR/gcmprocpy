@@ -98,6 +98,19 @@ def test_generate_omni_hapi_requests_window_lead_in(patch_hapi):
     assert stop_str == "2020-03-11T00:00:00Z"
 
 
+def test_generate_omni_hapi_waccmx(patch_hapi):
+    # WACCM-X format wired end-to-end through core (offline): time dim, YYYYMMDD
+    # date + datefrac/datesec, model attr, no ISO timestamp var.
+    ds = generate_imf(start="2020-01-01", end="2020-01-02", source="omni",
+                      omni_access="hapi", model="waccmx")
+    assert "time" in ds.dims and "ndata" not in ds.dims
+    assert {"date", "datefrac", "datesec"} <= set(ds.data_vars)
+    assert "timestamp" not in ds.data_vars
+    assert ds["date"].values[0] == 20200101 and ds["date"].values[-1] == 20200102
+    assert ds["datesec"].values[0] == 0
+    assert ds.attrs["model"] == "waccmx"
+
+
 def test_generate_omni_hapi_masks_and_interpolates(patch_hapi):
     # Inject a fill block into the fetched stream -> masked to NaN -> interpolated.
     patch_hapi["missing"] = set(range(500, 540))
