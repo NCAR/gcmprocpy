@@ -26,6 +26,7 @@ def cmd_parser():
     parser.add_argument('-unit','--variable_unit', type=str, help='The desired unit of the variable', default=None)
     parser.add_argument('-lon_min','--longitude_minimum', type=float, help='Minimum longitude on the x-axis', default=None)
     parser.add_argument('-lon_max','--longitude_maximum', type=float, help='Maximum longitude on the x-axis', default=None)
+    parser.add_argument('-grid','--grid', action='store_true', help='Overlay coordinate grid lines on the plot.')
     return (parser)
 
 
@@ -45,5 +46,6 @@ def cmd_plt_var_lon():
                        latitude=latitude, level_type=args.level_type,
                        variable_unit=args.variable_unit,
                        longitude_minimum=args.longitude_minimum,
-                       longitude_maximum=args.longitude_maximum)
+                       longitude_maximum=args.longitude_maximum,
+                       grid=args.grid)
     save_output(args.output_directory, args.filename, args.output_format, plot)

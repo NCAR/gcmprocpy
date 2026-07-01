@@ -31,6 +31,7 @@ def cmd_parser():
     parser.add_argument('--mtime_minimum', type=float, help="Minimum time value for the plot. Defaults to None.", default=None)
     parser.add_argument('--mtime_maximum', type=float, help="Maximum time value for the plot. Defaults to None.", default=None)
     parser.add_argument('-ya','--y_axis', type=str, default='pressure', choices=['pressure', 'height'], help='Y-axis type: pressure or height (km). Defaults to pressure.')
+    parser.add_argument('-grid','--grid', action='store_true', help='Overlay coordinate grid lines on the plot.')
     return (parser)
 
 
@@ -40,7 +41,7 @@ def cmd_plt_lev_time():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot = plt_lev_time(datasets, variable_name=args.variable_name, latitude=args.latitude, longitude=args.longitude, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, mtime_minimum=args.mtime_minimum, mtime_maximum=args.mtime_maximum, y_axis=args.y_axis)
+    plot = plt_lev_time(datasets, variable_name=args.variable_name, latitude=args.latitude, longitude=args.longitude, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, level_minimum=args.level_minimum, level_maximum=args.level_maximum, mtime_minimum=args.mtime_minimum, mtime_maximum=args.mtime_maximum, y_axis=args.y_axis, grid=args.grid)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 
 

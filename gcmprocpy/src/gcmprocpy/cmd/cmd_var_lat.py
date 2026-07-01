@@ -26,6 +26,8 @@ def cmd_parser():
     parser.add_argument('-unit','--variable_unit', type=str, help='The desired unit of the variable', default=None)
     parser.add_argument('-lat_min','--latitude_minimum', type=float, help='Minimum latitude on the x-axis', default=None)
     parser.add_argument('-lat_max','--latitude_maximum', type=float, help='Maximum latitude on the x-axis', default=None)
+    parser.add_argument('-grid','--grid', action='store_true', help='Overlay coordinate grid lines on the plot.')
+    parser.add_argument('-slt','--localtime', type=str, default=None, help="Solar local time in hours (0-24) to select instead of longitude; UT-aware. Use 'mean' for the zonal mean.")
     return (parser)
 
 
@@ -34,6 +36,9 @@ def cmd_parser():
 def cmd_plt_var_lat():
     parser = cmd_parser()
     args = parser.parse_args()
+    lt = args.localtime
+    if lt is not None and lt != 'mean':
+        lt = float(lt)
     datasets = load_datasets(args.directory, args.dataset_filter)
     longitude = args.longitude
     if longitude not in (None, 'mean'):
@@ -45,5 +50,6 @@ def cmd_plt_var_lat():
                        longitude=longitude, level_type=args.level_type,
                        variable_unit=args.variable_unit,
                        latitude_minimum=args.latitude_minimum,
-                       latitude_maximum=args.latitude_maximum)
+                       latitude_maximum=args.latitude_maximum,
+                       grid=args.grid, localtime=lt)
     save_output(args.output_directory, args.filename, args.output_format, plot)

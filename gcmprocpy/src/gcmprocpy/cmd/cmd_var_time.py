@@ -26,6 +26,7 @@ def cmd_parser():
     parser.add_argument('--mtime_maximum', type=float, help='Maximum time value for the plot.', default=None)
     parser.add_argument('-clean','--clean_plot', action='store_true', help='Generate a clean plot without title/colorbar. Defaults to False.')
     parser.add_argument('-lt','--level_type', type=str, default='pressure', choices=['pressure', 'height'], help='Whether level is specified as pressure or height (km). Defaults to pressure.')
+    parser.add_argument('-grid','--grid', action='store_true', help='Overlay coordinate grid lines on the plot.')
     return (parser)
 
 
@@ -33,5 +34,5 @@ def cmd_plt_var_time():
     parser = cmd_parser()
     args = parser.parse_args()
     datasets = load_datasets(args.directory, args.dataset_filter)
-    plot = plt_var_time(datasets, variable_name=args.variable_name, latitude=args.latitude, longitude=args.longitude, level=args.level, variable_unit=args.variable_unit, mtime_minimum=args.mtime_minimum, mtime_maximum=args.mtime_maximum, clean_plot=args.clean_plot, level_type=args.level_type)
+    plot = plt_var_time(datasets, variable_name=args.variable_name, latitude=args.latitude, longitude=args.longitude, level=args.level, variable_unit=args.variable_unit, mtime_minimum=args.mtime_minimum, mtime_maximum=args.mtime_maximum, clean_plot=args.clean_plot, level_type=args.level_type, grid=args.grid)
     save_output(args.output_directory, args.filename, args.output_format, plot)

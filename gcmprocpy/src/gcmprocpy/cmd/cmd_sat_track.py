@@ -28,6 +28,7 @@ def cmd_parser():
     parser.add_argument('-cmc','--cmap_color', type=str, help='The color map of the contour.', default=None)
     parser.add_argument('-lc','--line_color', type=str, help='The color for all lines in the plot. Defaults to white.', default='white')
     parser.add_argument('-clean','--clean_plot', action='store_true', help='Generate a clean plot without title/colorbar. Defaults to False.')
+    parser.add_argument('-grid','--grid', action='store_true', help='Overlay coordinate grid lines on the plot.')
     return (parser)
 
 
@@ -52,5 +53,5 @@ def cmd_plt_sat_track():
     sat_lat = np.array(sat_lat)
     sat_lon = np.array(sat_lon)
 
-    plot = plt_sat_track(datasets, variable_name=args.variable_name, sat_time=sat_time, sat_lat=sat_lat, sat_lon=sat_lon, level=args.level, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, clean_plot=args.clean_plot)
+    plot = plt_sat_track(datasets, variable_name=args.variable_name, sat_time=sat_time, sat_lat=sat_lat, sat_lon=sat_lon, level=args.level, variable_unit=args.variable_unit, contour_intervals=args.contour_intervals, contour_value=args.contour_value, symmetric_interval=args.symmetric_interval, cmap_color=args.cmap_color, line_color=args.line_color, clean_plot=args.clean_plot, grid=args.grid)
     save_output(args.output_directory, args.filename, args.output_format, plot)

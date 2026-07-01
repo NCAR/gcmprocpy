@@ -26,6 +26,8 @@ def cmd_parser():
     parser.add_argument('-lvl_min','--level_minimum', type=float, help='Minimum level value for the plot', default=None)
     parser.add_argument('-lvl_max','--level_maximum', type=float, help='Maximum level value for the plot', default=None)
     parser.add_argument('-ya','--y_axis', type=str, default='pressure', choices=['pressure', 'height'], help='Y-axis type: pressure or height (km). Defaults to pressure.')
+    parser.add_argument('-grid','--grid', action='store_true', help='Overlay coordinate grid lines on the plot.')
+    parser.add_argument('-slt','--localtime', type=str, default=None, help="Solar local time in hours (0-24) to select instead of longitude; UT-aware. Use 'mean' for the zonal mean.")
     return (parser)
 
 
@@ -34,7 +36,10 @@ def cmd_parser():
 def cmd_plt_lev_var():
     parser = cmd_parser()
     args = parser.parse_args()
+    lt = args.localtime
+    if lt is not None and lt != 'mean':
+        lt = float(lt)
     datasets = load_datasets(args.directory,args.dataset_filter)
-    plot = plt_lev_var(datasets,args.variable_name,args.latitude,args.time,args.mtime,args.longitude,variable_unit=args.variable_unit,level_minimum=args.level_minimum,level_maximum=args.level_maximum,y_axis=args.y_axis)
+    plot = plt_lev_var(datasets,args.variable_name,args.latitude,args.time,args.mtime,args.longitude,variable_unit=args.variable_unit,level_minimum=args.level_minimum,level_maximum=args.level_maximum,y_axis=args.y_axis,grid=args.grid,localtime=lt)
     save_output(args.output_directory,args.filename,args.output_format,plot)
 
