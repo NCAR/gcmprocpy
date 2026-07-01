@@ -2376,3 +2376,168 @@ def plt_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
         if plot is not None:
             plt.close(plot)
         return plot
+
+
+def plt_mag_lat_lon(datasets, variable_name, time=None, mtime=None, level=None,
+                    level_type='pressure', variable_unit=None, contour_intervals=20,
+                    contour_value=None, symmetric_interval=False, cmap_color=None,
+                    cmap_lim_min=None, cmap_lim_max=None, line_color='white',
+                    mlat_minimum=None, mlat_maximum=None, mlon_minimum=None,
+                    mlon_maximum=None, grid=False, clean_plot=False, verbose=False):
+    """
+    Generates a Magnetic Latitude vs Magnetic Longitude contour plot (Quasi-Dipole).
+
+    Variables already stored on the model's magnetic grid (dimensions ``mlat`` /
+    ``mlon`` -- e.g. TIE-GCM ``ZMAG`` or the WACCM-X dynamo fields) are plotted
+    directly. Geographic variables (on ``lat`` / ``lon``) are reprojected onto a
+    regular Quasi-Dipole ``mlat`` / ``mlon`` grid using ``apexpy`` (an optional
+    dependency, needed only for this geographic->magnetic conversion). The axes are
+    magnetic; no geographic map features (coastlines, projections) are drawn because
+    they are meaningless in magnetic coordinates.
+
+    Args:
+        datasets (xarray.Dataset): The loaded dataset/s using xarray.
+        variable_name (str): The name of the variable to plot.
+        time (np.datetime64, optional): The selected time.
+        mtime (list[int], optional): The selected time as [day, hour, minute].
+        level (float, optional): The vertical level. Required for geographic
+            variables (used as the height of the geographic->magnetic conversion);
+            for native-magnetic variables it selects the magnetic vertical level
+            (``'mean'`` or None averages over it).
+        level_type (str, optional): 'pressure' or 'height'. Defaults to 'pressure'.
+        variable_unit (str, optional): The desired unit of the variable.
+        contour_intervals (int, optional): Number of contour levels. Defaults to 20.
+        contour_value (float, optional): Spacing between contour levels.
+        symmetric_interval (bool, optional): Center the color scale on zero.
+        cmap_color (str, optional): Colormap. Defaults to a variable-based scheme.
+        cmap_lim_min (float, optional): Minimum color-scale value.
+        cmap_lim_max (float, optional): Maximum color-scale value.
+        line_color (str, optional): Contour line color. Defaults to 'white'.
+        mlat_minimum (float, optional): Minimum magnetic latitude for the plot.
+        mlat_maximum (float, optional): Maximum magnetic latitude for the plot.
+        mlon_minimum (float, optional): Minimum magnetic longitude for the plot.
+        mlon_maximum (float, optional): Maximum magnetic longitude for the plot.
+        grid (bool, optional): Overlay coordinate grid lines on the plot. Defaults to False.
+        clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
+        verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
+
+    Returns:
+        matplotlib.figure.Figure: Contour plot.
+    """
+    from . import data_magnetic as dm
+
+    if time is None:
+        time = get_time(datasets, mtime)
+    if isinstance(time, str):
+        time = np.datetime64(time, 'ns')
+
+    native = any(dm.is_magnetic_var(mds.ds, variable_name) for mds in datasets
+                 if variable_name in mds.ds.variables)
+    if verbose:
+        logger.debug("---------------[mag]---["+variable_name+"]---["+str(time)+
+                     "]---native="+str(native)+"---------------")
+
+    if native:
+        mlat, mlon, values, meta = dm.extract_mag_lat_lon(datasets, variable_name,
+                                                          time, level)
+        variable_unit = variable_unit or meta['units']
+        variable_long_name = meta['long_name']
+        model, filename = meta['model'], meta['filename']
+        coord_note = "native magnetic grid"
+    else:
+        if level is None or level == 'mean':
+            raise ValueError("A single pressure/height level is required to "
+                             "reproject a geographic variable onto the magnetic "
+                             "grid (level='mean'/None is not supported, since the "
+                             "conversion needs the slice altitude).")
+        if level_type == 'height':
+            level = height_to_pres_level(datasets, time, float(level))
+        result = arr_lat_lon(datasets, variable_name, time, selected_lev_ilev=level,
+                             selected_unit=variable_unit, plot_mode=True)
+        if result is None:
+            raise ValueError(f"'{variable_name}' was not found in the provided datasets.")
+        vals = np.asarray(result.values, dtype=float)
+        glats = np.asarray(result.lats, dtype=float)
+        glons = np.asarray(result.lons, dtype=float)
+        if vals.shape == (len(glons), len(glats)):     # normalise to (nlat, nlon)
+            vals = vals.T
+        height_km = calc_avg_ht(datasets, time, result.selected_lev)
+        if not np.isfinite(height_km) or height_km <= 0:
+            raise ValueError(
+                "Could not determine the slice altitude for the geographic->magnetic "
+                "conversion (no valid geopotential height, e.g. ZG/Z3, for this "
+                "level). Quasi-Dipole latitude depends on altitude, so a height is "
+                "required; use a dataset that includes a height variable.")
+        mlat, mlon, values = dm.geo_to_qd_grid(vals, glats, glons, height_km, time)
+        variable_unit = result.variable_unit
+        variable_long_name = result.variable_long_name
+        model, filename = result.model, result.filename
+        coord_note = "geographic -> quasi-dipole @ %.0f km" % height_km
+
+    if mlat_minimum is None:
+        mlat_minimum = float(np.nanmin(mlat))
+    if mlat_maximum is None:
+        mlat_maximum = float(np.nanmax(mlat))
+    if mlon_minimum is None:
+        mlon_minimum = float(np.nanmin(mlon))
+    if mlon_maximum is None:
+        mlon_maximum = float(np.nanmax(mlon))
+
+    finite = values[np.isfinite(values)]
+    min_val = float(np.min(finite)) if finite.size else float('nan')
+    max_val = float(np.max(finite)) if finite.size else float('nan')
+    if cmap_color is None:
+        cmap_color, line_color = color_scheme(variable_name, model)
+    if cmap_lim_min is None:
+        cmap_lim_min = min_val if finite.size else 0.0
+    if cmap_lim_max is None:
+        cmap_lim_max = max_val if finite.size else 1.0
+    if symmetric_interval:
+        m = max(abs(cmap_lim_min), abs(cmap_lim_max))
+        cmap_lim_min, cmap_lim_max = -m, m
+    if cmap_lim_max <= cmap_lim_min:            # guard degenerate/constant field
+        cmap_lim_max = cmap_lim_min + max(1.0, abs(cmap_lim_min) * 1e-6)
+    if contour_value is not None and contour_value > 0:
+        contour_levels = np.arange(cmap_lim_min, cmap_lim_max + contour_value, contour_value)
+    else:
+        contour_levels = np.linspace(cmap_lim_min, cmap_lim_max, contour_intervals)
+
+    plot = plt.figure(figsize=(12, 6))
+    contour_filled = plt.contourf(mlon, mlat, values, cmap=cmap_color,
+                                  levels=contour_levels, vmin=cmap_lim_min, vmax=cmap_lim_max)
+    contour_lines = plt.contour(mlon, mlat, values, colors=line_color,
+                                linewidths=0.5, levels=contour_levels)
+    plt.clabel(contour_lines, inline=True, fontsize=8, colors=line_color)
+    cbar = plt.colorbar(contour_filled, label=variable_name + " [" + str(variable_unit) + "]")
+    cbar.set_label(variable_name + " [" + str(variable_unit) + "]", size=14, labelpad=15)
+    cbar.ax.tick_params(labelsize=9)
+    _apply_grid(plt.gca(), grid)
+
+    plt.xlabel('Magnetic Longitude (Deg)', fontsize=14)
+    plt.ylabel('Magnetic Latitude (Deg)', fontsize=14)
+    plt.xlim(mlon_minimum, mlon_maximum)
+    plt.ylim(mlat_minimum, mlat_maximum)
+
+    if not clean_plot:
+        plt.title(str(variable_long_name) + ' ' + variable_name + ' (' +
+                  str(variable_unit) + ') \n\n', fontsize=18)
+        plt.text(0.5, 1.08, coord_note, ha='center', va='center', fontsize=14,
+                 transform=plt.gca().transAxes)
+        plt.text(0.5, -0.15, "Min, Max = " + str("{:.2e}".format(min_val)) + ", " +
+                 str("{:.2e}".format(max_val)), ha='center', va='center', fontsize=14,
+                 transform=plt.gca().transAxes)
+        plt.text(0.5, -0.20, "Time = " + str(np.datetime64(time, 's')), ha='center',
+                 va='center', fontsize=14, transform=plt.gca().transAxes)
+        if filename:
+            plt.text(0.5, -0.25, str(filename), ha='center', va='center', fontsize=14,
+                     transform=plt.gca().transAxes)
+
+    if is_notebook():
+        plt.show(block=False)
+        return plot
+    backend = get_backend()
+    if "Qt" in backend:
+        return plot, variable_unit, mlat_minimum, mlat_maximum
+    if plot is not None:
+        plt.close(plot)
+    return plot
