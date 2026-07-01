@@ -95,4 +95,10 @@ GCMprocpy can also be used directly from the command line. The following plots c
 Use ``-lt height`` to specify the level as height (km) or ``-ya height`` for height y-axis.
 For ``var_lat``/``var_lon``, the default for ``-lon``/``-lat`` is ``mean`` (zonal/meridional mean).
 
+Add ``-grid`` to overlay coordinate grid lines on any plot (off by default). For
+``lev_var``/``var_lat``/``lev_lat`` you can select by **solar local time** with
+``-slt``/``--localtime`` (hours 0-24, or ``mean``) instead of ``-lon``: the local
+time is converted UT-aware to the geographic longitude that is at that local time
+for the slice (``longitude = (SLT - UT) * 15``), snapped to the model grid.
+
 Examples and detailed usage can be found in the plotting routines section.
