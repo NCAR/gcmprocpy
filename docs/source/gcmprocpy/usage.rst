@@ -91,6 +91,7 @@ GCMprocpy can also be used directly from the command line. The following plots c
 - Longitude vs Time plots (``lon_time``)
 - Variable vs Time plots (``var_time``)
 - Satellite Track Interpolation plots (``sat_track``)
+- Magnetic Latitude vs Magnetic Longitude plots (``mag_lat_lon``)
 
 Use ``-lt height`` to specify the level as height (km) or ``-ya height`` for height y-axis.
 For ``var_lat``/``var_lon``, the default for ``-lon``/``-lat`` is ``mean`` (zonal/meridional mean).
@@ -100,5 +101,11 @@ Add ``-grid`` to overlay coordinate grid lines on any plot (off by default). For
 ``-slt``/``--localtime`` (hours 0-24, or ``mean``) instead of ``-lon``: the local
 time is converted UT-aware to the geographic longitude that is at that local time
 for the slice (``longitude = (SLT - UT) * 15``), snapped to the model grid.
+
+``mag_lat_lon`` plots a field on the **magnetic** (Quasi-Dipole) grid. Fields the
+model already stores on ``mlat``/``mlon`` (e.g. TIE-GCM ``ZMAG`` or WACCM-X dynamo
+fields) are plotted directly; geographic fields are reprojected onto the magnetic
+grid, which requires the optional ``apexpy`` dependency
+(``pip install 'gcmprocpy[magnetic]'``, or ``conda install -c conda-forge apexpy``).
 
 Examples and detailed usage can be found in the plotting routines section.

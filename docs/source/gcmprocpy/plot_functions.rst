@@ -398,6 +398,30 @@ Example:
         # Contour plot across all levels
         plot = gy.plt_sat_track(datasets, 'TN', sat_time, sat_lat, sat_lon)
 
+Magnetic Latitude vs Magnetic Longitude Plot
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Plots a field on the magnetic (Quasi-Dipole) grid. Variables the model already
+stores on ``mlat`` / ``mlon`` (e.g. TIE-GCM ``ZMAG`` or the WACCM-X dynamo fields)
+are plotted directly; geographic variables are reprojected onto the magnetic grid
+using ``apexpy`` -- an **optional** dependency needed only for that
+geographic->magnetic conversion (``pip install 'gcmprocpy[magnetic]'``).
+
+.. autofunction:: plt_mag_lat_lon
+   :noindex:
+
+Example:
+    Reproject a geographic field onto the magnetic grid, and plot a native
+    magnetic-grid field directly.
+
+    .. code-block:: python
+
+        datasets = gy.load_datasets(directory, dataset_filter)
+        # geographic field -> quasi-dipole grid (needs apexpy + a level for height)
+        plot = gy.plt_mag_lat_lon(datasets, 'TN', mtime=[360, 0, 0], level=-4.0)
+        # a field already on the magnetic grid plots directly (no apexpy needed)
+        plot = gy.plt_mag_lat_lon(datasets, 'ZMAG', mtime=[360, 0, 0], level='mean')
+
 .. currentmodule:: gcmprocpy.plot_gen
 
 Mode: CLI
