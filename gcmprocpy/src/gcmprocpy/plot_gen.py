@@ -1,7 +1,7 @@
 import logging
 import numpy as np
 import matplotlib.pyplot as plt
-from .data_parse import arr_lat_lon, batch_arr_lat_lon, arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, arr_var_lat, arr_var_lon, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height
+from .data_parse import arr_lat_lon, batch_arr_lat_lon, arr_lev_var,arr_lev_lon, arr_lev_lat,arr_lev_time,arr_lat_time, arr_lon_time, arr_var_time, arr_sat_track, arr_var_lat, arr_var_lon, calc_avg_ht, min_max, get_time, height_to_pres_level, interpolate_to_height, lon_list
 
 logger = logging.getLogger(__name__)
 from .containers import resolve_derived
@@ -40,43 +40,109 @@ def is_notebook():
         return False      # Probably standard Python interpreter
 
 
-def longitude_to_local_time(longitude):
+def longitude_to_local_time(longitude, ut=0):
     """
-    Convert longitude to local time.
+    Convert geographic longitude to solar local time (SLT).
+
+    Solar local time relates geographic longitude and Universal Time by
+    ``SLT = UT + longitude/15`` (Earth rotates 15 degrees per hour). With the
+    default ``ut=0`` this reduces to the legacy ``longitude/15`` mapping.
 
     Args:
-        longitude (float): Longitude value.
+        longitude (float): Longitude value in degrees.
+        ut (float, optional): Universal Time of the slice in hours. Default 0.
 
     Returns:
-        float: Local time corresponding to the given longitude.
+        float: Solar local time (hours, 0-24) for the given longitude.
     """
 
-    local_time = (longitude / 15) % 24
+    local_time = (longitude / 15 + ut) % 24
     return local_time
 
-def local_time_to_longitude(local_time):
+def local_time_to_longitude(local_time, ut=0):
     """
-    Convert local time to longitude.
+    Convert solar local time (SLT) to geographic longitude.
+
+    Inverts ``SLT = UT + longitude/15`` to ``longitude = (SLT - UT) * 15``, so
+    the returned longitude is the one that is at the requested local time for a
+    slice at the given Universal Time. With the default ``ut=0`` this reduces to
+    the legacy ``local_time*15`` mapping. ``'mean'`` is returned unchanged.
 
     Args:
-        local_time (float): Local time value.
+        local_time (float or str): Solar local time in hours, or ``'mean'``.
+        ut (float, optional): Universal Time of the slice in hours. Default 0.
 
     Returns:
-        float: Longitude corresponding to the given local time.
+        float or str: Longitude in degrees (-180..180), or ``'mean'``.
     """
     if local_time == 'mean':
         longitude = 'mean'
     else:
         #
-        # Each hour of local time corresponds to 15 degrees of longitude
+        # Each hour of local time corresponds to 15 degrees of longitude,
+        # offset by the Universal Time: longitude = (SLT - UT) * 15.
         #
-        longitude = (local_time * 15) % 360
+        longitude = ((local_time - ut) * 15) % 360
         #
         # Adjusting the longitude to be between -180 and 180 degrees
         #
         if longitude > 180:
             longitude = longitude - 360
 
+    return longitude
+
+
+def _apply_grid(ax, grid):
+    """Draw grid lines on ``ax`` when ``grid`` is truthy; otherwise a no-op.
+
+    Works for both cartopy ``GeoAxes`` (via ``gridlines``) and plain matplotlib
+    axes (via ``grid``), using the light dashed/alpha styling already used
+    elsewhere in this module so the look is consistent across plot types.
+    """
+    if not grid:
+        return
+    if hasattr(ax, 'gridlines'):        # cartopy GeoAxes
+        ax.gridlines(draw_labels=False, linewidth=0.5, color='gray',
+                     alpha=0.5, linestyle='--')
+    else:
+        ax.grid(True, alpha=0.3)
+
+
+def _slice_ut(time):
+    """Universal Time (hours in [0, 24)) of a slice's datetime64 ``time``.
+
+    Returns 0.0 when the UT cannot be derived (e.g. ``time`` is None, ``'mean'``
+    or not a datetime), matching the legacy UT=0 behavior.
+    """
+    try:
+        t = np.datetime64(time, 's')
+        if np.isnat(t):
+            return 0.0
+        return (t.astype('int64') / 3600.0) % 24
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def _resolve_localtime_longitude(datasets, localtime, time, verbose=False):
+    """Geographic longitude at solar local time ``localtime`` for the slice at ``time``.
+
+    Uses the UT-aware inverse ``longitude = (SLT - UT) * 15`` (UT taken from the
+    slice's ``time``) and snaps the result to the nearest longitude on the dataset
+    grid so it can be selected exactly. ``'mean'`` passes through unchanged; if the
+    UT cannot be read the mapping falls back to UT=0 (legacy ``SLT*15``).
+    """
+    if localtime == 'mean':
+        return 'mean'
+    ut = _slice_ut(time)
+    target = local_time_to_longitude(localtime, ut)
+    try:
+        lons = np.asarray(lon_list(datasets), dtype=float)
+        # nearest grid longitude by circular (wrap-aware) distance
+        longitude = float(lons[np.argmin(np.abs(((lons - target + 180) % 360) - 180))])
+    except Exception:
+        longitude = target
+    if verbose:
+        logger.debug("localtime=%s UT=%.2f -> longitude=%s", localtime, ut, longitude)
     return longitude
 
 def _level_label(level, avg_ht=None, original_height=None):
@@ -246,7 +312,7 @@ def _polar_panel(ax, unique_lons, unique_lats, variable_values, contour_levels,
     return cf
 
 
-def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, level_type = 'pressure', variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, wind = False, wind_density = 15, wind_scale = None, wind_color = 'black', polar_label = 'lt', clean_plot = False, verbose = False ):
+def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, level_type = 'pressure', variable_unit = None, center_longitude = 0, central_latitude = 0, projection = 'mercator', contour_intervals = None, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', coastlines=False, nightshade=False, gm_equator=False, latitude_minimum = None, latitude_maximum = None, longitude_minimum = None, longitude_maximum = None, wind = False, wind_density = 15, wind_scale = None, wind_color = 'black', polar_label = 'lt', grid = False, clean_plot = False, verbose = False ):
 
     """
     Generates a Latitude vs Longitude contour plot for a variable.
@@ -280,6 +346,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
         wind_scale (float, optional): Scale factor for quiver arrows. Larger values make arrows shorter. Defaults to None (auto-scaled).
         wind_color (str, optional): Color of the wind vectors. Defaults to 'black'.
         polar_label (str, optional): Perimeter labels for polar projections. 'lt' (default) draws solar local-time labels at every 30° azimuth (the tgcmproc look), 'lon' draws geographic longitude labels, None disables ring labels and falls back to inline gridline labels. Ignored for non-polar projections.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -599,6 +666,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]",fraction=0.046, pad=0.04, shrink=0.65)
     cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
+    _apply_grid(ax, grid)
 
 
     plt.xlabel('Longitude (Deg)', fontsize=14)
@@ -683,7 +751,7 @@ def plt_lat_lon(datasets, variable_name, time= None, mtime=None, level = None, l
 
 
 
-def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, log_level=True, variable_unit = None, level_minimum = None, level_maximum = None, y_axis = 'pressure', clean_plot = False, verbose = False):
+def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longitude = None, log_level=True, variable_unit = None, level_minimum = None, level_maximum = None, y_axis = 'pressure', localtime = None, grid = False, clean_plot = False, verbose = False):
     """
     Generates a Level vs Variable line plot for a given latitude.
 
@@ -694,10 +762,12 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
+        localtime (float or str, optional): Solar local time (hours, 0-24) to select instead of longitude; converted UT-aware to the geographic longitude at that local time for the slice. Use 'mean' for the zonal mean. Overrides longitude when set. Defaults to None.
         log_level (bool): A flag indicating whether to display level in log values. Default is True.
         variable_unit (str, optional): The desired unit of the variable.
         level_minimum (float, optional): Minimum level value for the plot. Defaults to None.
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -713,6 +783,8 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
 
+    if localtime is not None:
+        longitude = _resolve_localtime_longitude(datasets, localtime, time, verbose)
     result = arr_lev_var(datasets, variable_name, time, latitude, longitude, variable_unit, plot_mode=True)
     variable_values = result.values
     levs_ilevs = result.levs
@@ -777,6 +849,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
         plt.text(0.5, -0.3, "Day, Hour, Min, Sec = "+str(selected_day)+","+str(selected_hour)+","+str(selected_min)+","+str(selected_sec), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         plt.text(0.5, -0.35, str(filename), ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
 
+    _apply_grid(plt.gca(), grid)
     if is_notebook():
         backend = get_backend()
         if "inline" in backend or "nbagg" in backend:
@@ -808,7 +881,7 @@ def plt_lev_var(datasets, variable_name, latitude, time= None, mtime=None, longi
 def plt_var_lat(datasets, variable_name, level, time=None, mtime=None, longitude=None,
                 level_type='pressure', variable_unit=None,
                 latitude_minimum=None, latitude_maximum=None,
-                clean_plot=False, verbose=False):
+                localtime=None, grid=False, clean_plot=False, verbose=False):
     """
     Generates a meridional 1D line plot (variable vs latitude) at a fixed longitude and level.
 
@@ -819,10 +892,12 @@ def plt_var_lat(datasets, variable_name, level, time=None, mtime=None, longitude
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0].
         longitude (Union[float, str], optional): The specific longitude, or 'mean' for zonal mean.
+        localtime (float or str, optional): Solar local time (hours, 0-24) to select instead of longitude; converted UT-aware to the geographic longitude at that local time for the slice. Use 'mean' for the zonal mean. Overrides longitude when set. Defaults to None.
         level_type (str, optional): 'pressure' (default) or 'height'.
         variable_unit (str, optional): The desired unit of the variable.
         latitude_minimum (float, optional): Minimum latitude on the x-axis.
         latitude_maximum (float, optional): Maximum latitude on the x-axis.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): If True, hide subtext. Defaults to False.
         verbose (bool, optional): If True, log execution data. Defaults to False.
 
@@ -841,6 +916,8 @@ def plt_var_lat(datasets, variable_name, level, time=None, mtime=None, longitude
         _original_height = float(level)
         level = height_to_pres_level(datasets, time, _original_height)
 
+    if localtime is not None:
+        longitude = _resolve_localtime_longitude(datasets, localtime, time, verbose)
     if longitude is None:
         longitude = 'mean'
 
@@ -880,7 +957,7 @@ def plt_var_lat(datasets, variable_name, level, time=None, mtime=None, longitude
     plt.xticks(fontsize=9)
     plt.yticks(fontsize=9)
     plt.xlim(latitude_minimum, latitude_maximum)
-    plt.grid(True, alpha=0.3)
+    _apply_grid(plt.gca(), grid)
 
     if not clean_plot:
         plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')\n\n', fontsize=18)
@@ -920,7 +997,7 @@ def plt_var_lat(datasets, variable_name, level, time=None, mtime=None, longitude
 def plt_var_lon(datasets, variable_name, level, time=None, mtime=None, latitude=None,
                 level_type='pressure', variable_unit=None,
                 longitude_minimum=None, longitude_maximum=None,
-                clean_plot=False, verbose=False):
+                grid=False, clean_plot=False, verbose=False):
     """
     Generates a zonal 1D line plot (variable vs longitude) at a fixed latitude and level.
 
@@ -935,6 +1012,7 @@ def plt_var_lon(datasets, variable_name, level, time=None, mtime=None, latitude=
         variable_unit (str, optional): The desired unit of the variable.
         longitude_minimum (float, optional): Minimum longitude on the x-axis.
         longitude_maximum (float, optional): Maximum longitude on the x-axis.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): If True, hide subtext. Defaults to False.
         verbose (bool, optional): If True, log execution data. Defaults to False.
 
@@ -992,7 +1070,7 @@ def plt_var_lon(datasets, variable_name, level, time=None, mtime=None, latitude=
     plt.xticks(fontsize=9)
     plt.yticks(fontsize=9)
     plt.xlim(longitude_minimum, longitude_maximum)
-    plt.grid(True, alpha=0.3)
+    _apply_grid(plt.gca(), grid)
 
     if not clean_plot:
         plt.title(variable_long_name + ' ' + variable_name + ' (' + variable_unit + ')\n\n', fontsize=18)
@@ -1029,7 +1107,7 @@ def plt_var_lon(datasets, variable_name, level, time=None, mtime=None, latitude=
         return plot
 
 
-def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, y_axis = 'pressure', wind = False, wind_density = 5, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False):
+def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_level=True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, longitude_minimum = None, longitude_maximum = None, y_axis = 'pressure', wind = False, wind_density = 5, wind_scale = None, wind_color = 'black', grid = False, clean_plot = False, verbose = False):
     """
     Generates a Level vs Longitude contour plot for a given latitude.
 
@@ -1056,6 +1134,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         wind_density (int, optional): Stride for thinning wind vectors (every Nth point). Defaults to 5.
         wind_scale (float, optional): Scale factor for quiver arrows. Larger values make arrows shorter. Defaults to None (auto-scaled).
         wind_color (str, optional): Color of the wind vectors. Defaults to 'black'.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -1148,6 +1227,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
     cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
+    _apply_grid(plt.gca(), grid)
     if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
         if latitude == 'mean':
@@ -1252,7 +1332,7 @@ def plt_lev_lon(datasets, variable_name, latitude, time= None, mtime=None, log_l
         return plot
 
 
-def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, y_axis = 'pressure', wind = False, epflux = False, wind_density = 5, wind_scale = None, wind_color = 'black', clean_plot = False, verbose = False):
+def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = None, log_level = True, variable_unit = None, contour_intervals = 20, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', level_minimum = None, level_maximum = None, latitude_minimum = None,latitude_maximum = None, y_axis = 'pressure', wind = False, epflux = False, wind_density = 5, wind_scale = None, wind_color = 'black', localtime = None, grid = False, clean_plot = False, verbose = False):
     """
     Generates a Level vs Latitude contour plot for a specified time and/or longitude.
 
@@ -1262,6 +1342,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         time (np.datetime64, optional): The selected time, e.g., '2022-01-01T12:00:00'.
         mtime (list[int], optional): The selected time as a list, e.g., [1, 12, 0] for 1st day, 12 hours, 0 mins.
         longitude (float, optional): The specific longitude value for the plot.
+        localtime (float or str, optional): Solar local time (hours, 0-24) to select instead of longitude; converted UT-aware to the geographic longitude at that local time for the slice. Use 'mean' for the zonal mean. Overrides longitude when set. Defaults to None.
         log_level (bool): A flag indicating whether to display level in log values. Default is True.
         variable_unit (str, optional): The desired unit of the variable.
         contour_intervals (int, optional): The number of contour intervals. Defaults to 20. Ignored if contour_value is provided.
@@ -1280,6 +1361,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
         wind_density (int, optional): Stride for thinning overlay vectors (every Nth point). Defaults to 5.
         wind_scale (float, optional): Scale factor for quiver arrows. Larger values make arrows shorter. Defaults to None (auto-scaled).
         wind_color (str, optional): Color of the overlay vectors. Defaults to 'black'.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -1297,6 +1379,8 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     # Generate 2D arrays, extract variable_unit
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
+    if localtime is not None:
+        longitude = _resolve_localtime_longitude(datasets, localtime, time, verbose)
     handler, is_derived = resolve_derived(variable_name)
     if is_derived:
         result = handler(datasets, variable_name, time, log_level=log_level)
@@ -1376,13 +1460,14 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
     cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
+    _apply_grid(plt.gca(), grid)
     if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n',fontsize=18 )   
     
         if longitude == 'mean' or longitude is None:
             plt.text(0.5, 1.08,'ZONAL MEANS', ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
         else:
-            plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude))+"Hrs", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
+            plt.text(0.5, 1.08,'LON='+str(longitude)+" SLT="+str(longitude_to_local_time(longitude, _slice_ut(time)))+"Hrs", ha='center', va='center',fontsize=14, transform=plt.gca().transAxes)
     if y_axis == 'height':
         plt.ylabel('Height (km)',fontsize=14)
     elif log_level:
@@ -1491,7 +1576,7 @@ def plt_lev_lat(datasets, variable_name, time= None, mtime=None, longitude = Non
 
 
 
-def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level = True, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None, y_axis = 'pressure', clean_plot = False, verbose = False):
+def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level = True, variable_unit = None, contour_intervals = 10, contour_value = None,symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white',  level_minimum = None, level_maximum = None, mtime_minimum=None, mtime_maximum=None, y_axis = 'pressure', grid = False, clean_plot = False, verbose = False):
     """
     Generates a Level vs Time contour plot for a specified latitude and/or longitude.
 
@@ -1513,6 +1598,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         level_maximum (float, optional): Maximum level value for the plot. Defaults to None.
         mtime_minimum (float, optional): Minimum time value for the plot. Defaults to None.
         mtime_maximum (float, optional): Maximum time value for the plot. Defaults to None.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -1624,6 +1710,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
     cbar = plt.colorbar(contour_filled, label=variable_name+" ["+variable_unit+"]")
     cbar.set_label(variable_name+" ["+variable_unit+"]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
+    _apply_grid(plt.gca(), grid)
     try:
         plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
         plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14) 
@@ -1667,7 +1754,7 @@ def plt_lev_time(datasets, variable_name, latitude, longitude = None, log_level 
         return plot
 
 
-def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = 'pressure', variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', longitude_minimum = None, longitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = 'pressure', variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', longitude_minimum = None, longitude_maximum = None, mtime_minimum=None, mtime_maximum=None, grid = False, clean_plot = False, verbose = False):
     """
     Generates a Longitude vs Time contour plot for a specified latitude and/or level.
 
@@ -1688,6 +1775,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
         longitude_maximum (float, optional): Maximum longitude value for the plot.
         mtime_minimum (list, optional): Minimum time value as [day, hour, min, sec].
         mtime_maximum (list, optional): Maximum time value as [day, hour, min, sec].
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -1798,6 +1886,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]")
     cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
+    _apply_grid(plt.gca(), grid)
     try:
         plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
         plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14)
@@ -1837,7 +1926,7 @@ def plt_lon_time(datasets, variable_name, latitude, level = None, level_type = '
         return plot
 
 
-def plt_var_time(datasets, variable_name, latitude, longitude, level = None, level_type = 'pressure', variable_unit = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+def plt_var_time(datasets, variable_name, latitude, longitude, level = None, level_type = 'pressure', variable_unit = None, mtime_minimum=None, mtime_maximum=None, grid = False, clean_plot = False, verbose = False):
     """
     Generates a Variable vs Time line plot at a specific lat/lon/level location.
 
@@ -1850,6 +1939,7 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, lev
         variable_unit (str, optional): The desired unit of the variable.
         mtime_minimum (list, optional): Minimum time value as [day, hour, min, sec].
         mtime_maximum (list, optional): Maximum time value as [day, hour, min, sec].
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
 
@@ -1931,7 +2021,7 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, lev
     plt.tight_layout()
     plt.xticks(fontsize=9)
     plt.yticks(fontsize=9)
-    plt.grid(True, alpha=0.3)
+    _apply_grid(plt.gca(), grid)
 
     if not clean_plot:
         plt.title(variable_long_name+' '+variable_name+' ('+variable_unit+') '+'\n\n', fontsize=18)
@@ -1959,7 +2049,7 @@ def plt_var_time(datasets, variable_name, latitude, longitude, level = None, lev
 
 
 
-def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure', longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None, clean_plot = False, verbose = False):
+def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure', longitude = None,  variable_unit = None, contour_intervals = 10, contour_value = None, symmetric_interval= False, cmap_color = None, cmap_lim_min = None, cmap_lim_max = None, line_color = 'white', latitude_minimum = None,latitude_maximum = None, mtime_minimum=None, mtime_maximum=None, grid = False, clean_plot = False, verbose = False):
     """
     Generates a Latitude vs Time contour plot for a specified level and/or longitude.
 
@@ -1980,6 +2070,7 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
         latitude_maximum (float, optional): Maximum latitude value for the plot. Defaults to 87.5.
         mtime_minimum (float, optional): Minimum time value for the plot. Defaults to None.
         mtime_maximum (float, optional): Maximum time value for the plot. Defaults to None.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): A flag indicating whether to display the subtext. Defaults to False.
         verbose (bool, optional): A flag indicating whether to print execution data. Defaults to False.
         
@@ -2096,6 +2187,7 @@ def plt_lat_time(datasets, variable_name, level = None, level_type = 'pressure',
     cbar = plt.colorbar(contour_filled, label=variable_name + " [" + variable_unit + "]")
     cbar.set_label(variable_name + " [" + variable_unit + "]", size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
+    _apply_grid(plt.gca(), grid)
     try:
         plt.xticks(time_indices, ["{}-{:02d}h".format(day, hour) for day, hour in unique_times], rotation=45)
         plt.xlabel("Model Time (Day,Hour) from "+str(unique_times[0])+" to "+str(unique_times[-1]), fontsize=14) 
@@ -2140,7 +2232,7 @@ def plt_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
                   level=None, variable_unit=None, contour_intervals=10,
                   contour_value=None, symmetric_interval=False,
                   cmap_color=None, cmap_lim_min=None, cmap_lim_max=None,
-                  line_color='white', clean_plot=False, verbose=False):
+                  line_color='white', grid=False, clean_plot=False, verbose=False):
     """
     Plots model data interpolated along a satellite trajectory.
 
@@ -2163,6 +2255,7 @@ def plt_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
         cmap_lim_min (float, optional): Minimum colormap limit.
         cmap_lim_max (float, optional): Maximum colormap limit.
         line_color (str, optional): Contour line color. Defaults to 'white'.
+        grid (bool, optional): Overlay coordinate grid lines on the plot (cartopy gridlines on maps, axis grid elsewhere). Defaults to False.
         clean_plot (bool, optional): If True, hides subtext. Defaults to False.
         verbose (bool, optional): Enable debug logging. Defaults to False.
 
@@ -2195,7 +2288,7 @@ def plt_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
         plt.plot(x_vals, variable_values)
         plt.xlabel('Along-Track Point', fontsize=14)
         plt.ylabel(variable_name + ' [' + variable_unit + ']', fontsize=14)
-        plt.grid(True, alpha=0.3)
+        _apply_grid(plt.gca(), grid)
         plt.tight_layout()
 
         if not clean_plot:
@@ -2259,6 +2352,7 @@ def plt_sat_track(datasets, variable_name, sat_time, sat_lat, sat_lon,
     cbar = plt.colorbar(contour_filled, fraction=0.046, pad=0.04, shrink=0.65)
     cbar.set_label(variable_name + ' [' + variable_unit + ']', size=14, labelpad=15)
     cbar.ax.tick_params(labelsize=9)
+    _apply_grid(plt.gca(), grid)
 
     plt.xlabel('Along-Track Point', fontsize=14)
     plt.ylabel('Level', fontsize=14)
