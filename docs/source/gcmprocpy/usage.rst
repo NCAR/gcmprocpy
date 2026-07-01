@@ -13,8 +13,11 @@ gcmprocpy can be run in GUI mode by running the following command:
     gcmprocpy
 
 This will open the GUI window where the user can select the dataset and the plot type.
+The plot types include the standard lat/lon, level, and time cross-sections as well as
+**Mag Lat vs Lon** (magnetic Quasi-Dipole grid; geographic variables are reprojected via
+the optional ``apexpy`` dependency).
 
-.. warning:: 
+.. warning::
     
     The GUI mode requires an interactive ssh session. If you are using a remote server, you can use the following command to open the GUI window: ``ssh -X user@server``.
 
