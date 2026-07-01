@@ -3,7 +3,7 @@ Input File Generation
 
 In addition to post-processing model output, gcmprocpy bundles two utilities that
 **build the geophysical forcing / boundary-condition NetCDF files that drive a
-TIE-GCM run**:
+TIE-GCM or WACCM-X run**:
 
 - **gpigen** — Geophysical Indices (GPI): daily 10.7 cm solar flux (``f107d``),
   its running average (``f107a``), and the 3-hourly Kp index, from
@@ -17,6 +17,15 @@ Both are available as console commands (``gpigen`` / ``imfgen``) and as a Python
 API under ``gcmprocpy.gpigen`` / ``gcmprocpy.imfgen``. Each ``generate_*``
 function returns an :class:`xarray.Dataset`, so the data can be inspected or
 post-processed before being written to NetCDF.
+
+Both generators take a ``--model`` / ``model=`` option selecting the **target
+model's input format**: ``tiegcm`` (default -- the format documented below) or
+``waccmx``, which emits the WACCM-X (CESM) format directly from the same source
+data -- an unlimited ``time`` dimension, a ``YYYYMMDD`` ``date`` plus ``datesec``,
+and (for GPI) a 3-hourly series with an ``ap`` index derived from Kp via the
+official Kp->ap lookup table. WACCM-X output files carry a ``WACCMX`` filename tag
+(``gpi_WACCMX_...`` / ``imf_OMNI_WACCMX_...``). This reproduces, in one step, the
+files that were previously produced by a separate NCL/``ncrcat`` conversion.
 
 .. note::
    These tools require network access to fetch the source data (the GFZ API for
@@ -53,6 +62,9 @@ Mode: CLI
 
     # Parse the raw 1932-onward text file instead of the JSON API, and write plots
     gpigen --source textfile --plots
+
+    # WACCM-X 3-hourly solar-parameters format (date/datesec, f107/f107a/kp/ap)
+    gpigen --model waccmx --start 2024-01-01 --end 2024-06-01
 
 .. autoprogram:: gcmprocpy.gpigen.cli:build_parser()
    :prog: gpigen
@@ -144,6 +156,9 @@ Mode: CLI
 
     # Convert a BCWIND HDF5 file
     imfgen --source bcwind --bcwind-path bcwind.h5
+
+    # WACCM-X format (unlimited time; date=YYYYMMDD + datefrac/datesec)
+    imfgen --model waccmx --start 2024-01-01 --end 2024-12-31
 
 .. autoprogram:: gcmprocpy.imfgen.cli:build_parser()
    :prog: imfgen
