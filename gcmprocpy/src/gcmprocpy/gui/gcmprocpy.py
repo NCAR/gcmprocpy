@@ -24,7 +24,7 @@ import xarray as xr
 from datetime import datetime
 from ..plot_gen import (plt_lev_var, plt_lat_lon, plt_lev_lat, plt_lev_lon,
                         plt_lev_time, plt_lat_time, plt_lon_time, plt_var_time,
-                        plt_var_lat, plt_var_lon)
+                        plt_var_lat, plt_var_lon, plt_mag_lat_lon)
 from ..io import load_datasets, close_datasets, save_output
 from ..data_parse import time_list, var_list, level_list, lon_list, lat_list
 from ..containers import get_species_names, MODEL_DEFAULTS, clear_derived_cache
@@ -262,6 +262,7 @@ class MainWindow(QMainWindow):
         "Lat vs Time",
         "Lon vs Time",
         "Var vs Time",
+        "Mag Lat vs Lon",
     ]
 
     def __init__(self):
@@ -667,6 +668,7 @@ class MainWindow(QMainWindow):
             ("Lat vs Time", self._create_lat_time_page),
             ("Lon vs Time", self._create_lon_time_page),
             ("Var vs Time", self._create_var_time_page),
+            ("Mag Lat vs Lon", self._create_mag_lat_lon_page),
             ("Var vs Lat",  self._create_var_lat_page),
             ("Var vs Lon",  self._create_var_lon_page),
         ]
@@ -803,6 +805,21 @@ class MainWindow(QMainWindow):
         w.update(_add_level_group(layout))
         w['unit'] = _add_line(layout, "Variable Unit:")
         w.update(_add_mtime_bounds(layout))
+        w['grid'] = _add_check(layout, "Grid:")
+        w['clean'] = _add_check(layout, "Clean Plot:", True)
+        return {'widget': page, 'widgets': w}
+
+    def _create_mag_lat_lon_page(self):
+        page = QWidget(); layout = QFormLayout(page); w = {}
+        w['variable'] = _add_combo(layout, "Variable Name:")
+        w.update(_add_time_group(layout))
+        w.update(_add_level_group(layout))
+        w['unit'] = _add_line(layout, "Variable Unit:")
+        w.update(_add_contour_widgets(layout))
+        w['mlat_min'] = _add_line(layout, "Magnetic Lat Min:")
+        w['mlat_max'] = _add_line(layout, "Magnetic Lat Max:")
+        w['mlon_min'] = _add_line(layout, "Magnetic Lon Min:")
+        w['mlon_max'] = _add_line(layout, "Magnetic Lon Max:")
         w['grid'] = _add_check(layout, "Grid:")
         w['clean'] = _add_check(layout, "Clean Plot:", True)
         return {'widget': page, 'widgets': w}
@@ -1053,6 +1070,7 @@ class MainWindow(QMainWindow):
             "Var vs Time": self._plot_var_time,
             "Var vs Lat":  self._plot_var_lat,
             "Var vs Lon":  self._plot_var_lon,
+            "Mag Lat vs Lon": self._plot_mag_lat_lon,
         }
         handler = dispatch.get(plot_type)
         if handler is None:
@@ -1564,6 +1582,36 @@ class MainWindow(QMainWindow):
         w['unit'].setPlaceholderText(str(variable_unit))
         w['lon_min'].setPlaceholderText(str(longitude_minimum))
         w['lon_max'].setPlaceholderText(str(longitude_maximum))
+        return fig
+
+    def _plot_mag_lat_lon(self):
+        w = self._pages["Mag Lat vs Lon"]['widgets']
+        params = {
+            "datasets": self.selected_dataset,
+            "variable_name": w['variable'].currentText(),
+            "time": self._get_selected_time(w),
+            "variable_unit": _str_or_none(w['unit'].text()),
+            "mlat_minimum": _float_or_none(w['mlat_min'].text()),
+            "mlat_maximum": _float_or_none(w['mlat_max'].text()),
+            "mlon_minimum": _float_or_none(w['mlon_min'].text()),
+            "mlon_maximum": _float_or_none(w['mlon_max'].text()),
+            "grid": w['grid'].isChecked(),
+            "clean_plot": w['clean'].isChecked(),
+        }
+        level_val, level_type = _get_level_params(w)
+        params["level"] = _float_or_none(level_val) if level_val else None
+        params["level_type"] = level_type
+        params.update(_get_contour_params(w))
+
+        result = plt_mag_lat_lon(**params)
+
+        if not isinstance(result, tuple):
+            return result
+
+        fig, variable_unit, mlat_minimum, mlat_maximum = result
+        w['unit'].setPlaceholderText(str(variable_unit))
+        w['mlat_min'].setPlaceholderText(str(mlat_minimum))
+        w['mlat_max'].setPlaceholderText(str(mlat_maximum))
         return fig
 
 MODERN_STYLESHEET = """

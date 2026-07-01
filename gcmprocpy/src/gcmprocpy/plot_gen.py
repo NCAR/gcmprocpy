@@ -2430,6 +2430,8 @@ def plt_mag_lat_lon(datasets, variable_name, time=None, mtime=None, level=None,
         time = get_time(datasets, mtime)
     if isinstance(time, str):
         time = np.datetime64(time, 'ns')
+    if contour_intervals is None:
+        contour_intervals = 20
 
     native = any(dm.is_magnetic_var(mds.ds, variable_name) for mds in datasets
                  if variable_name in mds.ds.variables)
